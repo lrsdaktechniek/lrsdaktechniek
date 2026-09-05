@@ -1295,3 +1295,136 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
     font-size: clamp(2.3rem,11vw,4rem);
   }
 }
+
+/* =========================================================
+   LRS JOUWWEB ASSET + REAL CALCULATOR FIX
+   ========================================================= */
+
+.brand-with-original {
+  gap: 12px;
+}
+
+.original-logo-frame {
+  position: relative;
+  display: block;
+  width: 58px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--line-dark);
+  background: var(--paper);
+}
+
+.original-logo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.brand-text-fallback {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.brand-text-fallback strong {
+  color: var(--paper);
+}
+
+.brand-text-fallback > span {
+  color: var(--cool-steel);
+}
+
+.hero-photo-copy h1 {
+  max-width: 980px;
+}
+
+.hero-photo-copy h1 > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--champagne);
+  font-family: var(--font-mono), "IBM Plex Mono", ui-monospace, monospace;
+  font-size: clamp(.72rem, 1.1vw, .92rem);
+  font-weight: 500;
+  letter-spacing: .12em;
+}
+
+.hero-photo-layer img,
+.page-hero-image img,
+.editorial-photo img {
+  filter: saturate(.82) contrast(1.04);
+}
+
+.editorial-photo-large img {
+  object-position: 50% 36%;
+}
+
+.editorial-photo-small img {
+  object-position: 72% 64%;
+  transform: scale(1.08);
+}
+
+.editorial-photo-small:hover img {
+  transform: scale(1.1);
+}
+
+.calculator-live-preview {
+  display: grid;
+  gap: 8px;
+  margin: 22px 0 26px;
+  padding: 22px 0;
+  border-top: 1px solid var(--line-light);
+  border-bottom: 1px solid var(--line-light);
+}
+
+.calculator-live-preview > strong {
+  color: var(--slate);
+  font-size: clamp(1.9rem, 4vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: -.045em;
+}
+
+.calculator-live-preview > small {
+  color: var(--cool-steel);
+  font-family: var(--font-mono), "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  letter-spacing: .08em;
+}
+
+.calculator-model-note {
+  padding-left: 14px;
+  border-left: 2px solid var(--champagne);
+}
+
+.calculator-disclaimer {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.14);
+  font-size: .9rem;
+}
+
+.calculator-price-panel .calculator-model-note,
+.calculator-price-panel .calculator-disclaimer {
+  color: var(--cool-steel);
+}
+
+@media (max-width: 860px) {
+  .original-logo-frame {
+    width: 48px;
+    height: 38px;
+  }
+
+  .brand-text-fallback > span {
+    display: none;
+  }
+
+  .hero-photo-copy h1 > span {
+    margin-bottom: 7px;
+    font-size: .7rem;
+  }
+
+  .calculator-live-preview > strong {
+    font-size: clamp(1.7rem, 9vw, 2.8rem);
+  }
+}
+
