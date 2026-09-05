@@ -375,20 +375,34 @@ function SingleContactTable() {
   return <div className="single-contact-table">{steps.map((step,i)=><div key={step}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{step}</strong><span className="annotation">AANSPREEKPUNT</span><b>LRS</b></div>)}</div>;
 }
 
-function WorkAreaSchematic() {
-  const core = locations.filter((l)=>l[2]==="A").slice(0,5);
-  const ring = locations.filter((l)=>l[2]!=="A").slice(0,8);
+function RealWorkAreaMap() {
+  const areaNames = locations.map((l) => l[1]);
   return (
-    <div className="survey-map" aria-label="Schematische weergave van het werkgebied rond Breda">
-      <div className="survey-caption"><span className="annotation">SCHEMATISCHE WERKREGIO</span><span className="mono">BREDA / NOORD-BRABANT</span></div>
-      <svg viewBox="0 0 900 520" aria-hidden="true">
-        <path d="M92 375 215 240 390 260 470 128 650 185 790 95"/>
-        <path d="M120 105 235 205 390 160 520 282 710 242 815 365"/>
-        <circle cx="430" cy="260" r="54"/><circle cx="430" cy="260" r="4" className="survey-core"/>
-        {["170,190","270,330","535,160","605,325","735,205","690,390","335,120","155,390"].map((p)=><circle key={p} cx={p.split(",")[0]} cy={p.split(",")[1]} r="3"/>)}
-      </svg>
-      <div className="survey-labels"><div className="survey-core-label"><strong>BREDA</strong><span className="annotation">KERNREGIO</span></div>{core.filter((x)=>x[1]!=="Breda").map((l)=><Link href={`/${l[0]}`} key={l[0]}>{l[1]}</Link>)}</div>
-      <div className="survey-ring">{ring.map((l)=><Link href={`/${l[0]}`} key={l[0]}>{l[1]}</Link>)}</div>
+    <div className="real-workarea-map">
+      <div className="real-map-frame">
+        <iframe
+          title="Werkgebied LRS Daktechniek rond Breda"
+          src="https://www.openstreetmap.org/export/embed.html?bbox=4.4700%2C51.4100%2C4.9800%2C51.7200&layer=mapnik&marker=51.5719%2C4.7683"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        <div className="real-map-badge">
+          <span className="premium-kicker on-dark">WERKGEBIED</span>
+          <strong>Breda & omgeving</strong>
+          <small>Interactieve kaart · centrum op Breda</small>
+        </div>
+      </div>
+      <div className="real-map-copy">
+        <span className="premium-kicker">ACTIEF WERKGEBIED</span>
+        <h2>Werkgebied rond Breda.</h2>
+        <p>
+          LRS Daktechniek werkt vanuit Breda in de omliggende plaatsen. De kaart hieronder
+          toont de echte regio; de plaatsnamen zijn direct gekoppeld aan hun eigen pagina.
+        </p>
+        <div className="real-map-places">
+          {areaNames.map((name) => <span key={name}>{name}</span>)}
+        </div>
+      </div>
     </div>
   );
 }
@@ -661,6 +675,120 @@ function CTA({ title="Niet zeker wat uw dak nodig heeft?" }: { title?: string })
   return <section className="cta-v2"><div><p className="annotation">VOLGENDE STAP</p><h2>{title}</h2><p>Start met de Dakcheck, vraag een prijsindicatie op of neem direct contact op.</p></div><div className="cta-actions-v2"><Link className="btn primary-dark" href="/dakcheck">START DAKCHECK</Link><Link className="text-action" href="/prijsindicatie">Prijsindicatie →</Link><a className="mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a></div></section>;
 }
 
+function LeakagePage() {
+  const leakageWhatsapp = whatsapp("Hallo LRS Daktechniek, ik heb een daklekkage en wil graag dat u de situatie beoordeelt.");
+  const causes = [
+    ["01", "Kapotte of verschoven dakpannen", "Wind, ouderdom of een beschadigde pan kan water onder de dakbedekking laten komen."],
+    ["02", "Nokvorsten en aansluitingen", "Losse nokvorsten, verouderde mortel of aansluitdetails kunnen bij slagregen water doorlaten."],
+    ["03", "Schoorsteen, lood en kilgoot", "Lekkages ontstaan vaak bij loodslabben, voegen, schoorsteenaansluitingen of een vervuilde/beschadigde kilgoot."],
+    ["04", "Bitumen en platte daken", "Scheurtjes, blazen, open naden, afvoeren en dakdoorvoeren zijn veelvoorkomende aandachtspunten."],
+    ["05", "Dakvoet, folie en onderliggende lagen", "Water kan elders binnendringen en pas meters verder zichtbaar worden aan de binnenzijde."],
+    ["06", "Condens of vochtprobleem", "Niet iedere vochtplek is een lekkage. Daarom wordt eerst gekeken naar de waarschijnlijke bron."],
+  ];
+  const process = [
+    ["01", "Melding", "U geeft door waar u vocht, druppels of schade ziet."],
+    ["02", "Beoordeling", "De relevante dakdelen en aansluitingen worden gecontroleerd."],
+    ["03", "Bron bepalen", "Niet alleen de vochtplek, maar de waarschijnlijke ingang van het water wordt gezocht."],
+    ["04", "Herstel", "Waar mogelijk wordt gericht hersteld in plaats van onnodig groot vervangen."],
+  ];
+
+  return <>
+    <section className="leak-hero">
+      <div className="leak-hero-media"><img src={editorialImages.hero} alt="Daklekkage controle door LRS Daktechniek"/></div>
+      <div className="leak-hero-shade"/>
+      <div className="shell leak-hero-content">
+        <span className="premium-kicker on-dark">DAKLEKKAGE · BREDA E.O.</span>
+        <h1>Daklekkage?<br/><em>Eerst de bron.</em></h1>
+        <p>Vocht binnen betekent niet automatisch dat het dak precies boven die plek lek is. LRS zoekt gericht naar de oorzaak en bespreekt daarna de juiste reparatie.</p>
+        <div className="leak-hero-actions">
+          <a className="btn hero-primary" href={`tel:${site.phoneHref}`}>BEL DIRECT</a>
+          <a className="hero-phone mono" href={leakageWhatsapp} target="_blank" rel="noreferrer">WHATSAPP</a>
+        </div>
+        <div className="leak-hero-price">
+          <span>ONLINE PRIJSINDICATIE</span>
+          <strong className="mono">€338,80 – €592,90</strong>
+          <small>incl. 21% btw · standaard voorrijkosten binnen werkgebied inbegrepen</small>
+        </div>
+      </div>
+    </section>
+
+    <section className="leak-intro-section">
+      <div className="shell leak-intro-grid">
+        <div>
+          <span className="premium-kicker">WAT KAN ER LEKKEN?</span>
+          <h2>Een lekkage begint vaak ergens anders dan waar u hem ziet.</h2>
+          <p>Water volgt constructies, folie, balken en naden. Daardoor kan de zichtbare vochtplek binnen op een andere plaats zitten dan de daadwerkelijke schade buiten.</p>
+        </div>
+        <div className="leak-cause-grid">
+          {causes.map(([n,title,copy])=><article key={n}><span className="mono">{n}</span><h3>{title}</h3><p>{copy}</p></article>)}
+        </div>
+      </div>
+    </section>
+
+    <section className="leak-dark-section">
+      <div className="shell leak-dark-grid">
+        <div>
+          <span className="premium-kicker on-dark">AANPAK</span>
+          <h2>Van vochtplek naar gerichte reparatie.</h2>
+          <p>Het doel is niet zo veel mogelijk vervangen. Het doel is bepalen waar het water binnendringt en welk herstel technisch nodig is.</p>
+        </div>
+        <div className="leak-process-list">
+          {process.map(([n,title,copy])=><div key={n}><span className="mono">{n}</span><div><strong>{title}</strong><p>{copy}</p></div></div>)}
+        </div>
+      </div>
+    </section>
+
+    <section className="leak-roof-types">
+      <div className="shell">
+        <div className="premium-section-head">
+          <div><span className="premium-kicker">HELLEND & PLAT</span><h2>Andere daken.<br/><em>Andere faalpunten.</em></h2></div>
+          <p>LRS controleert de onderdelen die bij het betreffende daktype het meest logisch zijn.</p>
+        </div>
+        <div className="leak-roof-grid">
+          <article><span className="mono">01</span><h3>Pannendak</h3><p>Dakpannen, nokvorsten, folie, dakvoet, lood, schoorsteen, kilgoten en aansluitingen.</p><Link href="/dakpannen">Bekijk pannendaken →</Link></article>
+          <article><span className="mono">02</span><h3>Bitumen / plat dak</h3><p>Naden, scheuren, blazen, hemelwaterafvoer, opstanden, dakranden en doorvoeren.</p><Link href="/betumendaken">Bekijk bitumen →</Link></article>
+        </div>
+      </div>
+    </section>
+
+    <section className="leak-price-section">
+      <div className="shell leak-price-grid">
+        <div>
+          <span className="premium-kicker">KOSTEN</span>
+          <h2>Duidelijke prijsroute voor lekkage.</h2>
+          <p>De online lekkage-indicatie bedraagt €338,80 tot €592,90 inclusief 21% btw. Binnen het LRS-werkgebied zijn de standaard voorrijkosten in deze indicatie opgenomen.</p>
+          <p>Wanneer tijdens de beoordeling blijkt dat aanvullend werk nodig is, wordt dat eerst besproken voordat extra werkzaamheden worden uitgevoerd.</p>
+          <Link className="premium-cta" href="/prijsindicatie">OPEN PRIJSREKENMACHINE <span>→</span></Link>
+        </div>
+        <div className="leak-price-card">
+          <small>DAKLEKKAGE · INCL. BTW</small>
+          <strong className="mono">€338,80 – €592,90</strong>
+          <ul>
+            <li>Gerichte beoordeling van de lekkagesituatie</li>
+            <li>Standaard voorrijkosten binnen werkgebied inbegrepen</li>
+            <li>Prijsindicatie inclusief 21% btw</li>
+            <li>Extra werkzaamheden vooraf bespreken</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section className="leak-now-section">
+      <div className="shell leak-now-grid">
+        <div><span className="premium-kicker">WAT KUNT U NU DOEN?</span><h2>Beperk gevolgschade zolang het veilig kan.</h2></div>
+        <div className="leak-now-list">
+          <p><strong>01</strong> Vang binnendringend water op en bescherm vloer, plafond en meubels.</p>
+          <p><strong>02</strong> Maak foto’s van de vochtplek en, alleen als dat veilig kan, van de buitenzijde.</p>
+          <p><strong>03</strong> Ga niet zelf een nat, glad of beschadigd dak op.</p>
+          <p><strong>04</strong> Noteer wanneer de lekkage optreedt: continu, alleen bij harde regen of bij wind uit een bepaalde richting.</p>
+        </div>
+      </div>
+    </section>
+
+    <div className="shell premium-service-cta-wrap"><CTA title="Daklekkage laten beoordelen?"/></div>
+  </>;
+}
+
 function ServicePage({ slug }: { slug: string }) {
   const service = serviceBySlug(slug)!;
   const visual = serviceVisuals[slug] ?? serviceVisuals.dakpannen;
@@ -777,7 +905,7 @@ function Dakcheck() {
 
 type CalculatorRoof = "pannendak" | "bitumen";
 type CalculatorAccess = "goed" | "normaal" | "moeilijk";
-type PriceSource = "LRS" | "MARKT_2026";
+type PriceSource = "LRS" | "ONLINE_RICHTPRIJS";
 type PriceRule = {
   mode: "perM2" | "fixed";
   minIncl: number;
@@ -814,28 +942,28 @@ const PUBLIC_PRICE_RULES: Record<string, PriceRule> = {
     mode: "perM2",
     minIncl: 56,
     maxIncl: 98,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband betonpannen inclusief materiaal, arbeid en btw.",
   },
   "pannen-keramisch": {
     mode: "perM2",
     minIncl: 84,
     maxIncl: 140,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband keramische dakpannen inclusief materiaal, arbeid en btw.",
   },
   "pannen-renovatie": {
     mode: "perM2",
     minIncl: 91,
     maxIncl: 154,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband voor complete renovatie van een schuin pannendak.",
   },
   "pannen-isolatie": {
     mode: "perM2",
     minIncl: 46.2,
     maxIncl: 91,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband voor dakisolatie wanneer dit met pannendakwerk wordt gecombineerd.",
   },
   "pannen-lekkage": {
@@ -856,28 +984,28 @@ const PUBLIC_PRICE_RULES: Record<string, PriceRule> = {
     mode: "perM2",
     minIncl: 56,
     maxIncl: 77,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband voor een nieuwe bitumenlaag wanneer de bestaande basis bruikbaar is.",
   },
   "bitumen-nieuw": {
     mode: "perM2",
     minIncl: 70,
     maxIncl: 126,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband voor nieuwe/vervangende bitumen dakbedekking.",
   },
   "bitumen-warmdak": {
     mode: "perM2",
     minIncl: 126,
     maxIncl: 210,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Samengestelde richtband voor isolatie plus bitumen dakopbouw.",
   },
   "bitumen-kleinvlak": {
     mode: "perM2",
     minIncl: 70,
     maxIncl: 126,
-    source: "MARKT_2026",
+    source: "ONLINE_RICHTPRIJS",
     note: "Richtband voor bitumen op dakkapel, garage, aanbouw of schuur.",
   },
   "bitumen-lekkage": {
@@ -943,7 +1071,7 @@ function PricePage() {
   const sourceLabel =
     rule.source === "LRS"
       ? "LRS ONLINE PRIJSINDICATIE"
-      : "2026 ONLINE MARKTRICHTPRIJS";
+      : "LRS ONLINE REKENBAND";
 
   const whatsappText = [
     "Hallo LRS Daktechniek, ik heb de prijsindicatie ingevuld.",
@@ -961,7 +1089,7 @@ function PricePage() {
       <PageHero
         eyebrow="PRIJSINDICATIE / REKENMACHINE"
         title="Bereken direct een prijsband voor uw dak."
-        lead="Kies daktype, werkzaamheden, oppervlakte, bereikbaarheid en eventueel schoorsteen verwijderen. De uitkomst verschijnt direct als bedrag excl. en incl. btw."
+        lead="Vul de kenmerken van uw dak in en ontvang direct een berekende prijsindicatie, exclusief én inclusief btw."
       />
 
       <section className="work-zone section-block">
@@ -969,11 +1097,11 @@ function PricePage() {
           <div className="calculator-v3-intro">
             <SectionIndex n="01" label="INVOER"/>
             <p className="annotation">PRIJSINDICATIE DAKWERK</p>
-            <h2>Een echte rekensom, geen formulier dat eindigt op “maatwerk”.</h2>
+            <h2>Direct inzicht in de verwachte kosten.</h2>
             <p>
-              De calculator rekent nu met de verhoogde online prijsbanden. Lekkage vertrekt
-              vanuit de bestaande LRS-basis; de overige werkzaamheden gebruiken marktgerichte
-              richtbanden. De definitieve LRS-offerte wordt pas na beoordeling van het dak vastgesteld.
+              Kies het type dak, de werkzaamheden, het aantal vierkante meters en de bereikbaarheid.
+              De rekenmachine verwerkt deze gegevens direct tot een duidelijke prijsband, inclusief btw.
+              Bij lekkage zijn de standaard voorrijkosten binnen het LRS-werkgebied in de indicatie opgenomen.
             </p>
           </div>
 
@@ -1086,7 +1214,7 @@ function PricePage() {
                 <div><dt>OPPERVLAKTE</dt><dd className="mono">{areaNumber} M²</dd></div>
                 <div><dt>BEREIKBAARHEID</dt><dd>{access}</dd></div>
                 <div><dt>SCHOORSTEEN</dt><dd>{chimney === "ja" ? "Ja" : "Nee"}</dd></div>
-                <div><dt>PRIJSBASIS</dt><dd>{sourceLabel}</dd></div>
+                <div><dt>REKENMODEL</dt><dd>{sourceLabel}</dd></div>
               </dl>
             </div>
 
@@ -1099,6 +1227,9 @@ function PricePage() {
                 Excl. btw: <span className="mono">{formatEuro(minExVat)} – {formatEuro(maxExVat)}</span>.
               </p>
               <p>{rule.note}</p>
+              {(workId === "pannen-lekkage" || workId === "pannen-schoorsteen-kil" || workId === "bitumen-lekkage") && (
+                <p className="calculator-model-note"><strong>Standaard voorrijkosten inbegrepen</strong> binnen het LRS-werkgebied.</p>
+              )}
               {access === "moeilijk" && (
                 <p className="calculator-model-note">
                   In het online model is voor moeilijke bereikbaarheid een correctie van 10% meegenomen.
@@ -1111,9 +1242,9 @@ function PricePage() {
                 </p>
               )}
               <p className="calculator-disclaimer">
-                Dit is een online prijsindicatie en geen bindende offerte. Na beoordeling van
-                ondergrond, details, materiaalkeuze en bereikbaarheid kan de definitieve LRS-prijs
-                hoger of lager uitvallen.
+                De prijsindicatie is gebaseerd op de door u gekozen werkzaamheden en invoer. Afwijkende
+                dakdetails, verborgen schade of extra werkzaamheden worden altijd vooraf besproken voordat
+                aanvullend werk wordt uitgevoerd.
               </p>
 
               <a
@@ -1139,8 +1270,8 @@ function PricePage() {
             </div>
             <div>
               <p>
-                Lekkage: bestaande openbare LRS-bandbreedte. Pannen, renovatie, isolatie en bitumen:
-                actuele Nederlandse 2026-richtprijzen omgerekend naar uw ingevoerde dakoppervlak.
+                De rekenmachine combineert het gekozen werk met oppervlakte, bereikbaarheid en eventuele
+                aanvullende werkzaamheden. Zo ontstaat direct een consistente online prijsindicatie.
               </p>
               <p>
                 De invoer wordt ook meegenomen in de WhatsApp-samenvatting, zodat u niet opnieuw
@@ -1165,7 +1296,17 @@ function Contact() {
 }
 
 function WorkArea() {
-  return <><PageHero eyebrow="WERKGEBIED / BREDA E.O." title="Breda en de regio eromheen." lead="Lokale focus zonder fictieve vestigingen."/><section className="dark-zone section-block"><div className="shell"><WorkAreaSchematic/><div className="location-register">{locations.map((l,i)=><Link key={l[0]} href={`/${l[0]}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{l[1]}</strong><span>↗</span></Link>)}</div></div></section></>;
+  return <>
+    <PageHero eyebrow="WERKGEBIED / BREDA E.O." title="Breda en de regio eromheen." lead="Bekijk het echte werkgebied van LRS Daktechniek op de kaart."/>
+    <section className="work-zone section-block workarea-real-section">
+      <div className="shell">
+        <RealWorkAreaMap/>
+        <div className="location-register real-location-register">
+          {locations.map((l,i)=><Link key={l[0]} href={`/${l[0]}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{l[1]}</strong><span>Bekijk plaats ↗</span></Link>)}
+        </div>
+      </div>
+    </section>
+  </>;
 }
 
 function LocalPage({slug}:{slug:string}) {
@@ -1221,6 +1362,7 @@ export function PublicSite({segments}:{segments:string[]}) {
   else if(path==="diensten") view=<ServicesIndex/>;
   else if(path==="dakcheck") view=<Dakcheck/>;
   else if(path==="prijsindicatie") view=<PricePage/>;
+  else if(path==="dak-lekkage") view=<LeakagePage/>;
   else if(path==="contact") view=<Contact/>;
   else if(path==="werkgebied") view=<WorkArea/>;
   else if(path==="over-ons") view=<About/>;
