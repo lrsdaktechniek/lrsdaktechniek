@@ -2393,3 +2393,474 @@ body {
   }
 }
 
+
+/* ========================================================================== */
+/* V7 — REAL WORK AREA MAP + PROFESSIONAL PRICE ENGINE + LEAKAGE PAGE          */
+/* ========================================================================== */
+
+.workarea-real-section {
+  background: #f6f4ef;
+}
+
+.real-workarea-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, .55fr);
+  gap: 42px;
+  align-items: stretch;
+}
+
+.real-map-frame {
+  position: relative;
+  min-height: 650px;
+  overflow: hidden;
+  background: var(--graphite);
+  border: 1px solid rgba(7,10,13,.12);
+}
+
+.real-map-frame iframe {
+  display: block;
+  width: 100%;
+  height: 650px;
+  border: 0;
+  filter: saturate(.82) contrast(1.02);
+}
+
+.real-map-badge {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 4px;
+  max-width: 285px;
+  padding: 18px 20px;
+  background: rgba(7,10,13,.92);
+  color: var(--paper);
+  border-left: 2px solid var(--champagne);
+}
+
+.real-map-badge strong {
+  font-size: 1.25rem;
+}
+
+.real-map-badge small {
+  color: #aab7bf;
+}
+
+.real-map-copy {
+  align-self: center;
+  padding: 28px 0;
+}
+
+.real-map-copy h2 {
+  margin: 12px 0 18px;
+  font-size: clamp(2.2rem, 4vw, 4.4rem);
+  line-height: .98;
+}
+
+.real-map-copy > p {
+  max-width: 520px;
+  font-size: 1.05rem;
+}
+
+.real-map-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.real-map-places span {
+  padding: 8px 10px;
+  border: 1px solid rgba(7,10,13,.13);
+  background: rgba(255,255,255,.55);
+  font-size: .82rem;
+}
+
+.real-location-register {
+  margin-top: 54px;
+  border-top: 1px solid rgba(7,10,13,.12);
+}
+
+.real-location-register a {
+  grid-template-columns: 55px 1fr auto;
+  color: var(--graphite);
+  border-bottom-color: rgba(7,10,13,.12);
+}
+
+.real-location-register a:hover {
+  background: rgba(41,75,94,.05);
+}
+
+/* Professional calculator tone */
+.calculator-v3-intro h2 {
+  max-width: 780px;
+}
+
+.calculator-v3-intro > p:last-child {
+  max-width: 760px;
+  font-size: 1.04rem;
+}
+
+.calculator-live-preview small {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.calculator-model-note strong {
+  color: inherit;
+}
+
+/* Dedicated leakage page */
+.leak-hero {
+  position: relative;
+  min-height: min(840px, 92svh);
+  overflow: hidden;
+  background: var(--graphite);
+  color: var(--paper);
+}
+
+.leak-hero-media,
+.leak-hero-shade {
+  position: absolute;
+  inset: 0;
+}
+
+.leak-hero-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.leak-hero-shade {
+  background:
+    linear-gradient(90deg, rgba(7,10,13,.94) 0%, rgba(7,10,13,.76) 43%, rgba(7,10,13,.32) 72%, rgba(7,10,13,.18) 100%),
+    linear-gradient(180deg, rgba(7,10,13,.08), rgba(7,10,13,.5));
+}
+
+.leak-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: min(840px, 92svh);
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 110px;
+  padding-bottom: 80px;
+}
+
+.leak-hero h1 {
+  max-width: 900px;
+  margin: 14px 0 24px;
+  font-size: clamp(4rem, 8vw, 8.6rem);
+  line-height: .86;
+  letter-spacing: -.055em;
+}
+
+.leak-hero h1 em {
+  color: #dfe6e9;
+  font-style: normal;
+  font-weight: 450;
+}
+
+.leak-hero-content > p {
+  max-width: 690px;
+  color: #c7d0d5;
+  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
+}
+
+.leak-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  margin-top: 28px;
+}
+
+.leak-hero-price {
+  display: grid;
+  gap: 4px;
+  margin-top: 54px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255,255,255,.2);
+}
+
+.leak-hero-price > span,
+.leak-price-card > small {
+  color: var(--champagne);
+  font-family: var(--font-mono), monospace;
+  font-size: .72rem;
+  letter-spacing: .1em;
+}
+
+.leak-hero-price strong {
+  font-size: clamp(1.9rem, 3vw, 3.4rem);
+}
+
+.leak-hero-price small {
+  color: #aeb9bf;
+}
+
+.leak-intro-section,
+.leak-roof-types,
+.leak-price-section,
+.leak-now-section {
+  padding: 130px 0;
+  background: #f6f4ef;
+}
+
+.leak-intro-grid {
+  display: grid;
+  grid-template-columns: minmax(0,.72fr) minmax(0,1.28fr);
+  gap: 72px;
+}
+
+.leak-intro-grid > div:first-child h2,
+.leak-price-grid h2,
+.leak-now-grid h2 {
+  font-size: clamp(2.5rem, 5vw, 5rem);
+  line-height: .95;
+}
+
+.leak-cause-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  border-top: 1px solid rgba(7,10,13,.14);
+  border-left: 1px solid rgba(7,10,13,.14);
+}
+
+.leak-cause-grid article {
+  min-height: 245px;
+  padding: 28px;
+  border-right: 1px solid rgba(7,10,13,.14);
+  border-bottom: 1px solid rgba(7,10,13,.14);
+}
+
+.leak-cause-grid article > span {
+  color: var(--steel);
+  font-size: .76rem;
+}
+
+.leak-cause-grid h3 {
+  margin: 34px 0 10px;
+  font-size: 1.35rem;
+}
+
+.leak-cause-grid p {
+  margin: 0;
+}
+
+.leak-dark-section {
+  padding: 130px 0;
+  background: var(--graphite);
+  color: var(--paper);
+}
+
+.leak-dark-grid {
+  display: grid;
+  grid-template-columns: .8fr 1.2fr;
+  gap: 90px;
+}
+
+.leak-dark-grid h2 {
+  max-width: 620px;
+  font-size: clamp(2.7rem, 5.4vw, 5.7rem);
+  line-height: .92;
+}
+
+.leak-dark-grid > div:first-child p {
+  max-width: 560px;
+  color: #aeb9bf;
+}
+
+.leak-process-list {
+  border-top: 1px solid rgba(255,255,255,.16);
+}
+
+.leak-process-list > div {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 20px;
+  padding: 25px 0;
+  border-bottom: 1px solid rgba(255,255,255,.16);
+}
+
+.leak-process-list > div > span {
+  color: var(--champagne);
+}
+
+.leak-process-list strong {
+  font-size: 1.15rem;
+}
+
+.leak-process-list p {
+  margin: 5px 0 0;
+  color: #aeb9bf;
+}
+
+.leak-roof-types {
+  background: var(--paper-deep);
+}
+
+.leak-roof-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  margin-top: 52px;
+  border-top: 1px solid rgba(7,10,13,.14);
+  border-left: 1px solid rgba(7,10,13,.14);
+}
+
+.leak-roof-grid article {
+  min-height: 330px;
+  padding: 38px;
+  border-right: 1px solid rgba(7,10,13,.14);
+  border-bottom: 1px solid rgba(7,10,13,.14);
+}
+
+.leak-roof-grid article > span {
+  color: var(--steel);
+}
+
+.leak-roof-grid h3 {
+  margin: 58px 0 14px;
+  font-size: clamp(2rem, 3vw, 3.4rem);
+}
+
+.leak-roof-grid a {
+  display: inline-block;
+  margin-top: 20px;
+  font-weight: 800;
+  color: var(--slate);
+}
+
+.leak-price-section {
+  background: #fff;
+}
+
+.leak-price-grid,
+.leak-now-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 70px;
+  align-items: start;
+}
+
+.leak-price-card {
+  padding: 46px;
+  background: var(--graphite);
+  color: var(--paper);
+}
+
+.leak-price-card strong {
+  display: block;
+  margin: 15px 0 30px;
+  font-size: clamp(2.2rem, 4.6vw, 5.3rem);
+  line-height: .95;
+}
+
+.leak-price-card ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(255,255,255,.16);
+}
+
+.leak-price-card li {
+  padding: 15px 0;
+  border-bottom: 1px solid rgba(255,255,255,.16);
+  color: #c6d0d5;
+}
+
+.leak-now-section {
+  background: var(--paper);
+}
+
+.leak-now-list {
+  border-top: 1px solid rgba(7,10,13,.14);
+}
+
+.leak-now-list p {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 18px;
+  margin: 0;
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(7,10,13,.14);
+}
+
+.leak-now-list strong {
+  color: var(--steel);
+  font-family: var(--font-mono), monospace;
+}
+
+@media (max-width: 900px) {
+  .real-workarea-map,
+  .leak-intro-grid,
+  .leak-dark-grid,
+  .leak-price-grid,
+  .leak-now-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .real-map-frame,
+  .real-map-frame iframe {
+    min-height: 500px;
+    height: 500px;
+  }
+
+  .leak-cause-grid,
+  .leak-roof-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .leak-dark-grid {
+    gap: 46px;
+  }
+}
+
+@media (max-width: 640px) {
+  .real-map-frame,
+  .real-map-frame iframe {
+    min-height: 430px;
+    height: 430px;
+  }
+
+  .real-map-badge {
+    right: 14px;
+    left: 14px;
+    bottom: 14px;
+  }
+
+  .leak-hero {
+    min-height: 820px;
+  }
+
+  .leak-hero-content {
+    min-height: 820px;
+    padding-top: 110px;
+  }
+
+  .leak-hero h1 {
+    font-size: clamp(3.2rem, 17vw, 5.3rem);
+  }
+
+  .leak-intro-section,
+  .leak-roof-types,
+  .leak-price-section,
+  .leak-now-section,
+  .leak-dark-section {
+    padding: 82px 0;
+  }
+
+  .leak-cause-grid article,
+  .leak-roof-grid article,
+  .leak-price-card {
+    padding: 26px;
+  }
+
+  .leak-price-card strong {
+    font-size: clamp(2rem, 11vw, 3.6rem);
+  }
+}
