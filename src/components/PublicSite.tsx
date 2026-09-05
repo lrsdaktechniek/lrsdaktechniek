@@ -46,10 +46,17 @@ const layerData: Array<{ id: LayerId; code: string; name: string; note: string }
   { id: "insulation", code: "L06", name: "Isolatie", note: "Thermische laag; opbouw moet vochttechnisch kloppen." },
 ];
 
+const jouwWebAssets = {
+  original:
+    "https://primary.jwwb.nl/public/n/o/p/temp-uvukeikpledfyiineqcq/img_0708-high.jpg?enable-io=true&width=2200",
+  logo:
+    "https://primary.jwwb.nl/public/n/o/p/temp-uvukeikpledfyiineqcq/img_0708-high.jpg?enable-io=true&width=520",
+} as const;
+
 const editorialImages = {
-  hero: "https://images.unsplash.com/photo-1769985134083-8b9df05db881?auto=format&fit=crop&fm=jpg&q=82&w=2200",
-  slate: "https://images.unsplash.com/photo-1767544050173-e0101f579932?auto=format&fit=crop&fm=jpg&q=82&w=1800",
-  terracotta: "https://images.unsplash.com/photo-1760544137672-c22ce36ea818?auto=format&fit=crop&fm=jpg&q=82&w=1800",
+  hero: jouwWebAssets.original,
+  slate: jouwWebAssets.original,
+  terracotta: jouwWebAssets.original,
 } as const;
 
 
@@ -109,8 +116,11 @@ function Header() {
       </div>
       <header className="site-header">
         <div className="shell header-inner">
-          <Link href="/" className="wordmark" aria-label="LRS Daktechniek homepage">
-            <strong>LRS</strong><span>DAKTECHNIEK</span>
+          <Link href="/" className="wordmark brand-with-original" aria-label="LRS Daktechniek homepage">
+            <span className="original-logo-frame">
+              <img src={jouwWebAssets.logo} alt="LRS Daktechniek" />
+            </span>
+            <span className="brand-text-fallback"><strong>LRS</strong><span>DAKTECHNIEK</span></span>
           </Link>
           <nav className="desktop-nav" aria-label="Hoofdnavigatie">
             <Link href="/diensten">Diensten</Link>
@@ -161,7 +171,7 @@ function Hero() {
         <div className="hero-photo-copy">
           <SectionIndex n="01" label="BREDA E.O." dark/>
           <p className="annotation hero-code">LRS / DAKWERK / DIRECT CONTACT</p>
-          <h1><span>LRS</span> DAKTECHNIEK</h1>
+          <h1><span>DAKDEKKER BREDA</span> LRS DAKTECHNIEK</h1>
           <p className="hero-statement">U spreekt de dakdekker die het werk uitvoert.</p>
 
           <div className="hero-actions-v3">
@@ -175,11 +185,11 @@ function Hero() {
         </div>
 
         <div className="hero-spec-panel">
-          <span className="annotation">DAKPROFIEL / VISUELE REFERENTIE</span>
+          <span className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</span>
           <div className="hero-spec-row"><span>HELLING</span><strong className="mono">40°</strong></div>
           <div className="hero-spec-row"><span>REGIO</span><strong>BREDA E.O.</strong></div>
           <div className="hero-spec-row"><span>CONTACT</span><strong>DIRECT MET LRS</strong></div>
-          <small>Materiaalbeeld ter sfeer. Geen projectreferentie.</small>
+          <small>Origineel beeld uit de bestaande LRS JouwWeb-site. Niet als nieuw projectbewijs gepresenteerd.</small>
         </div>
       </div>
     </section>
@@ -388,18 +398,18 @@ function EditorialMaterialBand() {
     <section className="editorial-material-band work-zone">
       <div className="shell editorial-material-grid">
         <figure className="editorial-photo editorial-photo-large">
-          <img src={editorialImages.slate} alt="Donkere dakbedekking als materiaalbeeld" loading="lazy"/>
-          <figcaption><span className="annotation">MATERIAALBEELD / NIET PROJECTGEBONDEN</span><strong>Textuur, ritme en detaillering.</strong></figcaption>
+          <img src={editorialImages.slate} alt="Origineel LRS Daktechniek beeld uit de JouwWeb-site" loading="lazy"/>
+          <figcaption><span className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</span><strong>Textuur, ritme en detaillering.</strong></figcaption>
         </figure>
         <figure className="editorial-photo editorial-photo-small">
-          <img src={editorialImages.terracotta} alt="Dakpannen als materiaalbeeld" loading="lazy"/>
-          <figcaption><span className="annotation">MATERIAALBEELD / NIET PROJECTGEBONDEN</span><strong>Het dak moet er ook strak uitzien.</strong></figcaption>
+          <img src={editorialImages.terracotta} alt="Origineel LRS Daktechniek beeld uit de JouwWeb-site" loading="lazy"/>
+          <figcaption><span className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</span><strong>Het dak moet er ook strak uitzien.</strong></figcaption>
         </figure>
         <div className="editorial-note">
           <span className="mono">02A</span>
           <p className="annotation">BEELD + TECHNIEK</p>
           <h2>Niet alleen tekenen. Ook materiaal laten voelen.</h2>
-          <p>De technische lijnen blijven de identiteit dragen, maar fotografie geeft de site massa, textuur en geloofwaardigheid. Deze beelden zijn sfeerbeelden en worden nergens als uitgevoerd LRS-project gepresenteerd.</p>
+          <p>De technische lijnen blijven de identiteit dragen, maar het beeld komt nu uit de bestaande LRS JouwWeb-site in plaats van uit een stockbibliotheek. We presenteren het niet als een nieuw of verzonnen project.</p>
         </div>
       </div>
     </section>
@@ -495,7 +505,7 @@ function PageHero({ eyebrow, title, lead, angle="40°" }: { eyebrow: string; tit
         </div>
         <figure className="page-hero-image">
           <img src={editorialImages.slate} alt="" aria-hidden="true" loading="eager"/>
-          <figcaption className="annotation">MATERIAALBEELD / GEEN PROJECTREFERENTIE</figcaption>
+          <figcaption className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</figcaption>
         </figure>
       </div>
     </section>
@@ -562,6 +572,14 @@ function Dakcheck() {
 
 type CalculatorRoof = "pannendak" | "bitumen";
 type CalculatorAccess = "goed" | "normaal" | "moeilijk";
+type PriceSource = "LRS" | "MARKT_2026";
+type PriceRule = {
+  mode: "perM2" | "fixed";
+  minIncl: number;
+  maxIncl: number;
+  source: PriceSource;
+  note: string;
+};
 
 const pannendakWorks = [
   ["pannen-beton", "Dakpannen wisselen – beton/sneldek"],
@@ -580,6 +598,95 @@ const bitumenWorks = [
   ["bitumen-lekkage", "Lekkage plat dak"],
 ] as const;
 
+/*
+ * Publieke prijsindicatie:
+ * - Lekkage gebruikt de bevestigde openbare LRS-bandbreedte: €200–€350 excl. btw.
+ * - Overige regels gebruiken actuele Nederlandse 2026-marktbanden als richtindicatie.
+ *   Ze worden bewust NIET als intern LRS-offertetarief gepresenteerd.
+ */
+const PUBLIC_PRICE_RULES: Record<string, PriceRule> = {
+  "pannen-beton": {
+    mode: "perM2",
+    minIncl: 40,
+    maxIncl: 70,
+    source: "MARKT_2026",
+    note: "Richtband betonpannen inclusief materiaal, arbeid en btw.",
+  },
+  "pannen-keramisch": {
+    mode: "perM2",
+    minIncl: 60,
+    maxIncl: 100,
+    source: "MARKT_2026",
+    note: "Richtband keramische dakpannen inclusief materiaal, arbeid en btw.",
+  },
+  "pannen-renovatie": {
+    mode: "perM2",
+    minIncl: 65,
+    maxIncl: 110,
+    source: "MARKT_2026",
+    note: "Richtband voor complete renovatie van een schuin pannendak.",
+  },
+  "pannen-isolatie": {
+    mode: "perM2",
+    minIncl: 33,
+    maxIncl: 65,
+    source: "MARKT_2026",
+    note: "Richtband voor dakisolatie wanneer dit met pannendakwerk wordt gecombineerd.",
+  },
+  "pannen-lekkage": {
+    mode: "fixed",
+    minIncl: 242,
+    maxIncl: 423.5,
+    source: "LRS",
+    note: "Bevestigde openbare LRS-prijsindicatie voor lekkageherstel.",
+  },
+  "pannen-schoorsteen-kil": {
+    mode: "fixed",
+    minIncl: 242,
+    maxIncl: 423.5,
+    source: "LRS",
+    note: "Lekkage-indicatie; definitieve omvang hangt af van aansluiting, lood en kilgoot.",
+  },
+  "bitumen-overlagen": {
+    mode: "perM2",
+    minIncl: 40,
+    maxIncl: 55,
+    source: "MARKT_2026",
+    note: "Richtband voor een nieuwe bitumenlaag wanneer de bestaande basis bruikbaar is.",
+  },
+  "bitumen-nieuw": {
+    mode: "perM2",
+    minIncl: 50,
+    maxIncl: 90,
+    source: "MARKT_2026",
+    note: "Richtband voor nieuwe/vervangende bitumen dakbedekking.",
+  },
+  "bitumen-warmdak": {
+    mode: "perM2",
+    minIncl: 90,
+    maxIncl: 150,
+    source: "MARKT_2026",
+    note: "Samengestelde richtband voor isolatie plus bitumen dakopbouw.",
+  },
+  "bitumen-kleinvlak": {
+    mode: "perM2",
+    minIncl: 50,
+    maxIncl: 90,
+    source: "MARKT_2026",
+    note: "Richtband voor bitumen op dakkapel, garage, aanbouw of schuur.",
+  },
+  "bitumen-lekkage": {
+    mode: "fixed",
+    minIncl: 242,
+    maxIncl: 423.5,
+    source: "LRS",
+    note: "Bevestigde openbare LRS-prijsindicatie voor lekkageherstel.",
+  },
+};
+
+const CHIMNEY_REMOVE_MARKET_INCL = { min: 1500, max: 2500 } as const;
+const DIFFICULT_ACCESS_FACTOR = 1.1;
+
 function PricePage() {
   const [roofType, setRoofType] = useState<CalculatorRoof>("pannendak");
   const [workId, setWorkId] = useState("pannen-beton");
@@ -591,16 +698,26 @@ function PricePage() {
   const works = roofType === "pannendak" ? pannendakWorks : bitumenWorks;
   const work = works.find(([id]) => id === workId) ?? works[0];
   const areaNumber = Math.max(1, Number(area) || 1);
+  const rule = PUBLIC_PRICE_RULES[workId];
 
-  const isLeakage =
-    workId === "pannen-lekkage" ||
-    workId === "pannen-schoorsteen-kil" ||
-    workId === "bitumen-lekkage";
+  const roundToFive = (value: number) => Math.round(value / 5) * 5;
+  const accessFactor = access === "moeilijk" ? DIFFICULT_ACCESS_FACTOR : 1;
 
-  const minExVat = isLeakage ? 200 : null;
-  const maxExVat = isLeakage ? 350 : null;
-  const minInclVat = minExVat !== null ? minExVat * 1.21 : null;
-  const maxInclVat = maxExVat !== null ? maxExVat * 1.21 : null;
+  let minInclVat =
+    rule.mode === "perM2" ? rule.minIncl * areaNumber : rule.minIncl;
+  let maxInclVat =
+    rule.mode === "perM2" ? rule.maxIncl * areaNumber : rule.maxIncl;
+
+  if (chimney === "ja") {
+    minInclVat += CHIMNEY_REMOVE_MARKET_INCL.min;
+    maxInclVat += CHIMNEY_REMOVE_MARKET_INCL.max;
+  }
+
+  minInclVat = roundToFive(minInclVat * accessFactor);
+  maxInclVat = roundToFive(maxInclVat * accessFactor);
+
+  const minExVat = roundToFive(minInclVat / 1.21);
+  const maxExVat = roundToFive(maxInclVat / 1.21);
 
   function changeRoof(value: CalculatorRoof) {
     setRoofType(value);
@@ -618,6 +735,11 @@ function PricePage() {
     }).format(value);
   }
 
+  const sourceLabel =
+    rule.source === "LRS"
+      ? "LRS OPENBARE PRIJSBASIS"
+      : "2026 MARKTRICHTPRIJS";
+
   const whatsappText = [
     "Hallo LRS Daktechniek, ik heb de prijsindicatie ingevuld.",
     `Type dak: ${roofType === "pannendak" ? "Pannendak" : "Bitumen / plat dak"}`,
@@ -625,17 +747,16 @@ function PricePage() {
     `Schoorsteen verwijderen: ${chimney === "ja" ? "Ja" : "Nee"}`,
     `Oppervlakte: ${areaNumber} m²`,
     `Bereikbaarheid: ${access}`,
-    isLeakage
-      ? `Indicatie: ${formatEuro(minInclVat!)} – ${formatEuro(maxInclVat!)} incl. btw`
-      : "Indicatie: maatwerk nodig",
+    `Online indicatie: ${formatEuro(minInclVat)} – ${formatEuro(maxInclVat)} incl. btw`,
+    `Basis: ${sourceLabel}`,
   ].join("\n");
 
   return (
     <>
       <PageHero
         eyebrow="PRIJSINDICATIE / REKENMACHINE"
-        title="Vul het dak in. De calculator zet alles op een rij."
-        lead="De prijsindicatie werkt weer als echte rekenmachine: type dak, werkzaamheden, schoorsteen, oppervlakte en bereikbaarheid."
+        title="Bereken direct een prijsband voor uw dak."
+        lead="Kies daktype, werkzaamheden, oppervlakte, bereikbaarheid en eventueel schoorsteen verwijderen. De uitkomst verschijnt direct als bedrag excl. en incl. btw."
       />
 
       <section className="work-zone section-block">
@@ -643,8 +764,13 @@ function PricePage() {
           <div className="calculator-v3-intro">
             <SectionIndex n="01" label="INVOER"/>
             <p className="annotation">PRIJSINDICATIE DAKWERK</p>
-            <h2>Bereken eerst. Bespreek daarna pas de details.</h2>
-            <p>De bestaande openbare lekkagebandbreedte wordt direct doorgerekend excl. en incl. 21% btw. Voor werkzaamheden zonder bevestigde LRS-basisprijs geeft de calculator eerlijk aan dat maatwerk nodig is.</p>
+            <h2>Een echte rekensom, geen formulier dat eindigt op “maatwerk”.</h2>
+            <p>
+              Lekkage gebruikt de bestaande openbare LRS-prijs. Voor de overige werkzaamheden
+              rekent de tool met actuele Nederlandse richtbanden voor 2026. Zo krijgt u direct
+              een bruikbaar bedrag, terwijl de definitieve LRS-offerte pas na beoordeling van
+              het dak wordt vastgesteld.
+            </p>
           </div>
 
           <form
@@ -683,9 +809,15 @@ function PricePage() {
 
               <label>
                 <span className="annotation">03 / SCHOORSTEEN VERWIJDEREN</span>
-                <select value={chimney} onChange={(event) => { setChimney(event.target.value); setSubmitted(false); }}>
+                <select
+                  value={chimney}
+                  onChange={(event) => {
+                    setChimney(event.target.value);
+                    setSubmitted(false);
+                  }}
+                >
                   <option value="nee">Nee</option>
-                  <option value="ja">Ja</option>
+                  <option value="ja">Ja, meenemen in indicatie</option>
                 </select>
               </label>
 
@@ -697,7 +829,10 @@ function PricePage() {
                     min="1"
                     inputMode="numeric"
                     value={area}
-                    onChange={(event) => { setArea(event.target.value); setSubmitted(false); }}
+                    onChange={(event) => {
+                      setArea(event.target.value);
+                      setSubmitted(false);
+                    }}
                     placeholder="Bijv. 40"
                   />
                   <span className="mono">M²</span>
@@ -706,12 +841,24 @@ function PricePage() {
 
               <label className="calculator-wide">
                 <span className="annotation">05 / BEREIKBAARHEID</span>
-                <select value={access} onChange={(event) => { setAccess(event.target.value as CalculatorAccess); setSubmitted(false); }}>
+                <select
+                  value={access}
+                  onChange={(event) => {
+                    setAccess(event.target.value as CalculatorAccess);
+                    setSubmitted(false);
+                  }}
+                >
                   <option value="goed">Goed bereikbaar</option>
                   <option value="normaal">Normaal bereikbaar</option>
                   <option value="moeilijk">Moeilijk bereikbaar</option>
                 </select>
               </label>
+            </div>
+
+            <div className="calculator-live-preview">
+              <span className="annotation">HUIDIGE REKENBAND / INCL. BTW</span>
+              <strong className="mono">{formatEuro(minInclVat)} – {formatEuro(maxInclVat)}</strong>
+              <small>{sourceLabel}</small>
             </div>
 
             <button className="btn calculator-submit" type="submit">
@@ -735,26 +882,35 @@ function PricePage() {
                 <div><dt>OPPERVLAKTE</dt><dd className="mono">{areaNumber} M²</dd></div>
                 <div><dt>BEREIKBAARHEID</dt><dd>{access}</dd></div>
                 <div><dt>SCHOORSTEEN</dt><dd>{chimney === "ja" ? "Ja" : "Nee"}</dd></div>
+                <div><dt>PRIJSBASIS</dt><dd>{sourceLabel}</dd></div>
               </dl>
             </div>
 
             <div className="calculator-price-panel">
-              {isLeakage ? (
-                <>
-                  <span className="annotation">PRIJSINDICATIE INCL. 21% BTW</span>
-                  <strong className="mono">
-                    {formatEuro(minInclVat!)} – {formatEuro(maxInclVat!)}
-                  </strong>
-                  <p>Excl. btw: <span className="mono">{formatEuro(minExVat!)} – {formatEuro(maxExVat!)}</span>.</p>
-                  <p>De uiteindelijke prijs hangt af van oorzaak, bereikbaarheid, materiaaltoestand en het benodigde herstel.</p>
-                </>
-              ) : (
-                <>
-                  <span className="annotation">UITKOMST</span>
-                  <strong>Prijs op maat</strong>
-                  <p>Voor deze combinatie staat geen bevestigde openbare LRS-basisprijs vast. De calculator verzint daarom geen bedrag.</p>
-                </>
+              <span className="annotation">PRIJSINDICATIE INCL. 21% BTW</span>
+              <strong className="mono">
+                {formatEuro(minInclVat)} – {formatEuro(maxInclVat)}
+              </strong>
+              <p>
+                Excl. btw: <span className="mono">{formatEuro(minExVat)} – {formatEuro(maxExVat)}</span>.
+              </p>
+              <p>{rule.note}</p>
+              {access === "moeilijk" && (
+                <p className="calculator-model-note">
+                  In het online model is voor moeilijke bereikbaarheid een correctie van 10% meegenomen.
+                </p>
               )}
+              {chimney === "ja" && (
+                <p className="calculator-model-note">
+                  Voor het verwijderen van het deel boven het dak plus dakherstel is een actuele
+                  marktrichtband meegenomen. De constructieve situatie kan de definitieve prijs wijzigen.
+                </p>
+              )}
+              <p className="calculator-disclaimer">
+                Dit is een online prijsindicatie en geen bindende offerte. Na beoordeling van
+                ondergrond, details, materiaalkeuze en bereikbaarheid kan de definitieve LRS-prijs
+                hoger of lager uitvallen.
+              </p>
 
               <a
                 className="btn primary-light"
@@ -771,13 +927,22 @@ function PricePage() {
 
       <section className="paper-deep-zone section-block calculator-explain">
         <div className="shell">
-          <SectionIndex n="02" label="UITLEG"/>
+          <SectionIndex n="02" label="PRIJSBASIS"/>
           <div className="section-heading split-heading">
             <div>
-              <p className="annotation">DEZELFDE ROUTE ALS DE OUDE CALCULATOR</p>
-              <h2>Type dak → soort werk → schoorsteen → m² → bereikbaarheid.</h2>
+              <p className="annotation">TRANSPARANT REKENMODEL</p>
+              <h2>De calculator geeft altijd een bedrag.</h2>
             </div>
-            <p>De calculator gebruikt de invoer vervolgens in de WhatsApp-samenvatting zodat u niet opnieuw alles hoeft uit te leggen.</p>
+            <div>
+              <p>
+                Lekkage: bestaande openbare LRS-bandbreedte. Pannen, renovatie, isolatie en bitumen:
+                actuele Nederlandse 2026-richtprijzen omgerekend naar uw ingevoerde dakoppervlak.
+              </p>
+              <p>
+                De invoer wordt ook meegenomen in de WhatsApp-samenvatting, zodat u niet opnieuw
+                alles hoeft uit te leggen.
+              </p>
+            </div>
           </div>
         </div>
       </section>
