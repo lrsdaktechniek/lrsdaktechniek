@@ -109,6 +109,9 @@ export function QuoteBuilder() {
   const [showBook, setShowBook] = useState(false);
   const [bookSearch, setBookSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(categories[1] ?? categories[0] ?? "");
+  const [workCategory, setWorkCategory] = useState("V · Schuine daken & pannendaken");
+  const [workSearch, setWorkSearch] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
 
   const [customer, setCustomer] = useState("");
   const [address, setAddress] = useState("");
@@ -210,6 +213,16 @@ export function QuoteBuilder() {
     });
   }, [bookSearch, activeCategory]);
 
+  const repairCategories = useMemo(() => categories.filter(category => category !== "Voorrijden"), []);
+  const filteredWorkItems = useMemo(() => {
+    const query = workSearch.trim().toLowerCase();
+    return CATALOG.filter(item => {
+      if (!item.number) return false;
+      if (query) return `${item.number} ${item.label} ${item.category} ${item.keywords ?? ""}`.toLowerCase().includes(query);
+      return item.category === workCategory;
+    });
+  }, [workCategory, workSearch]);
+
   function saveBook() {
     localStorage.setItem(STORAGE_BOOK, JSON.stringify({ prices: book, vat, difficultPct }));
     setShowBook(false);
@@ -306,54 +319,90 @@ export function QuoteBuilder() {
   }
 
   return (
-    <div className="internal-price-engine">
-      <header className="internal-topbar no-print">
+    <div className="internal-price-engine tap-engine">
+      <header className="tap-topbar no-print">
         <div>
-          <span className="internal-kicker">LRS · PRIVÉ · 50 REPARATIETARIEVEN</span>
-          <h1>Werkbon & prijsengine</h1>
-          <p>Voorrijkosten staan standaard aan. Vink alleen aan wat je werkelijk hebt uitgevoerd; de tool rekent meteen het klantbedrag uit.</p>
+          <span className="internal-kicker">LRS · PRIVÉ PRIJSENGINE</span>
+          <h1>Wat heb je gedaan?</h1>
+          <p>Alleen aantikken. De prijs wordt direct opgeteld.</p>
         </div>
-        <div className="internal-top-actions">
-          <button className="internal-btn ghost" type="button" onClick={() => setShowBook(value => !value)}>PRIJSBOEK</button>
-          <button className="internal-btn ghost" type="button" onClick={resetWorkOrder}>NIEUWE WERKBON</button>
-          <button className="internal-btn" type="button" onClick={() => window.print()}>PDF / PRINT</button>
-        </div>
+        <button className="tap-new" type="button" onClick={resetWorkOrder}>NIEUW</button>
       </header>
 
-      {showBook && (
-        <section className="internal-pricebook no-print">
-          <div className="internal-panel-head">
-            <div><span className="internal-kicker">50 VASTE REPARATIEPRIJZEN</span><h2>Intern prijsboek</h2><p>Alle bedragen zijn excl. btw. De 50 reparatietarieven zijn excl. voorrijkosten.</p></div>
-            <button className="internal-close" type="button" onClick={() => setShowBook(false)}>×</button>
-          </div>
-          <div className="pricebook-settings">
-            <label><span>BTW %</span><input type="number" min="0" step="0.1" value={vat} onChange={event => setVat(Number(event.target.value))}/></label>
-            <label><span>Moeilijk bereikbaar %</span><input type="number" min="0" step="0.1" value={difficultPct} onChange={event => setDifficultPct(Number(event.target.value))}/></label>
-            <label className="pricebook-search"><span>Zoeken</span><input value={bookSearch} onChange={event => setBookSearch(event.target.value)} placeholder="nummer, pan, kit, lood, bitumen..."/></label>
-          </div>
-          {!bookSearch && <div className="pricebook-tabs">{categories.map(category => <button type="button" key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}</div>}
-          <div className="pricebook-list">
-            {filteredBookItems.map(item => (
-              <label key={item.id} className="pricebook-row">
-                <div><strong>{item.number ? `${item.number}. ` : ""}{item.label}</strong><small>per {item.unit}</small>{item.note && <em>{item.note}</em>}</div>
-                <div className={Number(book[item.id] ?? 0) > 0 ? "price-ready" : "price-missing"}>
-                  <span>€ excl.</span>
-                  <input type="number" min="0" step="0.01" value={book[item.id] ?? 0} onChange={event => setBook(current => ({ ...current, [item.id]: Number(event.target.value) }))}/>
-                </div>
-              </label>
-            ))}
-          </div>
-          <div className="pricebook-savebar">
-            <p>De standaardprijzen komen uit jouw aangeleverde 50-puntenlijst. Je kunt ze later intern aanpassen; wijzigingen worden alleen in deze browser opgeslagen.</p>
-            <div className="internal-top-actions"><button className="internal-btn ghost" type="button" onClick={resetOfficialPrices}>HERSTEL STANDAARDPRIJZEN</button><button className="internal-btn" type="button" onClick={saveBook}>PRIJSBOEK OPSLAAN</button></div>
+      <div className="tap-totalbar no-print">
+        <div><span>TOTAAL KLANT INCL. BTW</span><strong>{euro(total)}</strong></div>
+        <div className="tap-total-mini"><span>Excl.</span><b>{euro(subtotal)}</b><span>BTW</span><b>{euro(vatAmount)}</b></div>
+      </div>
+
+      <main className="tap-shell no-print">
+        <section className="tap-section tap-fixed-costs">
+          <div className="tap-section-head"><span>01</span><div><small>VASTE / EXTRA KOSTEN</small><h2>Eerst dit</h2></div></div>
+          <div className="tap-toggle-grid">
+            {CATALOG.filter(item => item.id === "travel" || item.id === "referral-fee").map(item => {
+              const chosen = selected.find(line => line.id === item.id);
+              const price = Number(book[item.id] ?? item.defaultPriceEx);
+              return <button key={item.id} type="button" className={`tap-toggle ${chosen ? "selected" : ""}`} onClick={() => toggleItem(item)}>
+                <span className="tap-checkmark">{chosen ? "✓" : "+"}</span>
+                <span><strong>{item.label}</strong><small>{euro(price)} excl. btw</small></span>
+              </button>;
+            })}
+            <button type="button" className={`tap-toggle ${difficult ? "selected" : ""}`} onClick={() => setDifficult(value => !value)}>
+              <span className="tap-checkmark">{difficult ? "✓" : "+"}</span>
+              <span><strong>Moeilijk bereikbaar</strong><small>+{difficultPct}% op subtotaal</small></span>
+            </button>
           </div>
         </section>
-      )}
 
-      <div className="internal-layout">
-        <main className="internal-workspace no-print">
-          <section className="internal-card customer-card">
-            <div className="internal-section-title"><span>01</span><div><small>KLANT / KLUS</small><h2>Werkbon</h2></div></div>
+        <section className="tap-section">
+          <div className="tap-section-head"><span>02</span><div><small>WERKZAAMHEDEN</small><h2>Vink aan wat je hebt gedaan</h2></div></div>
+
+          <div className="tap-search-wrap">
+            <input value={workSearch} onChange={event => setWorkSearch(event.target.value)} placeholder="Zoek: dakpan, kit, lood, bitumen..." />
+            {workSearch && <button type="button" onClick={() => setWorkSearch("")}>×</button>}
+          </div>
+
+          {!workSearch && <div className="tap-category-tabs">
+            {repairCategories.map(category => <button type="button" key={category} className={workCategory === category ? "active" : ""} onClick={() => setWorkCategory(category)}>{category}</button>)}
+          </div>}
+
+          <div className="tap-repair-grid">
+            {filteredWorkItems.map(item => {
+              const chosen = selected.find(line => line.id === item.id);
+              const price = Number(book[item.id] ?? item.defaultPriceEx);
+              const variableQty = item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" || ["pan","stuk","gat","rij","afvoer","naad","blaas","doorvoer","strook","scheur","gevelzijde","raam","uitloop","dakvlak"].includes(item.unit);
+              return <article key={item.id} className={`tap-repair-card ${chosen ? "selected" : ""}`}>
+                <button type="button" className="tap-repair-select" onClick={() => toggleItem(item)}>
+                  <span className="tap-repair-number">{String(item.number).padStart(2,"0")}</span>
+                  <span className="tap-repair-copy"><strong>{item.label}</strong><small>{euro(price)} excl. / {item.unit}</small></span>
+                  <span className="tap-repair-mark">{chosen ? "✓" : "+"}</span>
+                </button>
+                {chosen && variableQty && <div className="tap-qty-row">
+                  <button type="button" onClick={() => setQty(item.id, Math.max(item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? 0.1 : 1, Number(chosen.qty) - (item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? 0.5 : 1)))}>−</button>
+                  <label><span>Hoeveel {item.unit}?</span><input type="number" min="0" step={item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? "0.1" : "1"} value={chosen.qty} onChange={event => setQty(item.id, Number(event.target.value))}/></label>
+                  <button type="button" onClick={() => setQty(item.id, Number(chosen.qty) + (item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? 0.5 : 1))}>+</button>
+                </div>}
+              </article>;
+            })}
+          </div>
+        </section>
+
+        <section className="tap-section tap-selected-section">
+          <div className="tap-section-head"><span>03</span><div><small>CONTROLE</small><h2>Dit staat nu op de bon</h2></div></div>
+          {workLines.length === 0 && customLines.length === 0 ? <p className="tap-empty">Nog niets geselecteerd.</p> : <div className="tap-picked-list">
+            {workLines.map(line => <div key={line.key}><span>{line.number ? `${line.number}. ` : ""}{line.description}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
+            {customLines.map(line => <div key={line.id}><span>{line.description || "Extra werkzaamheden"}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
+            {difficultAmount > 0 && <div><span>Moeilijk bereikbaar<small>{difficultPct}% toeslag</small></span><strong>{euro(difficultAmount)}</strong></div>}
+          </div>}
+          <div className="tap-final-total">
+            <p><span>Subtotaal excl. btw</span><strong>{euro(subtotal)}</strong></p>
+            <p><span>BTW {vat}%</span><strong>{euro(vatAmount)}</strong></p>
+            <p className="grand"><span>Totaal incl. btw</span><strong>{euro(total)}</strong></p>
+          </div>
+        </section>
+
+        <section className="tap-section tap-details-section">
+          <button className="tap-details-toggle" type="button" onClick={() => setShowDetails(value => !value)}>{showDetails ? "VERBERG KLANT / TIJD / PDF" : "KLANTGEGEVENS, TIJD OF PDF NODIG?"}<span>{showDetails ? "−" : "+"}</span></button>
+          {showDetails && <div className="tap-details-body">
             <div className="internal-form-grid">
               <label><span>Klantnaam</span><input value={customer} onChange={event => setCustomer(event.target.value)} placeholder="Naam klant"/></label>
               <label><span>Volledig adres</span><input value={address} onChange={event => setAddress(event.target.value)} placeholder="Straat 1, 4811 AA Breda"/></label>
@@ -361,94 +410,44 @@ export function QuoteBuilder() {
               <label><span>Titel</span><input value={jobTitle} onChange={event => setJobTitle(event.target.value)}/></label>
             </div>
             {address.trim() && <a className="internal-maps-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer">OPEN ADRES IN GOOGLE MAPS →</a>}
-          </section>
 
-          <section className="internal-card">
-            <div className="internal-section-title"><span>02</span><div><small>UITGEVOERD</small><h2>Vink werkzaamheden aan</h2></div></div>
-            <div className="work-category-stack">
-              {categories.map(category => (
-                <details key={category} open={category === "Voorrijden" || category === "V · Schuine daken & pannendaken"}>
-                  <summary>{category}<span>{CATALOG.filter(item => item.category === category && selectedIds.has(item.id)).length || ""}</span></summary>
-                  <div className="work-check-grid">
-                    {CATALOG.filter(item => item.category === category).map(item => {
-                      const chosen = selected.find(line => line.id === item.id);
-                      const price = Number(book[item.id] ?? item.defaultPriceEx);
-                      return (
-                        <div key={item.id} className={`work-check-row ${chosen ? "selected" : ""} ${chosen && price <= 0 ? "missing-price" : ""}`}>
-                          <label className="work-check-main">
-                            <input type="checkbox" checked={Boolean(chosen)} onChange={() => toggleItem(item)}/>
-                            <span><strong>{item.number ? `${item.number}. ` : ""}{item.label}</strong><small>{euro(price)} excl. / {item.unit}</small></span>
-                          </label>
-                          {chosen && <label className="work-qty"><span>Aantal</span><input type="number" min="0" step={item.unit.includes("meter") || item.unit === "m²" ? "0.1" : "1"} value={chosen.qty} onChange={event => setQty(item.id, Number(event.target.value))}/><em>{item.unit}</em></label>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </details>
-              ))}
+            <div className="tap-time-block">
+              <div className="time-grid">
+                <label><span>Uren</span><input type="number" min="0" step="1" value={hours} onChange={event => setHours(Number(event.target.value))}/></label>
+                <label><span>Minuten</span><input type="number" min="0" max="59" step="5" value={minutes} onChange={event => setMinutes(Number(event.target.value))}/></label>
+              </div>
+              <div className="timer-control">
+                <div><span className="internal-kicker">LIVE TIMER</span><strong>{timerStartedAt === null ? "NIET ACTIEF" : `${Math.floor(liveTimerMinutes / 60)}u ${Math.floor(liveTimerMinutes % 60)}m`}</strong></div>
+                {timerStartedAt === null ? <button className="internal-btn ghost" type="button" onClick={startTimer}>START TIMER</button> : <button className="internal-btn" type="button" onClick={stopTimer}>STOP & OPSLAAN</button>}
+              </div>
             </div>
-          </section>
 
-          <section className="internal-card">
-            <div className="internal-section-title"><span>03</span><div><small>TIJD</small><h2>Hoe lang was je bezig?</h2></div></div>
-            <p className="internal-help">De tijd wordt geregistreerd voor jouw werkbon. De 50 handelingstarieven worden niet nogmaals met een uurtarief verhoogd.</p>
-            <div className="time-grid">
-              <label><span>Uren</span><input type="number" min="0" step="1" value={hours} onChange={event => setHours(Number(event.target.value))}/></label>
-              <label><span>Minuten</span><input type="number" min="0" max="59" step="5" value={minutes} onChange={event => setMinutes(Number(event.target.value))}/></label>
-              <label className="toggle-card"><input type="checkbox" checked={difficult} onChange={event => setDifficult(event.target.checked)}/><span><strong>Moeilijke bereikbaarheid</strong><small>Voegt {difficultPct}% toe aan het berekende bedrag.</small></span></label>
-            </div>
-            <div className="timer-control">
-              <div><span className="internal-kicker">LIVE TIMER</span><strong>{timerStartedAt === null ? "NIET ACTIEF" : `${Math.floor(liveTimerMinutes / 60)}u ${Math.floor(liveTimerMinutes % 60)}m`}</strong></div>
-              {timerStartedAt === null ? <button className="internal-btn ghost" type="button" onClick={startTimer}>START TIMER</button> : <button className="internal-btn" type="button" onClick={stopTimer}>STOP & OPSLAAN</button>}
-            </div>
-          </section>
-
-          <section className="internal-card">
-            <div className="internal-section-title"><span>04</span><div><small>EXTRA</small><h2>Eigen regels</h2></div></div>
-            <p className="internal-help">Alleen voor werkzaamheden die buiten de 50 vaste reparatieopties vallen.</p>
-            <div className="custom-lines">
-              {customLines.map(line => (
-                <div className="custom-line" key={line.id}>
-                  <input className="custom-desc" value={line.description} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, description: event.target.value } : item))} placeholder="Bijv. extra materiaal"/>
-                  <input type="number" min="0" step="0.1" value={line.qty} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, qty: Number(event.target.value) } : item))}/>
-                  <input value={line.unit} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, unit: event.target.value } : item))}/>
-                  <input type="number" min="0" step="0.01" value={line.priceEx} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, priceEx: Number(event.target.value) } : item))}/>
-                  <button type="button" onClick={() => setCustomLines(current => current.filter(item => item.id !== line.id))}>×</button>
-                </div>
-              ))}
-            </div>
             <button className="internal-add" type="button" onClick={addCustomLine}>+ EIGEN REGEL TOEVOEGEN</button>
-            <label className="internal-notes"><span>Interne / klantopmerking</span><textarea rows={4} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Bijzonderheden, oorzaak, advies..."/></label>
-          </section>
-        </main>
+            {customLines.map(line => <div className="custom-line" key={line.id}>
+              <input className="custom-desc" value={line.description} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, description: event.target.value } : item))} placeholder="Extra werkzaamheden"/>
+              <input type="number" min="0" step="0.1" value={line.qty} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, qty: Number(event.target.value) } : item))}/>
+              <input value={line.unit} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, unit: event.target.value } : item))}/>
+              <input type="number" min="0" step="0.01" value={line.priceEx} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, priceEx: Number(event.target.value) } : item))}/>
+              <button type="button" onClick={() => setCustomLines(current => current.filter(item => item.id !== line.id))}>×</button>
+            </div>)}
+            <label className="internal-notes"><span>Opmerking</span><textarea rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Bijzonderheden..."/></label>
 
-        <aside className="internal-summary">
-          <div className="internal-summary-sticky">
-            <span className="internal-kicker">LIVE TOTAAL</span>
-            <h2>{jobTitle || "Werkbon"}</h2>
-            {durationHours > 0 && <p className="duration-readout">Tijd op locatie <strong>{Math.floor(durationHours)}u {Math.round((durationHours % 1) * 60)}m</strong></p>}
-
-            <div className="summary-lines">
-              {workLines.map(line => <div key={line.key}><span>{line.number ? `${line.number}. ` : ""}{line.description}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
-              {customLines.map(line => <div key={line.id}><span>{line.description || "Eigen regel"}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
-              {difficultAmount > 0 && <div><span>Moeilijk bereikbaar<small>{difficultPct}% toeslag</small></span><strong>{euro(difficultAmount)}</strong></div>}
-            </div>
-
-            {unknownSelected.length > 0 && <div className="price-alert"><strong>{unknownSelected.length} prijs{unknownSelected.length === 1 ? "" : "en"} ontbreekt</strong><p>{unknownSelected.slice(0, 5).join(", ")}{unknownSelected.length > 5 ? "…" : ""}</p></div>}
-
-            <div className="summary-totals">
-              <p><span>Subtotaal excl.</span><strong>{euro(subtotal)}</strong></p>
-              <p><span>BTW {vat}%</span><strong>{euro(vatAmount)}</strong></p>
-              <p className="summary-grand"><span>Totaal incl.</span><strong>{euro(total)}</strong></p>
-            </div>
-
-            <div className="summary-actions no-print">
+            <div className="tap-detail-actions">
+              <button className="internal-btn ghost" type="button" onClick={() => setShowBook(value => !value)}>PRIJSBOEK</button>
               <button className="internal-btn" type="button" disabled={unknownSelected.length > 0 || selected.length + customLines.length === 0} onClick={copyCustomerText}>{copied ? "GEKOPIEERD" : "KOPIEER KLANTBERICHT"}</button>
               <button className="internal-btn ghost" type="button" onClick={() => window.print()}>PRINT / PDF</button>
             </div>
-          </div>
-        </aside>
-      </div>
+          </div>}
+        </section>
+      </main>
+
+      {showBook && <section className="pricebook-panel tap-pricebook no-print">
+        <div className="pricebook-head"><div><span className="internal-kicker">ALLEEN INTERN</span><h2>Prijsboek</h2></div><button type="button" onClick={() => setShowBook(false)}>×</button></div>
+        <label className="pricebook-search"><span>Zoeken</span><input value={bookSearch} onChange={event => setBookSearch(event.target.value)} placeholder="Nummer of werkzaamheden..."/></label>
+        {!bookSearch && <div className="pricebook-tabs">{categories.map(category => <button type="button" key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}</div>}
+        <div className="pricebook-list">{filteredBookItems.map(item => <label key={item.id} className="pricebook-row"><div><strong>{item.number ? `${item.number}. ` : ""}{item.label}</strong><small>per {item.unit}</small></div><div className="price-ready"><span>€ excl.</span><input type="number" min="0" step="0.01" value={book[item.id] ?? 0} onChange={event => setBook(current => ({ ...current, [item.id]: Number(event.target.value) }))}/></div></label>)}</div>
+        <div className="pricebook-savebar"><button className="internal-btn ghost" type="button" onClick={resetOfficialPrices}>HERSTEL STANDAARDPRIJZEN</button><button className="internal-btn" type="button" onClick={saveBook}>OPSLAAN</button></div>
+      </section>}
 
       <section className="internal-print-document">
         <header><div><strong>LRS DAKTECHNIEK</strong><span>Breda & omgeving</span></div><div><span>{site.phoneDisplay}</span><span>{site.email}</span><span>KVK {site.kvk}</span></div></header>
@@ -464,4 +463,5 @@ export function QuoteBuilder() {
       </section>
     </div>
   );
+
 }
