@@ -22,7 +22,7 @@ type PriceBook = Record<string, number>;
 const VAT_DEFAULT = 21;
 const DIFFICULT_DEFAULT = 10;
 const STORAGE_BOOK = "lrs-internal-pricebook-v4-50repair";
-const STORAGE_DRAFT = "lrs-internal-workorder-v4-50repair";
+const STORAGE_DRAFT = "lrs-internal-workorder-v5-smartstaffel";
 
 const CATALOG: readonly CatalogItem[] = [
   { id: "travel", category: "Voorrijden", label: "Voorrijkosten", unit: "post", defaultPriceEx: 75, defaultQty: 1, note: "Vast LRS-tarief. Reparatietarieven hieronder zijn exclusief voorrijkosten." },
@@ -94,6 +94,48 @@ const CATALOG: readonly CatalogItem[] = [
 const categories = Array.from(new Set(CATALOG.map(item => item.category)));
 const euro = (value: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(value || 0);
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundToFive = (value: number) => Math.max(0, Math.round(value / 5) * 5);
+
+function isLinearUnit(unit: string) {
+  return unit === "m²" || unit === "meter" || unit.includes("meter");
+}
+
+function extraUnitRate(item: CatalogItem, basePrice: number) {
+  if (item.id === "repair-34") return 25; // extra dakpan tijdens dezelfde klus
+  if (item.unit === "m²") return roundToFive(basePrice * 0.90);
+  if (item.unit === "meter" || item.unit.includes("meter")) return roundToFive(basePrice * 0.75);
+  if (["dakvlak", "plateau", "schoorsteen", "raam", "klus", "reparatievlak", "reparatieplek", "zeil"].includes(item.unit)) return roundToFive(basePrice * 0.72);
+  if (item.category.startsWith("I ·")) return roundToFive(basePrice * 0.50);
+  if (item.category.startsWith("II ·")) return roundToFive(basePrice * 0.55);
+  if (item.category.startsWith("III ·")) return roundToFive(basePrice * 0.65);
+  if (item.category.startsWith("IV ·")) return roundToFive(basePrice * 0.65);
+  if (item.category.startsWith("V ·")) return roundToFive(basePrice * 0.50);
+  if (item.category.startsWith("VI ·")) return roundToFive(basePrice * 0.60);
+  return roundToFive(basePrice * 0.60);
+}
+
+function carryOnRate(item: CatalogItem, basePrice: number) {
+  const extra = extraUnitRate(item, basePrice);
+  if (item.id === "repair-34") return Math.max(extra, 50);
+  let factor = 0.70;
+  if (item.unit === "m²" || item.unit === "meter" || item.unit.includes("meter")) factor = 0.85;
+  else if (["dakvlak", "plateau", "schoorsteen", "raam", "klus", "reparatievlak", "reparatieplek", "zeil"].includes(item.unit)) factor = 0.80;
+  else if (item.category.startsWith("I ·")) factor = 0.65;
+  else if (item.category.startsWith("II ·")) factor = 0.70;
+  else if (item.category.startsWith("III ·")) factor = 0.75;
+  else if (item.category.startsWith("IV ·")) factor = 0.75;
+  else if (item.category.startsWith("V ·")) factor = 0.65;
+  else if (item.category.startsWith("VI ·")) factor = 0.70;
+  return Math.max(extra, roundToFive(basePrice * factor));
+}
+
+function rawSmartLineTotal(item: CatalogItem, qty: number, basePrice: number) {
+  const safeQty = Math.max(0, Number(qty) || 0);
+  if (safeQty <= 0) return 0;
+  const firstQty = Math.min(1, safeQty);
+  const extraQty = Math.max(0, safeQty - 1);
+  return roundMoney(firstQty * basePrice + extraQty * extraUnitRate(item, basePrice));
+}
 
 function defaultBook(): PriceBook {
   return Object.fromEntries(CATALOG.map(item => [item.id, item.defaultPriceEx]));
@@ -174,27 +216,62 @@ export function QuoteBuilder() {
   const selectedIds = useMemo(() => new Set(selected.map(line => line.id)), [selected]);
   const durationHours = Math.max(0, Number(hours) || 0) + Math.max(0, Math.min(59, Number(minutes) || 0)) / 60 + liveTimerMinutes / 60;
 
+  const travelSelected = selectedIds.has("travel");
+  const travelPrice = Number(book["travel"] ?? 75);
+
+  const primaryRepairId = useMemo(() => {
+    const repairs = selected.filter(line => line.id.startsWith("repair-"));
+    if (repairs.length === 0) return null;
+    return repairs
+      .map(line => {
+        const item = CATALOG.find(entry => entry.id === line.id)!;
+        const basePrice = Number(book[item.id] ?? item.defaultPriceEx);
+        return { id: line.id, score: rawSmartLineTotal(item, line.qty, basePrice) };
+      })
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))[0]?.id ?? null;
+  }, [selected, book]);
+
   const workLines = useMemo(() => selected.map(selection => {
     const item = CATALOG.find(entry => entry.id === selection.id)!;
-    const priceEx = Number(book[item.id] ?? item.defaultPriceEx);
+    const basePriceEx = Number(book[item.id] ?? item.defaultPriceEx);
+    const qty = Math.max(0, Number(selection.qty) || 0);
+
+    if (!item.id.startsWith("repair-")) {
+      return {
+        key: item.id, number: item.number, description: item.label, qty, unit: item.unit,
+        basePriceEx, firstRateEx: basePriceEx, extraRateEx: basePriceEx, lineTotalEx: roundMoney(qty * basePriceEx),
+        known: basePriceEx > 0, pricingMode: "fixed" as const,
+        rateLabel: `${euro(basePriceEx)} vaste post`,
+      };
+    }
+
+    const extraRateEx = extraUnitRate(item, basePriceEx);
+    const firstQty = Math.min(1, qty);
+    const extraQty = Math.max(0, qty - 1);
+    const isPrimary = item.id === primaryRepairId;
+    const firstRateEx = isPrimary
+      ? (travelSelected ? Math.max(0, basePriceEx - travelPrice) : basePriceEx)
+      : carryOnRate(item, basePriceEx);
+    const lineTotalEx = roundMoney(firstQty * firstRateEx + extraQty * extraRateEx);
+
     return {
-      key: item.id,
-      number: item.number,
-      description: item.label,
-      qty: Math.max(0, Number(selection.qty) || 0),
-      unit: item.unit,
-      priceEx,
-      known: priceEx > 0,
+      key: item.id, number: item.number, description: item.label, qty, unit: item.unit,
+      basePriceEx, firstRateEx, extraRateEx, lineTotalEx, known: basePriceEx > 0,
+      pricingMode: isPrimary ? "primary" as const : "carry" as const,
+      rateLabel: isPrimary
+        ? `${travelSelected ? "hoofdklus na €" + travelPrice.toFixed(0) + " startcorrectie" : "hoofdklus"} · extra ${euro(extraRateEx)}/${item.unit}`
+        : `meeneemtarief ${euro(firstRateEx)} · extra ${euro(extraRateEx)}/${item.unit}`,
     };
-  }), [selected, book]);
+  }), [selected, book, primaryRepairId, travelSelected, travelPrice]);
 
-  const baseSubtotal = useMemo(() => {
-    const catalogTotal = workLines.reduce((sum, line) => sum + line.qty * line.priceEx, 0);
-    const customTotal = customLines.reduce((sum, line) => sum + (Number(line.qty) || 0) * (Number(line.priceEx) || 0), 0);
-    return roundMoney(catalogTotal + customTotal);
-  }, [workLines, customLines]);
+  const catalogSubtotal = useMemo(() => roundMoney(workLines.reduce((sum, line) => sum + line.lineTotalEx, 0)), [workLines]);
+  const repairSubtotal = useMemo(() => roundMoney(workLines.filter(line => line.key.startsWith("repair-")).reduce((sum, line) => sum + line.lineTotalEx, 0)), [workLines]);
+  const customSubtotal = useMemo(() => roundMoney(customLines.reduce((sum, line) => sum + (Number(line.qty) || 0) * (Number(line.priceEx) || 0), 0)), [customLines]);
+  const baseSubtotal = roundMoney(catalogSubtotal + customSubtotal);
 
-  const difficultAmount = difficult ? roundMoney(baseSubtotal * difficultPct / 100) : 0;
+  // Bereikbaarheid wordt alleen over daadwerkelijk werk gerekend, niet over voorrij- of opdrachttoeslag.
+  const difficultBase = roundMoney(repairSubtotal + customSubtotal);
+  const difficultAmount = difficult ? roundMoney(difficultBase * difficultPct / 100) : 0;
   const subtotal = roundMoney(baseSubtotal + difficultAmount);
   const vatAmount = roundMoney(subtotal * vat / 100);
   const total = roundMoney(subtotal + vatAmount);
@@ -289,7 +366,7 @@ export function QuoteBuilder() {
 
   const customerText = useMemo(() => {
     const lineText = [
-      ...workLines.map(line => `- ${line.number ? `${line.number}. ` : ""}${line.description}: ${line.qty} ${line.unit} × ${euro(line.priceEx)} = ${euro(line.qty * line.priceEx)} excl. btw`),
+      ...workLines.map(line => `- ${line.number ? `${line.number}. ` : ""}${line.description}: ${line.qty} ${line.unit} — ${euro(line.lineTotalEx)} excl. btw${line.key.startsWith("repair-") ? ` (${line.pricingMode === "primary" ? "hoofdklus" : "meeneemtarief"})` : ""}`),
       ...customLines.map(line => `- ${line.description || "Extra werkzaamheden"}: ${line.qty} ${line.unit} × ${euro(line.priceEx)} = ${euro(line.qty * line.priceEx)} excl. btw`),
     ];
     if (difficult && difficultAmount > 0) lineText.push(`- Toeslag moeilijke bereikbaarheid (${difficultPct}%): ${euro(difficultAmount)} excl. btw`);
@@ -353,6 +430,11 @@ export function QuoteBuilder() {
           </div>
         </section>
 
+        <div className="tap-pricing-note" style={{ margin: "0 0 24px", padding: "16px 18px", background: "#eef3f5", color: "#070a0d", display: "grid", gap: 6 }}>
+          <strong>SLIMME KLUSPRIJS ACTIEF</strong>
+          <span>€75 start/voorrijden wordt maar één keer gerekend. De hoofdreparatie krijgt automatisch de startcorrectie; extra aantallen en extra werkzaamheden krijgen een lager meeneemtarief.</span>
+        </div>
+
         <section className="tap-section">
           <div className="tap-section-head"><span>02</span><div><small>WERKZAAMHEDEN</small><h2>Vink aan wat je hebt gedaan</h2></div></div>
 
@@ -373,12 +455,12 @@ export function QuoteBuilder() {
               return <article key={item.id} className={`tap-repair-card ${chosen ? "selected" : ""}`}>
                 <button type="button" className="tap-repair-select" onClick={() => toggleItem(item)}>
                   <span className="tap-repair-number">{String(item.number).padStart(2,"0")}</span>
-                  <span className="tap-repair-copy"><strong>{item.label}</strong><small>{euro(price)} excl. / {item.unit}</small></span>
+                  <span className="tap-repair-copy"><strong>{item.label}</strong><small>Basis {euro(price)} · extra {euro(extraUnitRate(item, price))}/{item.unit}</small></span>
                   <span className="tap-repair-mark">{chosen ? "✓" : "+"}</span>
                 </button>
                 {chosen && variableQty && <div className="tap-qty-row">
                   <button type="button" onClick={() => setQty(item.id, Math.max(item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? 0.1 : 1, Number(chosen.qty) - (item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? 0.5 : 1)))}>−</button>
-                  <label><span>Hoeveel {item.unit}?</span><input type="number" min="0" step={item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? "0.1" : "1"} value={chosen.qty} onChange={event => setQty(item.id, Number(event.target.value))}/></label>
+                  <label><span>Hoeveel {item.unit}?</span><input style={{ color: "#070a0d", background: "#ffffff", WebkitTextFillColor: "#070a0d", opacity: 1 }} type="number" min="0" step={item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? "0.1" : "1"} value={chosen.qty} onChange={event => setQty(item.id, Number(event.target.value))}/></label>
                   <button type="button" onClick={() => setQty(item.id, Number(chosen.qty) + (item.unit.includes("meter") || item.unit === "meter" || item.unit === "m²" ? 0.5 : 1))}>+</button>
                 </div>}
               </article>;
@@ -389,7 +471,7 @@ export function QuoteBuilder() {
         <section className="tap-section tap-selected-section">
           <div className="tap-section-head"><span>03</span><div><small>CONTROLE</small><h2>Dit staat nu op de bon</h2></div></div>
           {workLines.length === 0 && customLines.length === 0 ? <p className="tap-empty">Nog niets geselecteerd.</p> : <div className="tap-picked-list">
-            {workLines.map(line => <div key={line.key}><span>{line.number ? `${line.number}. ` : ""}{line.description}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
+            {workLines.map(line => <div key={line.key}><span>{line.number ? `${line.number}. ` : ""}{line.description}<small>{line.qty} {line.unit} · {line.rateLabel}</small></span><strong>{euro(line.lineTotalEx)}</strong></div>)}
             {customLines.map(line => <div key={line.id}><span>{line.description || "Extra werkzaamheden"}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
             {difficultAmount > 0 && <div><span>Moeilijk bereikbaar<small>{difficultPct}% toeslag</small></span><strong>{euro(difficultAmount)}</strong></div>}
           </div>}
@@ -445,7 +527,7 @@ export function QuoteBuilder() {
         <div className="pricebook-head"><div><span className="internal-kicker">ALLEEN INTERN</span><h2>Prijsboek</h2></div><button type="button" onClick={() => setShowBook(false)}>×</button></div>
         <label className="pricebook-search"><span>Zoeken</span><input value={bookSearch} onChange={event => setBookSearch(event.target.value)} placeholder="Nummer of werkzaamheden..."/></label>
         {!bookSearch && <div className="pricebook-tabs">{categories.map(category => <button type="button" key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}</div>}
-        <div className="pricebook-list">{filteredBookItems.map(item => <label key={item.id} className="pricebook-row"><div><strong>{item.number ? `${item.number}. ` : ""}{item.label}</strong><small>per {item.unit}</small></div><div className="price-ready"><span>€ excl.</span><input type="number" min="0" step="0.01" value={book[item.id] ?? 0} onChange={event => setBook(current => ({ ...current, [item.id]: Number(event.target.value) }))}/></div></label>)}</div>
+        <div className="pricebook-list">{filteredBookItems.map(item => <label key={item.id} className="pricebook-row"><div><strong>{item.number ? `${item.number}. ` : ""}{item.label}</strong><small>{item.id.startsWith("repair-") ? `Basis per ${item.unit} · extra ${euro(extraUnitRate(item, Number(book[item.id] ?? item.defaultPriceEx)))}/${item.unit} · meeneem ${euro(carryOnRate(item, Number(book[item.id] ?? item.defaultPriceEx)))}` : `per ${item.unit}`}</small></div><div className="price-ready"><span>€ excl.</span><input type="number" min="0" step="0.01" value={book[item.id] ?? 0} onChange={event => setBook(current => ({ ...current, [item.id]: Number(event.target.value) }))}/></div></label>)}</div>
         <div className="pricebook-savebar"><button className="internal-btn ghost" type="button" onClick={resetOfficialPrices}>HERSTEL STANDAARDPRIJZEN</button><button className="internal-btn" type="button" onClick={saveBook}>OPSLAAN</button></div>
       </section>}
 
@@ -454,7 +536,7 @@ export function QuoteBuilder() {
         <div className="print-title"><small>WERKBON / PRIJSOVERZICHT</small><h1>{jobTitle}</h1></div>
         <dl className="print-customer"><div><dt>Klant</dt><dd>{customer || "—"}</dd></div><div><dt>Adres</dt><dd>{address || "—"}</dd></div><div><dt>Datum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div><div><dt>Tijd op locatie</dt><dd>{durationHours > 0 ? `${Math.floor(durationHours)} uur ${Math.round((durationHours % 1) * 60)} min` : "—"}</dd></div></dl>
         <table><thead><tr><th>Werkzaamheden</th><th>Aantal</th><th>Eenheid</th><th>Prijs excl.</th><th>Totaal excl.</th></tr></thead><tbody>
-          {workLines.map(line => <tr key={line.key}><td>{line.number ? `${line.number}. ` : ""}{line.description}</td><td>{line.qty}</td><td>{line.unit}</td><td>{euro(line.priceEx)}</td><td>{euro(line.qty * line.priceEx)}</td></tr>)}
+          {workLines.map(line => <tr key={line.key}><td>{line.number ? `${line.number}. ` : ""}{line.description}</td><td>{line.qty}</td><td>{line.unit}</td><td>{line.key.startsWith("repair-") ? "staffel" : euro(line.basePriceEx)}</td><td>{euro(line.lineTotalEx)}</td></tr>)}
           {customLines.map(line => <tr key={line.id}><td>{line.description}</td><td>{line.qty}</td><td>{line.unit}</td><td>{euro(line.priceEx)}</td><td>{euro(line.qty * line.priceEx)}</td></tr>)}
           {difficultAmount > 0 && <tr><td>Moeilijk bereikbaar ({difficultPct}%)</td><td>1</td><td>post</td><td>{euro(difficultAmount)}</td><td>{euro(difficultAmount)}</td></tr>}
         </tbody></table>
