@@ -46,6 +46,13 @@ const layerData: Array<{ id: LayerId; code: string; name: string; note: string }
   { id: "insulation", code: "L06", name: "Isolatie", note: "Thermische laag; opbouw moet vochttechnisch kloppen." },
 ];
 
+const editorialImages = {
+  hero: "https://images.unsplash.com/photo-1769985134083-8b9df05db881?auto=format&fit=crop&fm=jpg&q=82&w=2200",
+  slate: "https://images.unsplash.com/photo-1767544050173-e0101f579932?auto=format&fit=crop&fm=jpg&q=82&w=1800",
+  terracotta: "https://images.unsplash.com/photo-1760544137672-c22ce36ea818?auto=format&fit=crop&fm=jpg&q=82&w=1800",
+} as const;
+
+
 function Waterline() {
   const progressRef = useRef<SVGPathElement>(null);
 
@@ -139,29 +146,40 @@ function DimensionLine({ value, dark=false }: { value: string; dark?: boolean })
 
 function Hero() {
   return (
-    <section className="hero-v2">
-      <div className="hero-tonal-step" aria-hidden="true"/>
-      <svg className="hero-roof-line" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
-        <line x1="0" y1="760" x2="1600" y2="90"/>
-        <line className="hero-angle-tick" x1="1220" y1="230" x2="1250" y2="260"/>
+    <section className="hero-photo-v3">
+      <div className="hero-photo-layer" aria-hidden="true">
+        <img src={editorialImages.hero} alt="" fetchPriority="high" />
+        <div className="hero-photo-shade"/>
+      </div>
+
+      <svg className="hero-waterproof-line" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="0" y1="735" x2="1600" y2="120"/>
+        <line className="hero-angle-tick" x1="1214" y1="247" x2="1247" y2="277"/>
       </svg>
-      <div className="shell hero-content">
-        <div className="hero-copy">
+
+      <div className="shell hero-photo-content">
+        <div className="hero-photo-copy">
           <SectionIndex n="01" label="BREDA E.O." dark/>
           <p className="annotation hero-code">LRS / DAKWERK / DIRECT CONTACT</p>
-          <h1>LRS <span>DAKTECHNIEK</span></h1>
+          <h1><span>LRS</span> DAKTECHNIEK</h1>
           <p className="hero-statement">U spreekt de dakdekker die het werk uitvoert.</p>
+
+          <div className="hero-actions-v3">
+            <Link className="btn hero-primary" href="/prijsindicatie">PRIJSINDICATIE</Link>
+            <a className="hero-phone mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
+          </div>
+
+          <Link className="hero-dakcheck-link" href="/dakcheck">
+            Ik weet niet wat er nodig is <span>→</span>
+          </Link>
         </div>
-        <div className="hero-angle mono">40°</div>
-        <div className="hero-action-zone">
-          <DimensionLine value="VOLGENDE STAP" dark/>
-          <div className="hero-actions-v2">
-            <Link className="btn primary-dark" href="/prijsindicatie">PRIJSINDICATIE</Link>
-            <a className="phone-action mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
-          </div>
-          <div className="hero-subroute">
-            <Link href="/dakcheck">Ik weet niet wat er nodig is → Dakcheck</Link>
-          </div>
+
+        <div className="hero-spec-panel">
+          <span className="annotation">DAKPROFIEL / VISUELE REFERENTIE</span>
+          <div className="hero-spec-row"><span>HELLING</span><strong className="mono">40°</strong></div>
+          <div className="hero-spec-row"><span>REGIO</span><strong>BREDA E.O.</strong></div>
+          <div className="hero-spec-row"><span>CONTACT</span><strong>DIRECT MET LRS</strong></div>
+          <small>Materiaalbeeld ter sfeer. Geen projectreferentie.</small>
         </div>
       </div>
     </section>
@@ -365,11 +383,35 @@ function WorkAreaSchematic() {
   );
 }
 
+function EditorialMaterialBand() {
+  return (
+    <section className="editorial-material-band work-zone">
+      <div className="shell editorial-material-grid">
+        <figure className="editorial-photo editorial-photo-large">
+          <img src={editorialImages.slate} alt="Donkere dakbedekking als materiaalbeeld" loading="lazy"/>
+          <figcaption><span className="annotation">MATERIAALBEELD / NIET PROJECTGEBONDEN</span><strong>Textuur, ritme en detaillering.</strong></figcaption>
+        </figure>
+        <figure className="editorial-photo editorial-photo-small">
+          <img src={editorialImages.terracotta} alt="Dakpannen als materiaalbeeld" loading="lazy"/>
+          <figcaption><span className="annotation">MATERIAALBEELD / NIET PROJECTGEBONDEN</span><strong>Het dak moet er ook strak uitzien.</strong></figcaption>
+        </figure>
+        <div className="editorial-note">
+          <span className="mono">02A</span>
+          <p className="annotation">BEELD + TECHNIEK</p>
+          <h2>Niet alleen tekenen. Ook materiaal laten voelen.</h2>
+          <p>De technische lijnen blijven de identiteit dragen, maar fotografie geeft de site massa, textuur en geloofwaardigheid. Deze beelden zijn sfeerbeelden en worden nergens als uitgevoerd LRS-project gepresenteerd.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Home() {
   return (
     <>
       <Hero/>
       <SituationRouter/>
+      <EditorialMaterialBand/>
 
       <section className="work-zone section-block">
         <div className="shell">
@@ -382,7 +424,7 @@ function Home() {
       <section className="paper-deep-zone section-block">
         <div className="shell">
           <SectionIndex n="04" label="MATERIAALSTAAT"/>
-          <div className="section-heading split-heading"><div><p className="annotation">MATERIALEN / OPBOUW</p><h2>Materiaal als technische informatie.</h2></div><p>Geen decoratieve stockfoto’s. Elke arcering verwijst naar een werkelijk onderdeel van het dak.</p></div>
+          <div className="section-heading split-heading"><div><p className="annotation">MATERIALEN / OPBOUW</p><h2>Materiaal als technische informatie.</h2></div><p>De arceringen leggen de opbouw uit. Fotografie voegt textuur toe, maar wordt niet als projectbewijs gebruikt.</p></div>
           <MaterialState/>
         </div>
       </section>
@@ -442,7 +484,22 @@ function Home() {
 }
 
 function PageHero({ eyebrow, title, lead, angle="40°" }: { eyebrow: string; title: string; lead?: string; angle?: string }) {
-  return <section className="page-hero-v2"><div className="shell page-hero-inner"><div><p className="annotation">{eyebrow}</p><h1>{title}</h1>{lead && <p className="page-lead">{lead}</p>}</div><div className="page-angle"><DimensionLine value={angle}/></div></div></section>;
+  return (
+    <section className="page-hero-photo">
+      <div className="shell page-hero-photo-grid">
+        <div className="page-hero-copy">
+          <p className="annotation">{eyebrow}</p>
+          <h1>{title}</h1>
+          {lead && <p className="page-lead">{lead}</p>}
+          <DimensionLine value={angle}/>
+        </div>
+        <figure className="page-hero-image">
+          <img src={editorialImages.slate} alt="" aria-hidden="true" loading="eager"/>
+          <figcaption className="annotation">MATERIAALBEELD / GEEN PROJECTREFERENTIE</figcaption>
+        </figure>
+      </div>
+    </section>
+  );
 }
 
 function CTA({ title="Niet zeker wat uw dak nodig heeft?" }: { title?: string }) {
@@ -503,23 +560,229 @@ function Dakcheck() {
   </>;
 }
 
+type CalculatorRoof = "pannendak" | "bitumen";
+type CalculatorAccess = "goed" | "normaal" | "moeilijk";
+
+const pannendakWorks = [
+  ["pannen-beton", "Dakpannen wisselen – beton/sneldek"],
+  ["pannen-keramisch", "Dakpannen wisselen – keramisch"],
+  ["pannen-renovatie", "Complete pannendak-renovatie"],
+  ["pannen-isolatie", "Dakisolatie onder pannendak"],
+  ["pannen-lekkage", "Lekkage pannendak"],
+  ["pannen-schoorsteen-kil", "Schoorsteenlekkage / kilgoot"],
+] as const;
+
+const bitumenWorks = [
+  ["bitumen-overlagen", "Bitumen dak overlagen"],
+  ["bitumen-nieuw", "Nieuw bitumen dak"],
+  ["bitumen-warmdak", "Warm dak – isolatie + bitumen"],
+  ["bitumen-kleinvlak", "Plat dak dakkapel, garage of schuur"],
+  ["bitumen-lekkage", "Lekkage plat dak"],
+] as const;
+
 function PricePage() {
-  const [type,setType]=useState("Daklekkage");
-  const [area,setArea]=useState(50);
-  const isLeak=type==="Daklekkage";
-  const options = ["Daklekkage","Pannendak","Bitumen","Dakisolatie","Schoorsteen"];
-  return <>
-    <PageHero eyebrow="PRIJSINDICATIE / OPGEMETEN VLAK" title="Geen lokprijs. Wel een bruikbare richting." lead="Alleen bekende prijsregels worden als bedrag getoond. Onbekende werkzaamheden blijven maatwerk."/>
-    <section className="work-zone section-block"><div className="shell price-engine-v2">
-      <div className="price-controls">
-        <SectionIndex n="01" label="INVOER"/>
-        <p className="annotation">CATEGORIE</p>
-        <div className="material-choice-list">{options.map((x)=><button key={x} className={type===x?"active":""} onClick={()=>setType(x)}><span>{x}</span><span className="mono">{type===x?"ACTIEF":"+"}</span></button>)}</div>
-        <label className="area-input"><span className="annotation">OPPERVLAKTE</span><div><input type="number" min="1" value={area} onChange={(e)=>setArea(Math.max(1,Number(e.target.value)||1))}/><span className="mono">M²</span></div></label>
-      </div>
-      <div className="price-drawing-panel"><MeasuredArea area={area}/><div className="price-output"><span className="annotation">INDICATIE</span><strong className={isLeak?"mono":""}>{isLeak?"€242 – €423,50":"Prijs op maat"}</strong><small>{isLeak?"incl. 21% btw · huidige openbare indicatie":"geen verzonnen standaardbedrag"}</small></div><a className="btn primary-light" href={whatsapp(`Hallo LRS, prijsindicatie: ${type}, circa ${area} m²`)} target="_blank" rel="noreferrer">BESPREEK DEZE SELECTIE</a></div>
-    </div></section>
-  </>;
+  const [roofType, setRoofType] = useState<CalculatorRoof>("pannendak");
+  const [workId, setWorkId] = useState("pannen-beton");
+  const [chimney, setChimney] = useState("nee");
+  const [area, setArea] = useState("40");
+  const [access, setAccess] = useState<CalculatorAccess>("normaal");
+  const [submitted, setSubmitted] = useState(false);
+
+  const works = roofType === "pannendak" ? pannendakWorks : bitumenWorks;
+  const work = works.find(([id]) => id === workId) ?? works[0];
+  const areaNumber = Math.max(1, Number(area) || 1);
+
+  const isLeakage =
+    workId === "pannen-lekkage" ||
+    workId === "pannen-schoorsteen-kil" ||
+    workId === "bitumen-lekkage";
+
+  const minExVat = isLeakage ? 200 : null;
+  const maxExVat = isLeakage ? 350 : null;
+  const minInclVat = minExVat !== null ? minExVat * 1.21 : null;
+  const maxInclVat = maxExVat !== null ? maxExVat * 1.21 : null;
+
+  function changeRoof(value: CalculatorRoof) {
+    setRoofType(value);
+    const first = value === "pannendak" ? pannendakWorks[0][0] : bitumenWorks[0][0];
+    setWorkId(first);
+    setSubmitted(false);
+  }
+
+  function formatEuro(value: number) {
+    return new Intl.NumberFormat("nl-NL", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  const whatsappText = [
+    "Hallo LRS Daktechniek, ik heb de prijsindicatie ingevuld.",
+    `Type dak: ${roofType === "pannendak" ? "Pannendak" : "Bitumen / plat dak"}`,
+    `Werk: ${work[1]}`,
+    `Schoorsteen verwijderen: ${chimney === "ja" ? "Ja" : "Nee"}`,
+    `Oppervlakte: ${areaNumber} m²`,
+    `Bereikbaarheid: ${access}`,
+    isLeakage
+      ? `Indicatie: ${formatEuro(minInclVat!)} – ${formatEuro(maxInclVat!)} incl. btw`
+      : "Indicatie: maatwerk nodig",
+  ].join("\n");
+
+  return (
+    <>
+      <PageHero
+        eyebrow="PRIJSINDICATIE / REKENMACHINE"
+        title="Vul het dak in. De calculator zet alles op een rij."
+        lead="De prijsindicatie werkt weer als echte rekenmachine: type dak, werkzaamheden, schoorsteen, oppervlakte en bereikbaarheid."
+      />
+
+      <section className="work-zone section-block">
+        <div className="shell calculator-v3-shell">
+          <div className="calculator-v3-intro">
+            <SectionIndex n="01" label="INVOER"/>
+            <p className="annotation">PRIJSINDICATIE DAKWERK</p>
+            <h2>Bereken eerst. Bespreek daarna pas de details.</h2>
+            <p>De bestaande openbare lekkagebandbreedte wordt direct doorgerekend excl. en incl. 21% btw. Voor werkzaamheden zonder bevestigde LRS-basisprijs geeft de calculator eerlijk aan dat maatwerk nodig is.</p>
+          </div>
+
+          <form
+            className="calculator-v3-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSubmitted(true);
+            }}
+          >
+            <div className="calculator-field-grid">
+              <label>
+                <span className="annotation">01 / TYPE DAK</span>
+                <select
+                  value={roofType}
+                  onChange={(event) => changeRoof(event.target.value as CalculatorRoof)}
+                >
+                  <option value="pannendak">Pannendak</option>
+                  <option value="bitumen">Bitumen / plat dak</option>
+                </select>
+              </label>
+
+              <label>
+                <span className="annotation">02 / SOORT WERK</span>
+                <select
+                  value={workId}
+                  onChange={(event) => {
+                    setWorkId(event.target.value);
+                    setSubmitted(false);
+                  }}
+                >
+                  {works.map(([id, label]) => (
+                    <option key={id} value={id}>{label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span className="annotation">03 / SCHOORSTEEN VERWIJDEREN</span>
+                <select value={chimney} onChange={(event) => { setChimney(event.target.value); setSubmitted(false); }}>
+                  <option value="nee">Nee</option>
+                  <option value="ja">Ja</option>
+                </select>
+              </label>
+
+              <label>
+                <span className="annotation">04 / OPPERVLAKTE DAK</span>
+                <div className="calculator-number">
+                  <input
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={area}
+                    onChange={(event) => { setArea(event.target.value); setSubmitted(false); }}
+                    placeholder="Bijv. 40"
+                  />
+                  <span className="mono">M²</span>
+                </div>
+              </label>
+
+              <label className="calculator-wide">
+                <span className="annotation">05 / BEREIKBAARHEID</span>
+                <select value={access} onChange={(event) => { setAccess(event.target.value as CalculatorAccess); setSubmitted(false); }}>
+                  <option value="goed">Goed bereikbaar</option>
+                  <option value="normaal">Normaal bereikbaar</option>
+                  <option value="moeilijk">Moeilijk bereikbaar</option>
+                </select>
+              </label>
+            </div>
+
+            <button className="btn calculator-submit" type="submit">
+              PRIJSINDICATIE BEREKENEN
+            </button>
+          </form>
+
+          <aside className="calculator-v3-visual">
+            <MeasuredArea area={areaNumber}/>
+          </aside>
+        </div>
+      </section>
+
+      {submitted && (
+        <section className="calculator-result-zone" aria-live="polite">
+          <div className="shell calculator-result-v3">
+            <div>
+              <span className="annotation">UITKOMST / {roofType.toUpperCase()}</span>
+              <h2>{work[1]}</h2>
+              <dl className="calculator-summary">
+                <div><dt>OPPERVLAKTE</dt><dd className="mono">{areaNumber} M²</dd></div>
+                <div><dt>BEREIKBAARHEID</dt><dd>{access}</dd></div>
+                <div><dt>SCHOORSTEEN</dt><dd>{chimney === "ja" ? "Ja" : "Nee"}</dd></div>
+              </dl>
+            </div>
+
+            <div className="calculator-price-panel">
+              {isLeakage ? (
+                <>
+                  <span className="annotation">PRIJSINDICATIE INCL. 21% BTW</span>
+                  <strong className="mono">
+                    {formatEuro(minInclVat!)} – {formatEuro(maxInclVat!)}
+                  </strong>
+                  <p>Excl. btw: <span className="mono">{formatEuro(minExVat!)} – {formatEuro(maxExVat!)}</span>.</p>
+                  <p>De uiteindelijke prijs hangt af van oorzaak, bereikbaarheid, materiaaltoestand en het benodigde herstel.</p>
+                </>
+              ) : (
+                <>
+                  <span className="annotation">UITKOMST</span>
+                  <strong>Prijs op maat</strong>
+                  <p>Voor deze combinatie staat geen bevestigde openbare LRS-basisprijs vast. De calculator verzint daarom geen bedrag.</p>
+                </>
+              )}
+
+              <a
+                className="btn primary-light"
+                href={whatsapp(whatsappText)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                STUUR DEZE BEREKENING
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="paper-deep-zone section-block calculator-explain">
+        <div className="shell">
+          <SectionIndex n="02" label="UITLEG"/>
+          <div className="section-heading split-heading">
+            <div>
+              <p className="annotation">DEZELFDE ROUTE ALS DE OUDE CALCULATOR</p>
+              <h2>Type dak → soort werk → schoorsteen → m² → bereikbaarheid.</h2>
+            </div>
+            <p>De calculator gebruikt de invoer vervolgens in de WhatsApp-samenvatting zodat u niet opnieuw alles hoeft uit te leggen.</p>
+          </div>
+        </div>
+      </section>
+    </>
+  );
 }
 
 function Contact() {
