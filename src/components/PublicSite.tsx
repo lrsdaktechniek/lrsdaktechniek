@@ -1,1037 +1,1430 @@
-"use client";
-
-import Link from "next/link";
-import {
-  FormEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  articles,
-  articleBySlug,
-  locationBySlug,
-  locations,
-  serviceBySlug,
-  services,
-  site,
-  whatsapp,
-} from "@/lib/content";
-
-type LayerId = "tile" | "batten" | "counter" | "membrane" | "deck" | "insulation";
-
-type ServiceVisual = {
-  angle: string;
-  layers: LayerId[];
-  material: string;
-  details: string[];
-};
-
-const serviceVisuals: Record<string, ServiceVisual> = {
-  dakpannen: { angle: "40°", layers: ["tile", "batten", "counter"], material: "MAT-01", details: ["A", "B"] },
-  betumendaken: { angle: "3°", layers: ["membrane", "deck", "insulation"], material: "MAT-03", details: ["D"] },
-  "dak-lekkage": { angle: "40°", layers: ["membrane", "deck"], material: "MAT-06", details: ["A", "B", "C", "D"] },
-  "dak-isolatie": { angle: "40°", layers: ["insulation", "membrane"], material: "MAT-05", details: ["B"] },
-  "schoorsteen-verwijderen": { angle: "90°", layers: ["tile", "membrane", "deck"], material: "MAT-06", details: ["C"] },
-};
-
-const layerData: Array<{ id: LayerId; code: string; name: string; note: string }> = [
-  { id: "tile", code: "L01", name: "Dakpan", note: "Buitenste laag die regen en wind opvangt." },
-  { id: "batten", code: "L02", name: "Panlat", note: "Draagt de dakpannen en bepaalt de latafstand." },
-  { id: "counter", code: "L03", name: "Tengel", note: "Creëert ventilatie en waterafvoer onder de latten." },
-  { id: "membrane", code: "L04", name: "Folie", note: "Secundaire waterkerende laag onder de dakbedekking." },
-  { id: "deck", code: "L05", name: "Dakbeschot", note: "Constructieve ondergrond van de dakopbouw." },
-  { id: "insulation", code: "L06", name: "Isolatie", note: "Thermische laag; opbouw moet vochttechnisch kloppen." },
-];
-
-const jouwWebAssets = {
-  original:
-    "https://primary.jwwb.nl/public/n/o/p/temp-uvukeikpledfyiineqcq/img_0708-high.jpg?enable-io=true&width=2200",
-  logo:
-    "https://primary.jwwb.nl/public/n/o/p/temp-uvukeikpledfyiineqcq/img_0708-high.jpg?enable-io=true&width=520",
-} as const;
-
-const editorialImages = {
-  hero: jouwWebAssets.original,
-  slate: jouwWebAssets.original,
-  terracotta: jouwWebAssets.original,
-} as const;
-
-
-function Waterline() {
-  const progressRef = useRef<SVGPathElement>(null);
-
-  useEffect(() => {
-    const path = progressRef.current;
-    if (!path) return;
-
-    const length = path.getTotalLength();
-    path.style.strokeDasharray = `${length}`;
-    path.style.strokeDashoffset = `${length}`;
-
-    let frame = 0;
-    const update = () => {
-      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const progress = Math.min(1, Math.max(0, window.scrollY / max));
-      path.style.strokeDashoffset = `${length * (1 - progress)}`;
-      frame = 0;
-    };
-    const onScroll = () => {
-      if (!frame) frame = window.requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  return (
-    <div className="waterline-shell" aria-hidden="true">
-      <svg viewBox="0 0 120 1000" preserveAspectRatio="none">
-        <path className="waterline-base" d="M60 0 L60 180 L78 245 L60 310 L60 520 L46 600 L60 680 L60 1000" />
-        <path ref={progressRef} className="waterline-progress" d="M60 0 L60 180 L78 245 L60 310 L60 520 L46 600 L60 680 L60 1000" />
-      </svg>
-    </div>
-  );
+:root {
+  --graphite: #070a0d;
+  --ink: #12181d;
+  --paper: #f2f0ec;
+  --paper-deep: #e8e5df;
+  --slate: #294b5e;
+  --steel: #3d6278;
+  --cool-steel: #6f8796;
+  --champagne: #b6a27b;
+  --oxide: #8a4a3c;
+  --line-light: rgba(7, 10, 13, 0.12);
+  --line-mid: rgba(7, 10, 13, 0.22);
+  --line-dark: rgba(255, 255, 255, 0.14);
+  --text-dark: #1c242a;
+  --text-muted: #5f6a72;
+  --paper-text: #c3cbd1;
+  --max: 1280px;
+  --gutter: 24px;
 }
 
-function Header() {
-  return (
-    <>
-      <div className="utility-bar">
-        <div className="shell utility-inner">
-          <span className="annotation">DAKDEKKER / BREDA E.O.</span>
-          <div className="utility-data">
-            <span className="annotation">{site.shortHours}</span>
-            <a className="mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
-          </div>
-        </div>
-      </div>
-      <header className="site-header">
-        <div className="shell header-inner">
-          <Link href="/" className="wordmark brand-with-original" aria-label="LRS Daktechniek homepage">
-            <span className="original-logo-frame">
-              <img src={jouwWebAssets.logo} alt="LRS Daktechniek" />
-            </span>
-            <span className="brand-text-fallback"><strong>LRS</strong><span>DAKTECHNIEK</span></span>
-          </Link>
-          <nav className="desktop-nav" aria-label="Hoofdnavigatie">
-            <Link href="/diensten">Diensten</Link>
-            <Link href="/dakcheck">Dakcheck</Link>
-            <Link href="/prijsindicatie">Prijsindicatie</Link>
-            <Link href="/werkgebied">Werkgebied</Link>
-            <Link href="/blog-s">Kennisbank</Link>
-            <Link href="/contact">Contact</Link>
-          </nav>
-          <a className="header-phone mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
-          <details className="mobile-menu">
-            <summary aria-label="Menu openen"><span/><span/></summary>
-            <div className="mobile-menu-panel">
-              {["diensten","dakcheck","prijsindicatie","werkgebied","blog-s","contact"].map((slug) => (
-                <Link key={slug} href={`/${slug}`}>{slug === "blog-s" ? "Kennisbank" : slug.charAt(0).toUpperCase()+slug.slice(1)}</Link>
-              ))}
-              <a className="mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
-            </div>
-          </details>
-        </div>
-      </header>
-    </>
-  );
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--paper); }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--graphite);
+  font-family: var(--font-archivo), Archivo, Arial, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-function SectionIndex({ n, label, dark=false }: { n: string; label: string; dark?: boolean }) {
-  return <div className={`section-index ${dark ? "on-dark" : ""}`}><span className="mono">{n}</span><span className="annotation">{label}</span></div>;
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { color: inherit; }
+img, svg { display: block; max-width: 100%; }
+h1, h2, h3, p { margin-top: 0; }
+h1, h2, h3 { letter-spacing: -0.02em; }
+h1 { font-size: clamp(3rem, 6vw, 4.75rem); line-height: 1.05; }
+h2 { font-size: clamp(2.1rem, 4vw, 2.75rem); line-height: 1.15; }
+h3 { font-size: 1.35rem; line-height: 1.25; }
+p { color: var(--text-muted); max-width: 68ch; }
+::selection { background: var(--champagne); color: var(--graphite); }
+
+.shell {
+  width: min(calc(100% - 48px), var(--max));
+  margin-inline: auto;
+  position: relative;
 }
 
-function DimensionLine({ value, dark=false }: { value: string; dark?: boolean }) {
-  return <div className={`dimension-line ${dark ? "on-dark" : ""}`}><i/><span className="mono">{value}</span><i/></div>;
+.mono, .annotation, .section-index, .dimension-line, .technical-form span, .title-block dt {
+  font-family: var(--font-plex), "IBM Plex Mono", ui-monospace, monospace;
+}
+.annotation {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+.dark-zone .annotation,
+.annotation.on-dark,
+.on-dark .annotation { color: var(--champagne); }
+
+/* ---------- CONTINUOUS WATERLINE ---------- */
+.waterline-shell {
+  position: fixed;
+  z-index: 4;
+  top: 0;
+  left: max(4px, calc((100vw - 1440px) / 2));
+  width: 88px;
+  height: 100vh;
+  pointer-events: none;
+  opacity: .9;
+}
+.waterline-shell svg { width: 100%; height: 100%; overflow: visible; }
+.waterline-base,
+.waterline-progress {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1;
+}
+.waterline-base { stroke: rgba(111,135,150,.22); }
+.waterline-progress { stroke: var(--champagne); }
+
+/* ---------- HEADER ---------- */
+.utility-bar {
+  position: relative;
+  z-index: 30;
+  min-height: 32px;
+  background: var(--graphite);
+  border-bottom: 1px solid var(--line-dark);
+  color: var(--paper-text);
+}
+.utility-inner {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.utility-data { display: flex; align-items: center; gap: 28px; }
+.utility-bar .annotation { color: var(--cool-steel); font-size: 10px; }
+.utility-bar .mono { color: var(--paper); font-size: 12px; letter-spacing: .02em; }
+.site-header {
+  position: sticky;
+  z-index: 28;
+  top: 0;
+  background: rgba(7,10,13,.96);
+  border-bottom: 1px solid var(--line-dark);
+}
+.header-inner {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  gap: 34px;
+}
+.wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--paper);
+  white-space: nowrap;
+  letter-spacing: -.02em;
+}
+.wordmark strong { font-size: 1.08rem; font-stretch: 112%; }
+.wordmark span { font-size: .82rem; color: var(--cool-steel); letter-spacing: .06em; }
+.desktop-nav { margin-left: auto; display: flex; align-items: center; gap: 26px; }
+.desktop-nav a {
+  position: relative;
+  color: #aeb9c0;
+  font-size: .82rem;
+  font-weight: 500;
+}
+.desktop-nav a::after,
+.text-action::after,
+.phone-action::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: currentColor;
+  transition: transform 200ms ease-out;
+}
+.desktop-nav a:hover::after,
+.text-action:hover::after,
+.phone-action:hover::after { transform: scaleX(1); }
+.header-phone { color: var(--paper); font-size: .78rem; border-left: 1px solid var(--line-dark); padding-left: 24px; }
+.mobile-menu { display: none; margin-left: auto; }
+.mobile-menu summary { list-style: none; width: 42px; height: 42px; display: grid; place-content: center; gap: 7px; cursor: pointer; }
+.mobile-menu summary::-webkit-details-marker { display:none; }
+.mobile-menu summary span { width: 22px; height: 1px; background: var(--paper); }
+.mobile-menu-panel { position:absolute; top:74px; left:0; right:0; background:var(--graphite); border-top:1px solid var(--line-dark); border-bottom:1px solid var(--line-dark); padding:24px; display:grid; gap:0; }
+.mobile-menu-panel a { padding:14px 0; border-bottom:1px solid var(--line-dark); color:var(--paper); }
+
+/* ---------- COMMON TECHNICAL UI ---------- */
+.section-index {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 34px;
+  color: var(--steel);
+}
+.section-index > span:first-child {
+  min-width: 32px;
+  font-size: 12px;
+  color: var(--champagne);
+}
+.section-index::after { content:""; width:54px; height:1px; background: var(--line-light); }
+.section-index.on-dark::after { background: var(--line-dark); }
+.section-index.on-dark { color: var(--paper-text); }
+.dimension-line {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  margin: 24px 0;
+  color: var(--champagne);
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+.dimension-line i { display:block; position:relative; height:1px; flex:1; background: var(--line-mid); }
+.dimension-line i::before { content:""; position:absolute; width:1px; height:8px; top:-4px; background:currentColor; }
+.dimension-line i:first-child::before { left:0; }
+.dimension-line i:last-child::before { right:0; }
+.dimension-line span { padding: 0 10px; }
+.dimension-line.on-dark i { background: var(--line-dark); }
+
+.btn {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  font-family: var(--font-plex), "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: background 200ms ease-out, color 200ms ease-out, border-color 200ms ease-out;
+}
+.primary-dark { background: var(--paper); color: var(--graphite); border-color: var(--paper); }
+.primary-dark:hover { background: transparent; color: var(--paper); }
+.primary-light { background: var(--steel); color: #fff; border-color: var(--steel); }
+.primary-light:hover { background: transparent; color: var(--steel); }
+.text-action, .phone-action { position:relative; display:inline-flex; width:max-content; }
+.text-button { border:0; border-bottom:1px solid currentColor; background:none; padding:0 0 3px; cursor:pointer; color:var(--steel); }
+
+.section-block { padding: 160px 0 120px; }
+.work-zone { background: var(--paper); }
+.paper-deep-zone { background: var(--paper-deep); }
+.dark-zone { background: var(--graphite); color: var(--paper); }
+.dark-zone p { color: var(--paper-text); }
+.section-rule-top { border-top: 1px solid var(--line-light); }
+.section-heading { margin-bottom: 64px; }
+.split-heading { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(280px,.65fr); align-items:end; gap:80px; }
+.split-heading h2 { margin-bottom:0; max-width:18ch; }
+.split-heading > p { margin-bottom:6px; }
+.dark-heading h2 { color: var(--paper); }
+.body-large { font-size: 1.18rem; }
+
+/* ---------- HERO ---------- */
+.hero-v2 {
+  position: relative;
+  overflow: hidden;
+  min-height: min(900px, calc(100svh - 106px));
+  background: var(--graphite);
+  color: var(--paper);
+}
+.hero-tonal-step {
+  position:absolute;
+  inset:0;
+  background: var(--ink);
+  clip-path: polygon(0 83%, 100% 14%, 100% 100%, 0 100%);
+}
+.hero-roof-line {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+.hero-roof-line line { stroke: rgba(182,162,123,.72); stroke-width:1; vector-effect:non-scaling-stroke; }
+.hero-roof-line .hero-angle-tick { stroke-width:1.5; }
+.hero-content { min-height: inherit; }
+.hero-copy { position:absolute; top:14%; left:0; max-width: 780px; }
+.hero-code { color:var(--cool-steel); margin-bottom:20px; }
+.hero-copy h1 {
+  margin:0;
+  font-size: clamp(3.7rem, 8vw, 6.4rem);
+  line-height:.92;
+  font-weight:700;
+  font-stretch:112%;
+  letter-spacing:-.035em;
+}
+.hero-copy h1 span { display:block; color:var(--paper); }
+.hero-statement { margin:26px 0 0; color:var(--paper-text); font-size:clamp(1.1rem,2vw,1.35rem); }
+.hero-angle { position:absolute; top:31%; right:16%; color:var(--champagne); font-size:13px; }
+.hero-action-zone { position:absolute; left:0; bottom:7%; width:min(720px, 72vw); }
+.hero-action-zone .dimension-line { max-width:560px; }
+.hero-actions-v2 { display:flex; align-items:center; gap:30px; }
+.phone-action { color:var(--paper); font-size:.9rem; }
+.hero-subroute { margin-top:20px; color:var(--cool-steel); font-size:.84rem; }
+.hero-subroute a { border-bottom:1px solid rgba(111,135,150,.45); padding-bottom:3px; }
+
+/* ---------- SITUATION ROUTER ---------- */
+.situation-zone { padding: 110px 0 150px; }
+.situation-table { border-top:1px solid var(--line-dark); }
+.situation-row {
+  display:grid;
+  grid-template-columns: 50px 2fr 1fr 1.1fr 24px;
+  align-items:center;
+  gap:24px;
+  min-height:92px;
+  border-bottom:1px solid var(--line-dark);
+  color:var(--paper);
+  transition: background 200ms ease-out;
+}
+.situation-row:hover { background: rgba(255,255,255,.025); }
+.situation-row strong { font-size:1.08rem; font-weight:500; }
+.row-index { color:var(--cool-steel); font-size:11px; }
+.technical-label { color:var(--champagne) !important; }
+.row-result { color:var(--cool-steel); font-size:.8rem; }
+.row-arrow { color:var(--champagne); text-align:right; }
+
+/* ---------- ROOF ASSEMBLY ---------- */
+.assembly-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr); gap:54px; align-items:start; }
+.assembly-drawing { position:relative; min-height:610px; border:1px solid var(--line-light); background:rgba(255,255,255,.28); }
+.drawing-title { display:flex; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line-light); }
+.drawing-title .mono { font-size:11px; color:var(--text-muted); }
+.assembly-drawing > svg { width:100%; height:auto; min-height:540px; }
+.assembly-drawing svg path,
+.assembly-drawing svg line,
+.assembly-drawing svg polygon {
+  vector-effect:non-scaling-stroke;
+}
+.layer-shape { fill:rgba(61,98,120,.04); stroke:rgba(7,10,13,.25); stroke-width:1; transition:fill 200ms ease-out, stroke 200ms ease-out; }
+.layer-shape.layer-thin { fill:rgba(182,162,123,.07); }
+.layer-shape.is-active { fill:rgba(61,98,120,.20); stroke:var(--champagne); }
+.tile-roof,.insulation-pattern { stroke:rgba(7,10,13,.48); stroke-width:1; }
+#tilePattern path,#insPattern path { stroke:rgba(7,10,13,.42); stroke-width:1; }
+.is-active-stroke,.is-active-stroke path,.is-active-stroke line { stroke:var(--champagne) !important; }
+.drawing-dimensions line { stroke:rgba(7,10,13,.35); stroke-width:1; }
+.drawing-dimensions rect { fill:var(--paper); }
+.drawing-dimensions text { font-family:var(--font-plex),monospace; font-size:11px; fill:var(--steel); letter-spacing:.04em; }
+.detail-bubble { position:absolute; width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--champagne); border-radius:50%; color:var(--champagne); font-size:11px; background:var(--paper); }
+.bubble-a { top:21%; right:13%; }
+.bubble-b { bottom:12%; left:24%; }
+.detail-bubble.static { position:static; flex:0 0 auto; background:transparent; }
+.layer-register { border-top:1px solid var(--line-light); }
+.layer-register > .annotation { display:block; padding:14px 0; border-bottom:1px solid var(--line-light); }
+.layer-row {
+  width:100%;
+  display:grid;
+  grid-template-columns:52px 1fr 54px;
+  gap:16px;
+  align-items:center;
+  min-height:78px;
+  padding:12px 0;
+  border:0;
+  border-bottom:1px solid var(--line-light);
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+}
+.layer-row strong { display:block; font-size:.95rem; font-weight:500; }
+.layer-row small { display:block; margin-top:3px; color:var(--text-muted); font-size:.74rem; }
+.layer-code,.layer-state { font-size:11px; color:var(--cool-steel); }
+.layer-row.active .layer-code,.layer-row.active .layer-state { color:var(--champagne); }
+.layer-row.active strong { color:var(--steel); }
+.active-layer-note { margin-top:26px; padding-left:18px; border-left:1px solid var(--champagne); }
+.active-layer-note strong { display:block; margin:8px 0; }
+.active-layer-note p { font-size:.86rem; margin:0; }
+
+/* ---------- MATERIAL STATE ---------- */
+.material-state { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line-light); border-left:1px solid var(--line-light); }
+.material-cell { min-height:330px; padding:22px; border-right:1px solid var(--line-light); border-bottom:1px solid var(--line-light); }
+.material-swatch { height:150px; border:1px solid var(--line-light); margin-bottom:22px; }
+.typ-pan { background: repeating-linear-gradient(135deg, transparent 0 18px, rgba(7,10,13,.15) 18px 19px), repeating-linear-gradient(45deg, transparent 0 28px, rgba(61,98,120,.10) 28px 29px); }
+.typ-concrete { background: repeating-linear-gradient(90deg, rgba(7,10,13,.04) 0 20px, rgba(7,10,13,.12) 20px 21px), repeating-linear-gradient(0deg, transparent 0 16px, rgba(7,10,13,.10) 16px 17px); }
+.typ-bitumen { background-image: radial-gradient(rgba(7,10,13,.28) .8px, transparent .8px); background-size:8px 8px; }
+.typ-wood { background: repeating-linear-gradient(6deg, transparent 0 12px, rgba(7,10,13,.16) 12px 13px, transparent 13px 23px); }
+.typ-insulation { background: repeating-linear-gradient(120deg, transparent 0 16px, rgba(61,98,120,.18) 16px 17px, transparent 17px 31px), repeating-linear-gradient(60deg, transparent 0 16px, rgba(61,98,120,.10) 16px 17px, transparent 17px 31px); }
+.typ-metal { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(7,10,13,.13) 8px 9px); }
+.material-meta { display:grid; gap:2px; }
+.material-code { font-size:11px; color:var(--champagne); }
+.material-meta strong { font-size:.92rem; margin-top:6px; }
+.material-meta small { color:var(--text-muted); }
+.material-cell .dimension-line { margin-top:24px; margin-bottom:0; }
+
+/* ---------- MEASURED AREA / PRICE ---------- */
+.price-home-grid { display:grid; grid-template-columns:minmax(0,.8fr) minmax(420px,1.2fr); gap:100px; align-items:center; }
+.price-home-grid h2 { max-width:13ch; }
+.price-home-grid .btn { margin-top:18px; }
+.measured-area { position:relative; width:min(100%,620px); aspect-ratio:1.35; margin:auto; padding:45px 55px 30px 30px; }
+.measure-box { position:relative; height:100%; border:1px solid var(--steel); display:grid; place-items:center; overflow:hidden; }
+.measure-box > span { position:relative; z-index:2; padding:8px 12px; background:var(--paper); color:var(--steel); font-size:14px; }
+.measure-hatch { position:absolute; inset:0; background:repeating-linear-gradient(135deg, transparent 0 13px, rgba(61,98,120,.08) 13px 14px); }
+.measure-top { position:absolute; top:12px; left:30px; right:55px; display:flex; align-items:center; color:var(--champagne); font-size:11px; }
+.measure-top i { flex:1; height:1px; background:var(--line-mid); position:relative; }
+.measure-top i::after { content:""; position:absolute; top:-4px; width:1px; height:8px; background:var(--champagne); }
+.measure-top i:first-child::after{left:0}.measure-top i:last-child::after{right:0}
+.measure-top span { padding:0 9px; }
+.measure-side { position:absolute; top:45px; right:12px; bottom:30px; width:24px; display:flex; flex-direction:column; align-items:center; color:var(--champagne); font-size:11px; }
+.measure-side i { width:1px; flex:1; background:var(--line-mid); position:relative; }
+.measure-side span { writing-mode:vertical-rl; padding:8px 0; }
+
+/* ---------- PRINCIPLE DETAILS ---------- */
+.not-needed-grid { display:grid; grid-template-columns:repeat(3,1fr); border-left:1px solid var(--line-light); border-top:1px solid var(--line-light); }
+.principle-grid { display:grid; grid-template-columns:repeat(2,1fr); border-left:1px solid var(--line-light); border-top:1px solid var(--line-light); }
+.principle-card { min-width:0; padding:24px; border-right:1px solid var(--line-light); border-bottom:1px solid var(--line-light); background:transparent; }
+.principle-head { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:34px; }
+.principle-head .annotation { font-size:9px; color:var(--text-muted); }
+.principle-card svg { width:100%; height:220px; margin:18px 0; }
+.principle-card svg path,.principle-card svg rect,.principle-card svg circle { fill:none; stroke:rgba(7,10,13,.48); stroke-width:1; vector-effect:non-scaling-stroke; }
+.principle-card svg .failure { stroke:var(--oxide); stroke-width:1.5; }
+.principle-card svg .failure-fill { fill:var(--oxide); stroke:var(--oxide); }
+.principle-card h3 { max-width:22ch; margin-bottom:20px; }
+.principle-card dl { margin:0; border-top:1px solid var(--line-light); }
+.principle-card dl > div { display:grid; grid-template-columns:95px 1fr; gap:14px; padding:10px 0; border-bottom:1px solid var(--line-light); }
+.principle-card dt { color:var(--oxide); }
+.principle-card dd { margin:0; font-size:.75rem; color:var(--text-muted); }
+.principle-copy > .mono { font-size:10px; color:var(--champagne); }
+.principle-copy p { font-size:.86rem; }
+
+/* ---------- CONTACT PROOF ---------- */
+.contact-proof-grid { display:grid; grid-template-columns:minmax(0,.8fr) minmax(460px,1.2fr); gap:90px; align-items:start; }
+.contact-number { display:inline-block; margin-top:20px; font-size:clamp(1.6rem,3vw,2.4rem); color:var(--steel); border-bottom:1px solid var(--steel); }
+.single-contact-table { border-top:1px solid var(--line-light); }
+.single-contact-table > div { display:grid; grid-template-columns:50px 1.4fr 1fr 50px; gap:18px; align-items:center; min-height:74px; border-bottom:1px solid var(--line-light); }
+.single-contact-table .mono { color:var(--cool-steel); font-size:11px; }
+.single-contact-table strong { font-size:.92rem; }
+.single-contact-table .annotation { color:var(--text-muted); }
+.single-contact-table b { font-family:var(--font-plex),monospace; font-size:11px; color:var(--champagne); }
+
+/* ---------- WORK AREA ---------- */
+.survey-map { position:relative; min-height:620px; border:1px solid var(--line-dark); }
+.survey-caption { display:flex; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line-dark); }
+.survey-caption .mono { color:var(--paper-text); font-size:11px; }
+.survey-map svg { width:100%; height:520px; padding:44px; }
+.survey-map svg path,.survey-map svg circle { fill:none; stroke:rgba(195,203,209,.25); stroke-width:1; vector-effect:non-scaling-stroke; }
+.survey-map svg .survey-core { fill:var(--champagne); stroke:var(--champagne); }
+.survey-labels { position:absolute; inset:70px 80px auto 80px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px; pointer-events:none; }
+.survey-labels a { pointer-events:auto; color:var(--paper-text); font-size:.78rem; }
+.survey-core-label { position:absolute; left:43%; top:150px; color:var(--paper); }
+.survey-core-label strong { display:block; }
+.survey-core-label .annotation { font-size:9px; }
+.survey-ring { display:flex; flex-wrap:wrap; gap:10px 18px; padding:18px 20px; border-top:1px solid var(--line-dark); }
+.survey-ring a { color:var(--cool-steel); font-size:.75rem; }
+.location-register { margin-top:80px; border-top:1px solid var(--line-dark); }
+.location-register a { display:grid; grid-template-columns:50px 1fr 24px; min-height:72px; align-items:center; border-bottom:1px solid var(--line-dark); color:var(--paper); }
+.location-register .mono { color:var(--cool-steel); font-size:11px; }
+.location-register a > span:last-child { color:var(--champagne); }
+
+/* ---------- PAGE HERO ---------- */
+.page-hero-v2 { position:relative; overflow:hidden; padding:110px 0 100px; background:var(--paper-deep); border-bottom:1px solid var(--line-light); }
+.page-hero-v2::after { content:""; position:absolute; left:-10%; right:-10%; bottom:15%; height:1px; background:var(--line-mid); transform:rotate(-7deg); transform-origin:center; }
+.page-hero-inner { position:relative; z-index:2; display:grid; grid-template-columns:1fr 280px; gap:80px; align-items:end; }
+.page-hero-inner > div:first-child { max-width:900px; }
+.page-hero-v2 h1 { margin:18px 0 24px; max-width:17ch; font-size:clamp(3rem,6vw,4.75rem); }
+.page-lead { font-size:1.12rem; }
+.page-angle .dimension-line { margin-bottom:8px; }
+
+/* ---------- SERVICE ---------- */
+.service-signal-grid { display:grid; grid-template-columns:.8fr 1.2fr; gap:90px; }
+.signal-register { border-top:1px solid var(--line-light); }
+.signal-register > div { display:grid; grid-template-columns:50px 1fr; align-items:center; min-height:76px; border-bottom:1px solid var(--line-light); }
+.signal-register .mono { color:var(--champagne); font-size:11px; }
+.compact-check-list { display:grid; grid-template-columns:.75fr 1.25fr; gap:90px; }
+.compact-check-list > div:last-child { border-top:1px solid var(--line-light); }
+.compact-check-list > div:last-child > div { display:grid; grid-template-columns:54px 1fr; align-items:center; min-height:72px; border-bottom:1px solid var(--line-light); }
+.compact-check-list .mono { color:var(--champagne); font-size:11px; }
+.service-register { border-top:1px solid var(--line-light); }
+.service-register > a { display:grid; grid-template-columns:58px 1fr 24px; gap:24px; align-items:start; padding:28px 0; border-bottom:1px solid var(--line-light); }
+.service-register > a > .mono { color:var(--champagne); font-size:11px; margin-top:5px; }
+.service-register strong { display:block; font-size:1.18rem; margin:5px 0; }
+.service-register p { margin:0; font-size:.85rem; }
+
+/* ---------- DAKCHECK ---------- */
+.dakcheck-v2-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(380px,.8fr); gap:90px; align-items:start; }
+.dakcheck-question h2 { max-width:13ch; }
+.check-options { margin-top:44px; border-top:1px solid var(--line-light); }
+.check-options button { width:100%; display:flex; justify-content:space-between; align-items:center; min-height:74px; padding:0; border:0; border-bottom:1px solid var(--line-light); background:transparent; text-align:left; cursor:pointer; }
+.check-options button span { color:var(--champagne); }
+.workticket { position:sticky; top:110px; border:1px solid var(--line-light); background:var(--paper-deep); padding:0 22px 24px; }
+.workticket::before { content:""; position:absolute; top:0; bottom:0; left:-1px; width:7px; background:repeating-linear-gradient(to bottom, transparent 0 10px, var(--paper) 10px 15px); }
+.workticket-head { min-height:54px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line-light); }
+.workticket-head .mono { font-size:11px; color:var(--champagne); }
+.ticket-row { padding:16px 0; border-bottom:1px solid var(--line-light); }
+.ticket-row .annotation { display:block; margin-bottom:4px; color:var(--text-muted); }
+.ticket-progress { height:2px; margin:24px 0; background:var(--line-light); }
+.ticket-progress span { display:block; height:100%; background:var(--champagne); transition:width 200ms ease-out; }
+.ticket-actions { display:grid; gap:18px; }
+.ticket-actions .text-action { font-size:.78rem; color:var(--steel); }
+
+/* ---------- PRICE ENGINE ---------- */
+.price-engine-v2 { display:grid; grid-template-columns:minmax(320px,.7fr) minmax(480px,1.3fr); gap:90px; }
+.material-choice-list { border-top:1px solid var(--line-light); margin-top:34px; }
+.material-choice-list button { width:100%; min-height:66px; display:flex; align-items:center; justify-content:space-between; border:0; border-bottom:1px solid var(--line-light); background:transparent; cursor:pointer; text-align:left; }
+.material-choice-list button.active { color:var(--steel); }
+.material-choice-list .mono { font-size:10px; color:var(--champagne); }
+.area-input { display:block; margin-top:38px; }
+.area-input > span { display:block; margin-bottom:8px; }
+.area-input > div { display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--line-mid); }
+.area-input input { width:100%; border:0; background:transparent; padding:10px 0; font-family:var(--font-plex),monospace; font-size:2rem; color:var(--steel); outline:none; }
+.area-input .mono { color:var(--champagne); }
+.price-drawing-panel { border-left:1px solid var(--line-light); padding-left:54px; }
+.price-output { margin:36px 0 28px; padding-top:24px; border-top:1px solid var(--line-light); }
+.price-output > strong { display:block; font-size:clamp(2rem,4vw,3.4rem); line-height:1.1; margin:8px 0; }
+.price-output small { color:var(--text-muted); }
+
+/* ---------- CONTACT FORM ---------- */
+.contact-v2-grid { display:grid; grid-template-columns:.75fr 1.25fr; gap:100px; }
+.technical-form { border-top:1px solid var(--line-light); }
+.technical-form label { display:block; padding:18px 0; border-bottom:1px solid var(--line-light); }
+.technical-form label > span { display:block; margin-bottom:8px; color:var(--text-muted); }
+.technical-form input,.technical-form textarea { width:100%; border:0; background:transparent; color:var(--graphite); outline:none; resize:vertical; }
+.technical-form input { min-height:46px; }
+.technical-form textarea { min-height:120px; }
+.technical-form .btn { margin-top:28px; }
+
+/* ---------- ARTICLES ---------- */
+.article-register { border-top:1px solid var(--line-light); }
+.article-register > a { display:grid; grid-template-columns:56px 1fr 30px; gap:24px; padding:34px 0; border-bottom:1px solid var(--line-light); align-items:start; }
+.article-register > a > .mono { color:var(--champagne); font-size:11px; }
+.article-register h2 { font-size:1.6rem; margin:8px 0 10px; }
+.article-register p { margin:0; font-size:.86rem; }
+.article-body-v2 { max-width:980px; }
+.article-body-v2 > section { display:grid; grid-template-columns:64px 1fr; gap:30px; padding:42px 0; border-bottom:1px solid var(--line-light); }
+.article-body-v2 > section > .mono { color:var(--champagne); font-size:11px; margin-top:8px; }
+.article-body-v2 h2 { font-size:1.8rem; }
+
+/* ---------- CTA ---------- */
+.cta-v2 { margin:80px 0 120px; padding:50px 0; border-top:1px solid var(--line-light); border-bottom:1px solid var(--line-light); display:grid; grid-template-columns:1fr .8fr; gap:80px; align-items:end; }
+.cta-v2 h2 { margin-bottom:12px; }
+.cta-actions-v2 { display:flex; flex-direction:column; align-items:flex-start; gap:16px; }
+.cta-actions-v2 .mono { font-size:.9rem; color:var(--steel); }
+
+/* ---------- FOOTER / TITLE BLOCK ---------- */
+.site-footer-v2 { background:var(--graphite); color:var(--paper); padding:120px 0 36px; }
+.footer-contact-zone { display:grid; grid-template-columns:.6fr 1fr .8fr; gap:60px; align-items:end; margin-bottom:90px; }
+.footer-contact-zone h2 { color:var(--paper); margin:0; }
+.footer-actions { display:flex; flex-direction:column; gap:12px; align-items:flex-start; }
+.footer-phone { font-size:1.45rem; color:var(--paper); }
+.footer-actions > a:last-child { color:var(--cool-steel); font-size:.82rem; }
+.title-block { border:1px solid var(--line-dark); display:grid; grid-template-columns:1fr 1.6fr; }
+.title-brand { padding:28px; display:flex; flex-direction:column; justify-content:space-between; min-height:240px; border-right:1px solid var(--line-dark); }
+.title-brand strong { font-size:1.35rem; font-stretch:112%; }
+.title-block dl { margin:0; display:grid; grid-template-columns:repeat(2,1fr); }
+.title-block dl > div { min-height:80px; padding:14px 16px; border-right:1px solid var(--line-dark); border-bottom:1px solid var(--line-dark); }
+.title-block dt { color:var(--cool-steel); font-size:9px; letter-spacing:.08em; }
+.title-block dd { margin:7px 0 0; font-size:.78rem; color:var(--paper); }
+.legal-row { display:flex; gap:24px; justify-content:space-between; padding-top:22px; color:var(--cool-steel); font-size:.68rem; }
+
+/* ---------- 404 ---------- */
+.notfound-v2 { min-height:70vh; display:grid; place-items:center; background:var(--graphite); color:var(--paper); text-align:left; }
+.notfound-v2 .mono { color:var(--champagne); }
+.notfound-v2 h1 { margin:10px 0 30px; }
+
+/* ---------- MOBILE CONTACT BAR ---------- */
+.mobile-contact-bar { display:none; }
+
+/* ---------- ACCESSIBILITY / FOCUS ---------- */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline:2px solid var(--champagne); outline-offset:4px; }
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 1080px) {
+  .desktop-nav { display:none; }
+  .header-phone { margin-left:auto; }
+  .mobile-menu { display:block; }
+  .hero-copy { max-width:650px; }
+  .assembly-layout,.price-home-grid,.contact-proof-grid,.service-signal-grid,.compact-check-list,.dakcheck-v2-grid,.price-engine-v2,.contact-v2-grid { grid-template-columns:1fr; gap:60px; }
+  .assembly-drawing { min-height:540px; }
+  .price-drawing-panel { border-left:0; border-top:1px solid var(--line-light); padding:45px 0 0; }
+  .workticket { position:relative; top:auto; }
+  .footer-contact-zone { grid-template-columns:1fr 1fr; }
+  .footer-contact-zone .section-index { grid-column:1/-1; }
 }
 
-function Hero() {
-  return (
-    <section className="hero-photo-v3">
-      <div className="hero-photo-layer" aria-hidden="true">
-        <img src={editorialImages.hero} alt="" fetchPriority="high" />
-        <div className="hero-photo-shade"/>
-      </div>
+@media (max-width: 760px) {
+  body { font-size:17px; padding-bottom:52px; }
+  .shell { width:min(calc(100% - 34px), var(--max)); }
+  .utility-bar { display:none; }
+  .site-header { top:0; }
+  .header-inner { min-height:64px; }
+  .header-phone { display:none; }
+  .wordmark strong { font-size:.95rem; }
+  .wordmark span { font-size:.7rem; }
+  .mobile-menu-panel { top:64px; }
+  .waterline-shell { left:0; width:36px; opacity:.7; }
+  .waterline-shell svg { transform:scaleX(.55); transform-origin:left; }
+  .section-block { padding:80px 0 64px; }
+  .section-index { margin-bottom:24px; gap:9px; }
+  .section-index::after { width:26px; }
+  .split-heading { grid-template-columns:1fr; gap:18px; }
+  .section-heading { margin-bottom:42px; }
+  .section-heading h2 { max-width:none; }
+  h1 { font-size:40px; }
+  h2 { font-size:28px; }
+  h3 { font-size:21px; }
+  .annotation { font-size:10px; }
 
-      <svg className="hero-waterproof-line" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
-        <line x1="0" y1="735" x2="1600" y2="120"/>
-        <line className="hero-angle-tick" x1="1214" y1="247" x2="1247" y2="277"/>
-      </svg>
+  .hero-v2 { min-height:calc(100svh - 64px); max-height:none; }
+  .hero-tonal-step { clip-path:polygon(0 76%,100% 24%,100% 100%,0 100%); }
+  .hero-roof-line line:first-child { transform:rotate(-7deg); transform-origin:center; }
+  .hero-copy { top:14%; left:0; right:0; }
+  .hero-copy h1 { font-size:40px; line-height:.98; }
+  .hero-statement { font-size:17px; max-width:28ch; }
+  .hero-angle { top:43%; right:17%; font-size:11px; }
+  .hero-action-zone { left:0; bottom:8%; width:100%; }
+  .hero-actions-v2 { gap:18px; align-items:flex-start; flex-direction:column; }
+  .hero-actions-v2 .btn { width:100%; }
+  .hero-subroute { font-size:.74rem; }
 
-      <div className="shell hero-photo-content">
-        <div className="hero-photo-copy">
-          <SectionIndex n="01" label="BREDA E.O." dark/>
-          <p className="annotation hero-code">LRS / DAKWERK / DIRECT CONTACT</p>
-          <h1><span>DAKDEKKER BREDA</span> LRS DAKTECHNIEK</h1>
-          <p className="hero-statement">U spreekt de dakdekker die het werk uitvoert.</p>
+  .situation-zone { padding:70px 0 90px; }
+  .situation-row { grid-template-columns:34px 1fr 18px; grid-template-areas:"idx human arrow" ". tech ."; gap:2px 10px; padding:14px 0; min-height:78px; }
+  .situation-row .row-index { grid-area:idx; }
+  .situation-row strong { grid-area:human; font-size:.95rem; }
+  .situation-row .technical-label { grid-area:tech; font-size:9px; }
+  .situation-row .row-result { display:none; }
+  .situation-row .row-arrow { grid-area:arrow; }
 
-          <div className="hero-actions-v3">
-            <Link className="btn hero-primary" href="/prijsindicatie">PRIJSINDICATIE</Link>
-            <a className="hero-phone mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
-          </div>
+  .assembly-drawing { min-height:390px; }
+  .assembly-drawing > svg { min-height:360px; }
+  .drawing-title { padding:10px; }
+  .drawing-title .annotation,.drawing-title .mono { font-size:8px; }
+  .detail-bubble { width:44px; height:44px; }
+  .bubble-a { top:20%; right:6%; }
+  .bubble-b { bottom:7%; left:16%; }
+  .layer-row { min-height:70px; grid-template-columns:44px 1fr 44px; }
+  .layer-row small { font-size:.68rem; }
 
-          <Link className="hero-dakcheck-link" href="/dakcheck">
-            Ik weet niet wat er nodig is <span>→</span>
-          </Link>
-        </div>
+  .material-state { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; border-left:0; padding-bottom:4px; }
+  .material-cell { flex:0 0 280px; scroll-snap-align:start; border-left:1px solid var(--line-light); }
+  .material-swatch { height:130px; }
 
-        <div className="hero-spec-panel">
-          <span className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</span>
-          <div className="hero-spec-row"><span>HELLING</span><strong className="mono">40°</strong></div>
-          <div className="hero-spec-row"><span>REGIO</span><strong>BREDA E.O.</strong></div>
-          <div className="hero-spec-row"><span>CONTACT</span><strong>DIRECT MET LRS</strong></div>
-          <small>Origineel beeld uit de bestaande LRS JouwWeb-site. Niet als nieuw projectbewijs gepresenteerd.</small>
-        </div>
-      </div>
-    </section>
-  );
+  .measured-area { width:100%; padding:38px 42px 26px 22px; }
+  .measure-top { left:22px; right:42px; }
+  .measure-side { right:8px; }
+
+  .not-needed-grid,.principle-grid { grid-template-columns:1fr; border-left:0; }
+  .principle-card { border-left:1px solid var(--line-light); }
+  .principle-card svg { height:190px; }
+  .principle-card dl > div { grid-template-columns:78px 1fr; }
+
+  .single-contact-table > div { grid-template-columns:34px 1fr 36px; grid-template-areas:"idx step lrs" ". label lrs"; padding:12px 0; gap:2px 10px; }
+  .single-contact-table .mono { grid-area:idx; }
+  .single-contact-table strong { grid-area:step; }
+  .single-contact-table .annotation { grid-area:label; font-size:8px; }
+  .single-contact-table b { grid-area:lrs; }
+
+  .survey-map { min-height:470px; }
+  .survey-map svg { height:390px; padding:18px; }
+  .survey-labels { inset:54px 20px auto 20px; }
+  .survey-labels a { font-size:.62rem; }
+  .survey-core-label { top:120px; left:40%; }
+  .survey-ring { padding:14px; }
+
+  .page-hero-v2 { padding:78px 0 70px; }
+  .page-hero-inner { grid-template-columns:1fr; gap:28px; }
+  .page-hero-v2 h1 { font-size:40px; }
+  .page-angle { width:70%; }
+
+  .service-register > a { grid-template-columns:34px 1fr 18px; gap:12px; }
+  .service-register strong { font-size:1rem; }
+  .service-register p { font-size:.78rem; }
+
+  .workticket { padding-left:18px; padding-right:18px; }
+  .check-options button { min-height:66px; }
+  .price-output > strong { font-size:2rem; }
+
+  .article-register > a { grid-template-columns:34px 1fr 18px; gap:12px; }
+  .article-register h2 { font-size:1.25rem; }
+  .article-body-v2 > section { grid-template-columns:34px 1fr; gap:12px; }
+
+  .cta-v2 { grid-template-columns:1fr; gap:28px; margin:40px 0 80px; }
+  .cta-actions-v2 .btn { width:100%; }
+
+  .site-footer-v2 { padding:80px 0 80px; }
+  .footer-contact-zone { grid-template-columns:1fr; gap:28px; margin-bottom:60px; }
+  .title-block { grid-template-columns:1fr; }
+  .title-brand { min-height:150px; border-right:0; border-bottom:1px solid var(--line-dark); }
+  .title-block dl { grid-template-columns:1fr; }
+  .title-block dl > div { min-height:64px; border-right:0; }
+  .legal-row { flex-direction:column; gap:8px; }
+
+  .mobile-contact-bar {
+    position:fixed;
+    z-index:50;
+    left:0; right:0; bottom:0;
+    height:52px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    background:var(--ink);
+    border-top:1px solid var(--line-dark);
+  }
+  .mobile-contact-bar a { display:grid; place-items:center; color:var(--paper); font-family:var(--font-plex),monospace; font-size:11px; letter-spacing:.08em; }
+  .mobile-contact-bar a + a { border-left:1px solid var(--line-dark); }
 }
 
-const situations = [
-  ["Er lekt water", "DAKLEKKAGE", "Gericht brononderzoek", "/dak-lekkage"],
-  ["Pannen liggen los of zijn beschadigd", "PANNENDAK", "Inspectie op locatie", "/dakpannen"],
-  ["Mijn platte dak wordt oud", "BITUMEN", "Opbouw beoordelen", "/betumendaken"],
-  ["Het blijft koud onder het dak", "DAKISOLATIE", "Opbouw en vocht controleren", "/dak-isolatie"],
-  ["De schoorsteen gebruik ik niet meer", "SCHOORSTEEN", "Verwijderen + dak sluiten", "/schoorsteen-verwijderen"],
-  ["Ik weet niet wat er aan de hand is", "DAKCHECK", "Stap voor stap bepalen", "/dakcheck"],
-] as const;
-
-function SituationRouter() {
-  return (
-    <section className="situation-zone dark-zone">
-      <div className="shell">
-        <SectionIndex n="02" label="SITUATIE" dark/>
-        <div className="section-heading split-heading dark-heading">
-          <h2>Begin bij wat u ziet.</h2>
-          <p>U hoeft geen technische diagnose te kennen. Kies de situatie die het dichtst in de buurt komt.</p>
-        </div>
-        <div className="situation-table">
-          {situations.map(([human, technical, result, href], i) => (
-            <Link href={href} key={human} className="situation-row">
-              <span className="mono row-index">{String(i+1).padStart(2,"0")}</span>
-              <strong>{human}</strong>
-              <span className="annotation technical-label">{technical}</span>
-              <span className="row-result">{result}</span>
-              <span className="row-arrow">↗</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior:auto; }
+  *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
+  .waterline-progress { stroke-dasharray:none !important; stroke-dashoffset:0 !important; }
 }
 
-function RoofAssembly({ focus=[] }: { focus?: LayerId[] }) {
-  const initial = focus[0] ?? "membrane";
-  const [active, setActive] = useState<LayerId>(initial);
-  const activeLayer = layerData.find((x) => x.id === active)!;
+/* Explicit structural hooks used by the V2 component. */
+.assembly-base-lines { pointer-events: none; }
+.failure-card { background: transparent; }
+.price-controls { min-width: 0; }
 
-  const isOn = (id: LayerId) => active === id || focus.includes(id);
 
-  return (
-    <div className="assembly-layout">
-      <div className="assembly-drawing">
-        <div className="drawing-title"><span className="annotation">PRINCIPE / HELLEND DAK</span><span className="mono">SCHAAL 1:10</span></div>
-        <svg viewBox="0 0 900 600" role="img" aria-label="Technische doorsnede van een hellend dak">
-          <defs>
-            <pattern id="tilePattern" width="32" height="18" patternUnits="userSpaceOnUse"><path d="M0 16 Q8 5 16 16 T32 16" fill="none"/></pattern>
-            <pattern id="insPattern" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M0 11 6 2 12 20 18 2 22 11" fill="none"/></pattern>
-          </defs>
-          <g className="assembly-base-lines">
-            <polygon className={`layer-shape ${isOn("insulation") ? "is-active" : ""}`} points="180,455 690,170 730,205 220,490" />
-            <polygon className={`layer-shape ${isOn("deck") ? "is-active" : ""}`} points="165,430 675,145 690,170 180,455" />
-            <polygon className={`layer-shape layer-thin ${isOn("membrane") ? "is-active" : ""}`} points="155,413 665,128 675,145 165,430" />
-            <g className={isOn("counter") ? "is-active-stroke" : ""}>
-              {[0,100,200,300,400].map((n)=><line key={n} x1={230+n} y1={385-n*.56} x2={245+n} y2={410-n*.56}/>)}
-            </g>
-            <g className={isOn("batten") ? "is-active-stroke" : ""}>
-              {[0,55,110,165,220,275,330,385].map((n)=><line key={n} x1={205+n} y1={385-n*.56} x2={265+n} y2={420-n*.56}/>)}
-            </g>
-            <polygon className={`tile-roof ${isOn("tile") ? "is-active-stroke" : ""}`} points="130,365 640,80 670,125 160,410" fill="url(#tilePattern)"/>
-            <polygon className={`insulation-pattern ${isOn("insulation") ? "is-active-stroke" : ""}`} points="225,488 730,205 770,250 265,533" fill="url(#insPattern)"/>
-          </g>
-          <g className="drawing-dimensions">
-            <line x1="120" y1="545" x2="770" y2="180"/><line x1="116" y1="536" x2="124" y2="554"/><line x1="766" y1="171" x2="774" y2="189"/>
-            <rect x="420" y="352" width="96" height="28"/><text x="468" y="371" textAnchor="middle">40° / OPBOUW</text>
-          </g>
-        </svg>
-        <div className="detail-bubble bubble-a mono">A</div>
-        <div className="detail-bubble bubble-b mono">B</div>
-      </div>
-      <div className="layer-register">
-        <p className="annotation">LAGENREGISTER</p>
-        {layerData.map((layer) => (
-          <button key={layer.id} onClick={() => setActive(layer.id)} className={active === layer.id ? "layer-row active" : "layer-row"}>
-            <span className="mono layer-code">{layer.code}</span>
-            <span><strong>{layer.name}</strong><small>{active === layer.id ? layer.note : "Bekijk laag"}</small></span>
-            <span className="layer-state mono">{active === layer.id ? "ACTIEF" : "+"}</span>
-          </button>
-        ))}
-        <div className="active-layer-note">
-          <span className="annotation">ACTIEVE LAAG</span>
-          <strong>{activeLayer.name}</strong>
-          <p>{activeLayer.note}</p>
-        </div>
-      </div>
-    </div>
-  );
+/* ==========================================================================
+   LRS HIGH-END PHOTO + CALCULATOR CORRECTION
+   ========================================================================== */
+
+.hero-photo-v3 {
+  position: relative;
+  min-height: min(900px, 100svh);
+  overflow: hidden;
+  background: var(--graphite);
+  color: var(--paper);
+  isolation: isolate;
 }
 
-const materials = [
-  ["MAT-01", "KERAMISCHE DAKPAN", "typ-pan", "dakbedekking"],
-  ["MAT-02", "BETONPAN", "typ-concrete", "dakbedekking"],
-  ["MAT-03", "BITUMEN TOPLAAG", "typ-bitumen", "platte daken"],
-  ["MAT-04", "PANLAT VUREN", "typ-wood", "draaglaag"],
-  ["MAT-05", "ISOLATIE", "typ-insulation", "thermische laag"],
-  ["MAT-06", "METAALAANSLUITING", "typ-metal", "detailwerk"],
-] as const;
-
-function MaterialState() {
-  return (
-    <div className="material-state">
-      {materials.map(([code,name,pattern,role]) => (
-        <article key={code} className="material-cell">
-          <div className={`material-swatch ${pattern}`} aria-hidden="true"/>
-          <div className="material-meta"><span className="mono material-code">{code}</span><strong>{name}</strong><small>{role}</small></div>
-          <DimensionLine value="MATERIAALSTAAT"/>
-        </article>
-      ))}
-    </div>
-  );
+.hero-photo-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
 }
 
-function MeasuredArea({ area=50, dark=false }: { area?: number; dark?: boolean }) {
-  const sideA = Math.max(4, Math.sqrt(Math.max(1, area)) * 1.15);
-  const sideB = Math.max(3, area / sideA);
-  return (
-    <div className={`measured-area ${dark ? "on-dark" : ""}`}>
-      <div className="measure-top"><i/><span className="mono">{sideA.toFixed(1)} M</span><i/></div>
-      <div className="measure-box"><span className="mono">{area.toFixed(0)} M²</span><div className="measure-hatch"/></div>
-      <div className="measure-side"><i/><span className="mono">{sideB.toFixed(1)} M</span><i/></div>
-    </div>
-  );
+.hero-photo-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(.72) contrast(1.1) brightness(.67);
+  transform: scale(1.02);
 }
 
-function PrincipleGraphic({ kind }: { kind: "tile" | "leak" | "bitumen" | "chimney" }) {
-  if (kind === "tile") return <svg viewBox="0 0 400 220" aria-hidden="true"><path d="M40 160 190 72 350 160"/><path className="failure" d="M183 76 203 95 186 110"/><path d="M65 160h260"/><path d="M95 143h195"/></svg>;
-  if (kind === "leak") return <svg viewBox="0 0 400 220" aria-hidden="true"><path d="M45 75h300v80H45z"/><path d="M120 75v80M280 75v80"/><path className="failure" d="M210 74c0 35-28 44-28 82 0 20 8 33 18 46"/><circle className="failure-fill" cx="210" cy="74" r="6"/></svg>;
-  if (kind === "bitumen") return <svg viewBox="0 0 400 220" aria-hidden="true"><path d="M45 75h310"/><path d="M45 92h310"/><path d="M45 118h310"/><path d="M45 153h310"/><path className="failure" d="M165 75h110"/><path d="M170 55 190 75M270 55 250 75"/></svg>;
-  return <svg viewBox="0 0 400 220" aria-hidden="true"><path d="M40 155 180 85 360 155"/><rect x="205" y="35" width="72" height="112"/><path d="M190 146h105"/><path className="failure" d="M194 138h108"/><path d="M211 147v20M271 147v20"/></svg>;
+.hero-photo-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(7,10,13,.97) 0%, rgba(7,10,13,.88) 40%, rgba(7,10,13,.36) 72%, rgba(7,10,13,.22) 100%),
+    linear-gradient(180deg, rgba(7,10,13,.10), rgba(7,10,13,.82));
 }
 
-function NotNeededSection() {
-  const items = [
-    { title:"Eén gebroken pan betekent geen nieuw dak.", kind:"tile" as const, inspect:"VERVANGEN", keep:"panlat · tengel · folie · beschot" },
-    { title:"Een vochtplek betekent niet dat het hele dak slecht is.", kind:"leak" as const, inspect:"ONDERZOEKEN", keep:"dakvlak buiten het faalpunt" },
-    { title:"Een oude bitumenlaag hoeft niet altijd verwijderd.", kind:"bitumen" as const, inspect:"BEOORDELEN", keep:"hechting · vocht · ondergrond" },
-  ];
-  return (
-    <div className="not-needed-grid">
-      {items.map((item,i)=>(
-        <article className="principle-card failure-card" key={item.title}>
-          <div className="principle-head"><span className="annotation">PRINCIPEDETAIL — NIET PROJECTGEBONDEN</span><span className="mono">F{String(i+1).padStart(2,"0")}</span></div>
-          <PrincipleGraphic kind={item.kind}/>
-          <h3>{item.title}</h3>
-          <dl><div><dt className="annotation">{item.inspect}</dt><dd>alleen het werkelijke probleem</dd></div><div><dt className="annotation">BEHOUDEN</dt><dd>{item.keep}</dd></div></dl>
-        </article>
-      ))}
-    </div>
-  );
+.hero-waterproof-line {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
-const detailSpecs = [
-  ["A","NOKAANSLUITING","tile","Aansluiting, bevestiging en waterkering rond de nok."],
-  ["B","DAKVOET","leak","Afvoerroute aan de onderzijde van de dakopbouw."],
-  ["C","SCHOORSTEENAANSLUITING","chimney","Overgang tussen metselwerk, aansluiting en dakvlak."],
-  ["D","BITUMEN AFVOER","bitumen","Detail bij naad, afvoer en opstand van een plat dak."],
-] as const;
-
-function PrincipleDetails({ only }: { only?: string[] }) {
-  const visible = only?.length ? detailSpecs.filter(([letter])=>only.includes(letter)) : detailSpecs;
-  return (
-    <div className="principle-grid">
-      {visible.map(([letter,title,kind,note]) => (
-        <article className="principle-card" key={letter}>
-          <div className="principle-head"><span className="annotation">PRINCIPEDETAIL — NIET PROJECTGEBONDEN</span><span className="detail-bubble static mono">{letter}</span></div>
-          <PrincipleGraphic kind={kind}/>
-          <div className="principle-copy"><span className="mono">DETAIL {letter} / SCHAAL N.T.S.</span><h3>{title}</h3><p>{note}</p></div>
-        </article>
-      ))}
-    </div>
-  );
+.hero-waterproof-line line {
+  stroke: rgba(242,240,236,.48);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
-function SingleContactTable() {
-  const steps = ["Aanvraag","Inspectie op locatie","Offerte","Uitvoering","Oplevering"];
-  return <div className="single-contact-table">{steps.map((step,i)=><div key={step}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{step}</strong><span className="annotation">AANSPREEKPUNT</span><b>LRS</b></div>)}</div>;
+.hero-waterproof-line .hero-angle-tick {
+  stroke: var(--champagne);
 }
 
-function WorkAreaSchematic() {
-  const core = locations.filter((l)=>l[2]==="A").slice(0,5);
-  const ring = locations.filter((l)=>l[2]!=="A").slice(0,8);
-  return (
-    <div className="survey-map" aria-label="Schematische weergave van het werkgebied rond Breda">
-      <div className="survey-caption"><span className="annotation">SCHEMATISCHE WERKREGIO</span><span className="mono">BREDA / NOORD-BRABANT</span></div>
-      <svg viewBox="0 0 900 520" aria-hidden="true">
-        <path d="M92 375 215 240 390 260 470 128 650 185 790 95"/>
-        <path d="M120 105 235 205 390 160 520 282 710 242 815 365"/>
-        <circle cx="430" cy="260" r="54"/><circle cx="430" cy="260" r="4" className="survey-core"/>
-        {["170,190","270,330","535,160","605,325","735,205","690,390","335,120","155,390"].map((p)=><circle key={p} cx={p.split(",")[0]} cy={p.split(",")[1]} r="3"/>)}
-      </svg>
-      <div className="survey-labels"><div className="survey-core-label"><strong>BREDA</strong><span className="annotation">KERNREGIO</span></div>{core.filter((x)=>x[1]!=="Breda").map((l)=><Link href={`/${l[0]}`} key={l[0]}>{l[1]}</Link>)}</div>
-      <div className="survey-ring">{ring.map((l)=><Link href={`/${l[0]}`} key={l[0]}>{l[1]}</Link>)}</div>
-    </div>
-  );
+.hero-photo-content {
+  display: grid;
+  min-height: min(900px, 100svh);
+  grid-template-columns: minmax(0,1.12fr) minmax(300px,.62fr);
+  align-items: end;
+  gap: 80px;
+  padding-top: 170px;
+  padding-bottom: 92px;
 }
 
-function EditorialMaterialBand() {
-  return (
-    <section className="editorial-material-band work-zone">
-      <div className="shell editorial-material-grid">
-        <figure className="editorial-photo editorial-photo-large">
-          <img src={editorialImages.slate} alt="Origineel LRS Daktechniek beeld uit de JouwWeb-site" loading="lazy"/>
-          <figcaption><span className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</span><strong>Textuur, ritme en detaillering.</strong></figcaption>
-        </figure>
-        <figure className="editorial-photo editorial-photo-small">
-          <img src={editorialImages.terracotta} alt="Origineel LRS Daktechniek beeld uit de JouwWeb-site" loading="lazy"/>
-          <figcaption><span className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</span><strong>Het dak moet er ook strak uitzien.</strong></figcaption>
-        </figure>
-        <div className="editorial-note">
-          <span className="mono">02A</span>
-          <p className="annotation">BEELD + TECHNIEK</p>
-          <h2>Niet alleen tekenen. Ook materiaal laten voelen.</h2>
-          <p>De technische lijnen blijven de identiteit dragen, maar het beeld komt nu uit de bestaande LRS JouwWeb-site in plaats van uit een stockbibliotheek. We presenteren het niet als een nieuw of verzonnen project.</p>
-        </div>
-      </div>
-    </section>
-  );
+.hero-photo-copy {
+  max-width: 820px;
 }
 
-function Home() {
-  return (
-    <>
-      <Hero/>
-      <SituationRouter/>
-      <EditorialMaterialBand/>
-
-      <section className="work-zone section-block">
-        <div className="shell">
-          <SectionIndex n="03" label="DAKOPBOUW"/>
-          <div className="section-heading split-heading"><div><p className="annotation">TECHNISCHE DOORSNEDE</p><h2>Een dak is een systeem van lagen.</h2></div><p>Niet automatisch alles vervangen. Eerst bepalen welke laag werkelijk aandacht nodig heeft.</p></div>
-          <RoofAssembly/>
-        </div>
-      </section>
-
-      <section className="paper-deep-zone section-block">
-        <div className="shell">
-          <SectionIndex n="04" label="MATERIAALSTAAT"/>
-          <div className="section-heading split-heading"><div><p className="annotation">MATERIALEN / OPBOUW</p><h2>Materiaal als technische informatie.</h2></div><p>De arceringen leggen de opbouw uit. Fotografie voegt textuur toe, maar wordt niet als projectbewijs gebruikt.</p></div>
-          <MaterialState/>
-        </div>
-      </section>
-
-      <section className="work-zone section-block">
-        <div className="shell price-home-grid">
-          <div>
-            <SectionIndex n="05" label="PRIJSINDICATIE"/>
-            <p className="annotation">OPGEMETEN VLAK</p>
-            <h2>Een bedrag wanneer dat verantwoord kan.</h2>
-            <p className="body-large">Voor daklekkage is de huidige openbare indicatie <span className="mono">€242 – €423,50</span> incl. btw. Grotere werkzaamheden blijven maatwerk.</p>
-            <DimensionLine value="GEEN LOKPRIJS"/>
-            <Link className="btn primary-light" href="/prijsindicatie">OPEN PRIJSINDICATIE</Link>
-          </div>
-          <MeasuredArea area={50}/>
-        </div>
-      </section>
-
-      <section className="work-zone section-block section-rule-top">
-        <div className="shell">
-          <SectionIndex n="06" label="TERUGHOUDEND ADVIES"/>
-          <div className="section-heading split-heading"><div><p className="annotation">WANNEER NIET ALLES NODIG IS</p><h2>Eerst vaststellen wat er werkelijk aan de hand is.</h2></div><p>De oxide markering hieronder laat alleen het mogelijke faalpunt zien. Niet automatisch het hele dak.</p></div>
-          <NotNeededSection/>
-        </div>
-      </section>
-
-      <section className="paper-deep-zone section-block">
-        <div className="shell">
-          <SectionIndex n="07" label="PRINCIPEDETAILS"/>
-          <div className="section-heading split-heading"><div><p className="annotation">TECHNISCHE UITLEG</p><h2>Vier details die vaak het verschil maken.</h2></div><p>Deze tekeningen zijn educatief en niet gekoppeld aan een uitgevoerd project.</p></div>
-          <PrincipleDetails/>
-        </div>
-      </section>
-
-      <section className="work-zone section-block">
-        <div className="shell contact-proof-grid">
-          <div>
-            <SectionIndex n="08" label="ÉÉN AANSPREEKPUNT"/>
-            <p className="annotation">WERKWIJZE</p>
-            <h2>Van eerste vraag tot oplevering: LRS.</h2>
-            <p>Geen callcenter als uitgangspunt van de klantreis. U houdt één duidelijke contactlijn.</p>
-            <a className="contact-number mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
-          </div>
-          <SingleContactTable/>
-        </div>
-      </section>
-
-      <section className="dark-zone section-block">
-        <div className="shell">
-          <SectionIndex n="09" label="WERKGEBIED" dark/>
-          <div className="section-heading split-heading dark-heading"><div><p className="annotation">BREDA & OMGEVING</p><h2>Lokale focus, zonder fictieve vestigingen.</h2></div><p>De kaart is schematisch. De plaatsnamen verwijzen naar de bestaande werkgebiedpagina’s.</p></div>
-          <WorkAreaSchematic/>
-        </div>
-      </section>
-    </>
-  );
+.hero-photo-copy .section-index {
+  margin-bottom: 58px;
 }
 
-function PageHero({ eyebrow, title, lead, angle="40°" }: { eyebrow: string; title: string; lead?: string; angle?: string }) {
-  return (
-    <section className="page-hero-photo">
-      <div className="shell page-hero-photo-grid">
-        <div className="page-hero-copy">
-          <p className="annotation">{eyebrow}</p>
-          <h1>{title}</h1>
-          {lead && <p className="page-lead">{lead}</p>}
-          <DimensionLine value={angle}/>
-        </div>
-        <figure className="page-hero-image">
-          <img src={editorialImages.slate} alt="" aria-hidden="true" loading="eager"/>
-          <figcaption className="annotation">ORIGINEEL LRS-BEELD / JOUWWEB</figcaption>
-        </figure>
-      </div>
-    </section>
-  );
+.hero-photo-copy h1 {
+  max-width: 920px;
+  margin: 0 0 24px;
+  color: var(--paper);
+  font-size: clamp(4.8rem, 9vw, 8.7rem);
+  line-height: .84;
+  letter-spacing: -.055em;
+  text-transform: uppercase;
 }
 
-function CTA({ title="Niet zeker wat uw dak nodig heeft?" }: { title?: string }) {
-  return <section className="cta-v2"><div><p className="annotation">VOLGENDE STAP</p><h2>{title}</h2><p>Start met de Dakcheck, vraag een prijsindicatie op of neem direct contact op.</p></div><div className="cta-actions-v2"><Link className="btn primary-dark" href="/dakcheck">START DAKCHECK</Link><Link className="text-action" href="/prijsindicatie">Prijsindicatie →</Link><a className="mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a></div></section>;
+.hero-photo-copy h1 span {
+  display: block;
+  color: var(--paper);
+  font-weight: 480;
 }
 
-function ServicePage({ slug }: { slug: string }) {
-  const service = serviceBySlug(slug)!;
-  const visual = serviceVisuals[slug] ?? serviceVisuals.dakpannen;
-  return <>
-    <PageHero eyebrow={`${service.eyebrow} / ${visual.material}`} title={service.title} lead={service.hero} angle={visual.angle}/>
-    <section className="work-zone section-block"><div className="shell service-signal-grid"><div><SectionIndex n="01" label="SIGNALEN"/><p className="annotation">WANNEER CONTROLEREN</p><h2>{service.intro}</h2></div><div className="signal-register">{service.symptoms.map((x,i)=><div key={x}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{x}</strong></div>)}</div></div></section>
-    <section className="paper-deep-zone section-block"><div className="shell"><SectionIndex n="02" label="DAKOPBOUW"/><div className="section-heading split-heading"><div><p className="annotation">TECHNISCHE FOCUS</p><h2>Welke lagen verdienen hier aandacht?</h2></div><p>De relevante lagen zijn vooraf gemarkeerd; tik op een laag voor uitleg.</p></div><RoofAssembly focus={visual.layers}/></div></section>
-    <section className="work-zone section-block"><div className="shell"><SectionIndex n="03" label="DETAILS"/><PrincipleDetails only={visual.details}/></div></section>
-    <section className="work-zone section-block section-rule-top"><div className="shell compact-check-list"><div><p className="annotation">CONTROLEPUNTEN</p><h2>Wat wordt bekeken?</h2></div><div>{service.checks.map((x,i)=><div key={x}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{x}</strong></div>)}</div></div></section>
-    <div className="shell"><CTA title={`${service.name} bespreken?`}/></div>
-  </>;
+.hero-photo-copy .hero-statement {
+  max-width: 600px;
+  margin: 0;
+  color: #d9dde0;
+  font-size: clamp(1.2rem,2vw,1.65rem);
 }
 
-const dakcheckIssues = ["Lekkage","Pannendak","Bitumen / plat dak","Dakisolatie","Schoorsteen","Ik weet het niet"];
-const dakcheckRoofs = ["Hellend","Plat","Weet ik niet"];
-const dakcheckUrgency = ["Actief lekkageprobleem","Binnen enkele weken","Oriëntatie / onderhoud"];
-
-function Dakcheck() {
-  const [step,setStep]=useState(0);
-  const [issue,setIssue]=useState("");
-  const [roof,setRoof]=useState("");
-  const [urgency,setUrgency]=useState("");
-  const issueLow = issue.toLowerCase();
-  const route = issueLow.includes("lekk") ? "/dak-lekkage" : issueLow.includes("pannen") ? "/dakpannen" : issueLow.includes("bitumen") ? "/betumendaken" : issueLow.includes("isolatie") ? "/dak-isolatie" : issueLow.includes("schoorsteen") ? "/schoorsteen-verwijderen" : "/contact";
-  const complete = Boolean(issue && roof && urgency);
-
-  const choose = (value:string) => {
-    if(step===0) setIssue(value);
-    if(step===1) setRoof(value);
-    if(step===2) setUrgency(value);
-    setStep((s)=>Math.min(3,s+1));
-  };
-  const choices = step===0 ? dakcheckIssues : step===1 ? dakcheckRoofs : dakcheckUrgency;
-  const question = step===0 ? "Wat speelt er?" : step===1 ? "Welk daktype ziet u?" : "Hoe urgent is het?";
-
-  return <>
-    <PageHero eyebrow="DAKCHECK-RAPPORT" title="Van wat u ziet naar een logische volgende stap." lead="Geen diagnose op afstand. Wel een helder rapport op basis van uw antwoorden."/>
-    <section className="work-zone section-block"><div className="shell dakcheck-v2-grid">
-      <div className="dakcheck-question">
-        <SectionIndex n={`0${Math.min(step+1,4)}`} label="DAKCHECK"/>
-        {step<3 ? <><p className="annotation">VRAAG {step+1} / 3</p><h2>{question}</h2><div className="check-options">{choices.map((x)=><button key={x} onClick={()=>choose(x)}>{x}<span>→</span></button>)}</div></> : <><p className="annotation">RAPPORT COMPLEET</p><h2>Uw route staat klaar.</h2><p>Controleer rechts wat u heeft ingevuld. U kunt direct naar de relevante dienst of de samenvatting via WhatsApp sturen.</p><button className="text-button" onClick={()=>setStep(0)}>Antwoorden aanpassen</button></>}
-      </div>
-      <aside className="workticket" aria-label="Dakcheck rapport">
-        <div className="workticket-head"><span className="annotation">DAKCHECK-RAPPORT</span><span className="mono">LIVE</span></div>
-        <div className="ticket-row"><span className="annotation">ONDERWERP</span><strong>{issue || "—"}</strong></div>
-        <div className="ticket-row"><span className="annotation">DAKTYPE</span><strong>{roof || "—"}</strong></div>
-        <div className="ticket-row"><span className="annotation">URGENTIE</span><strong>{urgency || "—"}</strong></div>
-        <div className="ticket-progress"><span style={{width:`${Math.min(100, ((Boolean(issue)?1:0)+(Boolean(roof)?1:0)+(Boolean(urgency)?1:0))/3*100)}%`}}/></div>
-        {complete && <div className="ticket-actions"><Link className="btn primary-light" href={route}>BEKIJK ROUTE</Link><a className="text-action" href={whatsapp(`Hallo LRS, ik heb de Dakcheck gedaan.\nOnderwerp: ${issue}\nDaktype: ${roof}\nUrgentie: ${urgency}`)} target="_blank" rel="noreferrer">Stuur samenvatting via WhatsApp →</a></div>}
-      </aside>
-    </div></section>
-  </>;
+.hero-actions-v3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin-top: 42px;
 }
 
-type CalculatorRoof = "pannendak" | "bitumen";
-type CalculatorAccess = "goed" | "normaal" | "moeilijk";
-type PriceSource = "LRS" | "MARKT_2026";
-type PriceRule = {
-  mode: "perM2" | "fixed";
-  minIncl: number;
-  maxIncl: number;
-  source: PriceSource;
-  note: string;
-};
+.hero-primary {
+  border-color: var(--paper);
+  background: var(--paper);
+  color: var(--graphite);
+}
 
-const pannendakWorks = [
-  ["pannen-beton", "Dakpannen wisselen – beton/sneldek"],
-  ["pannen-keramisch", "Dakpannen wisselen – keramisch"],
-  ["pannen-renovatie", "Complete pannendak-renovatie"],
-  ["pannen-isolatie", "Dakisolatie onder pannendak"],
-  ["pannen-lekkage", "Lekkage pannendak"],
-  ["pannen-schoorsteen-kil", "Schoorsteenlekkage / kilgoot"],
-] as const;
+.hero-primary:hover {
+  border-color: var(--paper);
+  background: #fff;
+}
 
-const bitumenWorks = [
-  ["bitumen-overlagen", "Bitumen dak overlagen"],
-  ["bitumen-nieuw", "Nieuw bitumen dak"],
-  ["bitumen-warmdak", "Warm dak – isolatie + bitumen"],
-  ["bitumen-kleinvlak", "Plat dak dakkapel, garage of schuur"],
-  ["bitumen-lekkage", "Lekkage plat dak"],
-] as const;
+.hero-phone {
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(242,240,236,.55);
+  color: var(--paper);
+  font-size: 1.12rem;
+}
 
-/*
- * Publieke prijsindicatie:
- * - Lekkage gebruikt de bevestigde openbare LRS-bandbreedte: €200–€350 excl. btw.
- * - Overige regels gebruiken actuele Nederlandse 2026-marktbanden als richtindicatie.
- *   Ze worden bewust NIET als intern LRS-offertetarief gepresenteerd.
- */
-const PUBLIC_PRICE_RULES: Record<string, PriceRule> = {
-  "pannen-beton": {
-    mode: "perM2",
-    minIncl: 40,
-    maxIncl: 70,
-    source: "MARKT_2026",
-    note: "Richtband betonpannen inclusief materiaal, arbeid en btw.",
-  },
-  "pannen-keramisch": {
-    mode: "perM2",
-    minIncl: 60,
-    maxIncl: 100,
-    source: "MARKT_2026",
-    note: "Richtband keramische dakpannen inclusief materiaal, arbeid en btw.",
-  },
-  "pannen-renovatie": {
-    mode: "perM2",
-    minIncl: 65,
-    maxIncl: 110,
-    source: "MARKT_2026",
-    note: "Richtband voor complete renovatie van een schuin pannendak.",
-  },
-  "pannen-isolatie": {
-    mode: "perM2",
-    minIncl: 33,
-    maxIncl: 65,
-    source: "MARKT_2026",
-    note: "Richtband voor dakisolatie wanneer dit met pannendakwerk wordt gecombineerd.",
-  },
-  "pannen-lekkage": {
-    mode: "fixed",
-    minIncl: 242,
-    maxIncl: 423.5,
-    source: "LRS",
-    note: "Bevestigde openbare LRS-prijsindicatie voor lekkageherstel.",
-  },
-  "pannen-schoorsteen-kil": {
-    mode: "fixed",
-    minIncl: 242,
-    maxIncl: 423.5,
-    source: "LRS",
-    note: "Lekkage-indicatie; definitieve omvang hangt af van aansluiting, lood en kilgoot.",
-  },
-  "bitumen-overlagen": {
-    mode: "perM2",
-    minIncl: 40,
-    maxIncl: 55,
-    source: "MARKT_2026",
-    note: "Richtband voor een nieuwe bitumenlaag wanneer de bestaande basis bruikbaar is.",
-  },
-  "bitumen-nieuw": {
-    mode: "perM2",
-    minIncl: 50,
-    maxIncl: 90,
-    source: "MARKT_2026",
-    note: "Richtband voor nieuwe/vervangende bitumen dakbedekking.",
-  },
-  "bitumen-warmdak": {
-    mode: "perM2",
-    minIncl: 90,
-    maxIncl: 150,
-    source: "MARKT_2026",
-    note: "Samengestelde richtband voor isolatie plus bitumen dakopbouw.",
-  },
-  "bitumen-kleinvlak": {
-    mode: "perM2",
-    minIncl: 50,
-    maxIncl: 90,
-    source: "MARKT_2026",
-    note: "Richtband voor bitumen op dakkapel, garage, aanbouw of schuur.",
-  },
-  "bitumen-lekkage": {
-    mode: "fixed",
-    minIncl: 242,
-    maxIncl: 423.5,
-    source: "LRS",
-    note: "Bevestigde openbare LRS-prijsindicatie voor lekkageherstel.",
-  },
-};
+.hero-dakcheck-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 26px;
+  color: #c2cbd0;
+}
 
-const CHIMNEY_REMOVE_MARKET_INCL = { min: 1500, max: 2500 } as const;
-const DIFFICULT_ACCESS_FACTOR = 1.1;
+.hero-dakcheck-link span {
+  color: var(--champagne);
+}
 
-function PricePage() {
-  const [roofType, setRoofType] = useState<CalculatorRoof>("pannendak");
-  const [workId, setWorkId] = useState("pannen-beton");
-  const [chimney, setChimney] = useState("nee");
-  const [area, setArea] = useState("40");
-  const [access, setAccess] = useState<CalculatorAccess>("normaal");
-  const [submitted, setSubmitted] = useState(false);
+.hero-spec-panel {
+  align-self: end;
+  margin-bottom: 18px;
+  padding: 26px 0 0;
+  border-top: 1px solid rgba(255,255,255,.22);
+}
 
-  const works = roofType === "pannendak" ? pannendakWorks : bitumenWorks;
-  const work = works.find(([id]) => id === workId) ?? works[0];
-  const areaNumber = Math.max(1, Number(area) || 1);
-  const rule = PUBLIC_PRICE_RULES[workId];
+.hero-spec-panel > .annotation {
+  color: var(--champagne);
+}
 
-  const roundToFive = (value: number) => Math.round(value / 5) * 5;
-  const accessFactor = access === "moeilijk" ? DIFFICULT_ACCESS_FACTOR : 1;
+.hero-spec-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  padding: 15px 0;
+  border-bottom: 1px solid rgba(255,255,255,.13);
+  color: #d4dadd;
+}
 
-  let minInclVat =
-    rule.mode === "perM2" ? rule.minIncl * areaNumber : rule.minIncl;
-  let maxInclVat =
-    rule.mode === "perM2" ? rule.maxIncl * areaNumber : rule.maxIncl;
+.hero-spec-row span {
+  color: #8798a3;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .08em;
+}
 
-  if (chimney === "ja") {
-    minInclVat += CHIMNEY_REMOVE_MARKET_INCL.min;
-    maxInclVat += CHIMNEY_REMOVE_MARKET_INCL.max;
+.hero-spec-row strong {
+  color: var(--paper);
+  font-size: .86rem;
+}
+
+.hero-spec-panel small {
+  display: block;
+  margin-top: 16px;
+  color: #8798a3;
+  font-size: .72rem;
+}
+
+/* Rich editorial photo band */
+
+.editorial-material-band {
+  padding: 0 0 150px;
+}
+
+.editorial-material-grid {
+  display: grid;
+  grid-template-columns: 1.3fr .72fr;
+  grid-template-rows: auto auto;
+  gap: 22px;
+}
+
+.editorial-photo {
+  position: relative;
+  overflow: hidden;
+  min-height: 390px;
+  margin: 0;
+  background: var(--graphite);
+}
+
+.editorial-photo-large {
+  grid-row: 1 / span 2;
+  min-height: 720px;
+}
+
+.editorial-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(.72) contrast(1.06);
+  transition: transform 700ms cubic-bezier(.22,1,.36,1), filter 300ms ease;
+}
+
+.editorial-photo:hover img {
+  transform: scale(1.025);
+  filter: saturate(.88) contrast(1.03);
+}
+
+.editorial-photo figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px;
+  background: linear-gradient(180deg, transparent, rgba(7,10,13,.88));
+  color: var(--paper);
+}
+
+.editorial-photo figcaption .annotation {
+  color: #c8d1d5;
+}
+
+.editorial-note {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  column-gap: 20px;
+  align-content: start;
+  padding: 34px 0 0;
+  border-top: 1px solid var(--line-light);
+}
+
+.editorial-note > .mono {
+  color: var(--champagne);
+}
+
+.editorial-note > *:not(.mono) {
+  grid-column: 2;
+}
+
+.editorial-note h2 {
+  max-width: 580px;
+  margin-bottom: 18px;
+  font-size: clamp(2rem,3.6vw,3.7rem);
+}
+
+/* Photo-led inner page hero */
+
+.page-hero-photo {
+  padding: 92px 0 76px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line-light);
+}
+
+.page-hero-photo-grid {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(380px,.74fr);
+  align-items: stretch;
+  gap: 64px;
+}
+
+.page-hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 500px;
+}
+
+.page-hero-copy h1 {
+  max-width: 760px;
+}
+
+.page-hero-copy .dimension-line {
+  margin-top: 28px;
+}
+
+.page-hero-image {
+  position: relative;
+  min-height: 500px;
+  margin: 0;
+  overflow: hidden;
+  background: var(--graphite);
+}
+
+.page-hero-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(.62) contrast(1.08);
+}
+
+.page-hero-image figcaption {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  padding: 8px 10px;
+  background: rgba(7,10,13,.76);
+  color: #d4dadd;
+}
+
+/* Calculator: restore actual tool feel */
+
+.calculator-v3-shell {
+  display: grid;
+  grid-template-columns: .72fr 1.18fr .68fr;
+  align-items: start;
+  gap: 54px;
+}
+
+.calculator-v3-intro h2 {
+  max-width: 430px;
+  font-size: clamp(2.2rem,3.7vw,4rem);
+}
+
+.calculator-v3-form {
+  padding: 36px;
+  border: 1px solid var(--line-light);
+  background: #f7f5f0;
+}
+
+.calculator-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.calculator-field-grid label {
+  display: grid;
+  gap: 9px;
+}
+
+.calculator-field-grid .calculator-wide {
+  grid-column: 1 / -1;
+}
+
+.calculator-field-grid select,
+.calculator-field-grid input {
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  border-bottom: 1px solid rgba(7,10,13,.26);
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--graphite);
+  font: inherit;
+}
+
+.calculator-field-grid select:focus,
+.calculator-field-grid input:focus {
+  border-bottom-color: var(--steel);
+}
+
+.calculator-number {
+  position: relative;
+}
+
+.calculator-number input {
+  padding-right: 54px;
+}
+
+.calculator-number > .mono {
+  position: absolute;
+  right: 0;
+  bottom: 18px;
+  color: var(--steel);
+  font-size: .8rem;
+}
+
+.calculator-submit {
+  width: 100%;
+  margin-top: 28px;
+  border-color: var(--steel);
+  background: var(--steel);
+  color: #fff;
+}
+
+.calculator-v3-visual {
+  position: sticky;
+  top: 150px;
+  padding-top: 42px;
+}
+
+.calculator-result-zone {
+  padding: 84px 0;
+  background: var(--graphite);
+  color: var(--paper);
+}
+
+.calculator-result-v3 {
+  display: grid;
+  grid-template-columns: .85fr 1.15fr;
+  gap: 90px;
+  align-items: start;
+}
+
+.calculator-result-v3 h2 {
+  color: var(--paper);
+}
+
+.calculator-summary {
+  margin: 32px 0 0;
+  border-top: 1px solid var(--line-dark);
+}
+
+.calculator-summary div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.calculator-summary dt {
+  color: var(--cool-steel);
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .08em;
+}
+
+.calculator-summary dd {
+  margin: 0;
+  color: var(--paper);
+}
+
+.calculator-price-panel {
+  padding-left: 48px;
+  border-left: 1px solid var(--line-dark);
+}
+
+.calculator-price-panel > strong {
+  display: block;
+  margin: 12px 0 18px;
+  color: var(--paper);
+  font-size: clamp(2.5rem,5vw,5.7rem);
+  line-height: .98;
+}
+
+.calculator-price-panel p {
+  max-width: 600px;
+  color: #aebbc2;
+}
+
+.calculator-price-panel .btn {
+  margin-top: 20px;
+}
+
+.calculator-explain {
+  border-top: 1px solid var(--line-light);
+}
+
+@media (max-width: 980px) {
+  .hero-photo-content {
+    grid-template-columns: 1fr;
+    align-items: end;
+    gap: 44px;
+    padding-top: 150px;
   }
 
-  minInclVat = roundToFive(minInclVat * accessFactor);
-  maxInclVat = roundToFive(maxInclVat * accessFactor);
-
-  const minExVat = roundToFive(minInclVat / 1.21);
-  const maxExVat = roundToFive(maxInclVat / 1.21);
-
-  function changeRoof(value: CalculatorRoof) {
-    setRoofType(value);
-    const first = value === "pannendak" ? pannendakWorks[0][0] : bitumenWorks[0][0];
-    setWorkId(first);
-    setSubmitted(false);
+  .hero-photo-copy h1 {
+    font-size: clamp(4rem,14vw,7rem);
   }
 
-  function formatEuro(value: number) {
-    return new Intl.NumberFormat("nl-NL", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(value);
+  .hero-spec-panel {
+    max-width: 560px;
   }
 
-  const sourceLabel =
-    rule.source === "LRS"
-      ? "LRS OPENBARE PRIJSBASIS"
-      : "2026 MARKTRICHTPRIJS";
+  .editorial-material-grid,
+  .page-hero-photo-grid,
+  .calculator-v3-shell,
+  .calculator-result-v3 {
+    grid-template-columns: 1fr;
+  }
 
-  const whatsappText = [
-    "Hallo LRS Daktechniek, ik heb de prijsindicatie ingevuld.",
-    `Type dak: ${roofType === "pannendak" ? "Pannendak" : "Bitumen / plat dak"}`,
-    `Werk: ${work[1]}`,
-    `Schoorsteen verwijderen: ${chimney === "ja" ? "Ja" : "Nee"}`,
-    `Oppervlakte: ${areaNumber} m²`,
-    `Bereikbaarheid: ${access}`,
-    `Online indicatie: ${formatEuro(minInclVat)} – ${formatEuro(maxInclVat)} incl. btw`,
-    `Basis: ${sourceLabel}`,
-  ].join("\n");
+  .editorial-photo-large {
+    min-height: 520px;
+    grid-row: auto;
+  }
 
-  return (
-    <>
-      <PageHero
-        eyebrow="PRIJSINDICATIE / REKENMACHINE"
-        title="Bereken direct een prijsband voor uw dak."
-        lead="Kies daktype, werkzaamheden, oppervlakte, bereikbaarheid en eventueel schoorsteen verwijderen. De uitkomst verschijnt direct als bedrag excl. en incl. btw."
-      />
+  .editorial-photo-small {
+    min-height: 420px;
+  }
 
-      <section className="work-zone section-block">
-        <div className="shell calculator-v3-shell">
-          <div className="calculator-v3-intro">
-            <SectionIndex n="01" label="INVOER"/>
-            <p className="annotation">PRIJSINDICATIE DAKWERK</p>
-            <h2>Een echte rekensom, geen formulier dat eindigt op “maatwerk”.</h2>
-            <p>
-              Lekkage gebruikt de bestaande openbare LRS-prijs. Voor de overige werkzaamheden
-              rekent de tool met actuele Nederlandse richtbanden voor 2026. Zo krijgt u direct
-              een bruikbaar bedrag, terwijl de definitieve LRS-offerte pas na beoordeling van
-              het dak wordt vastgesteld.
-            </p>
-          </div>
+  .page-hero-copy {
+    min-height: auto;
+  }
 
-          <form
-            className="calculator-v3-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSubmitted(true);
-            }}
-          >
-            <div className="calculator-field-grid">
-              <label>
-                <span className="annotation">01 / TYPE DAK</span>
-                <select
-                  value={roofType}
-                  onChange={(event) => changeRoof(event.target.value as CalculatorRoof)}
-                >
-                  <option value="pannendak">Pannendak</option>
-                  <option value="bitumen">Bitumen / plat dak</option>
-                </select>
-              </label>
+  .page-hero-image {
+    min-height: 430px;
+  }
 
-              <label>
-                <span className="annotation">02 / SOORT WERK</span>
-                <select
-                  value={workId}
-                  onChange={(event) => {
-                    setWorkId(event.target.value);
-                    setSubmitted(false);
-                  }}
-                >
-                  {works.map(([id, label]) => (
-                    <option key={id} value={id}>{label}</option>
-                  ))}
-                </select>
-              </label>
+  .calculator-v3-visual {
+    position: static;
+    max-width: 520px;
+  }
 
-              <label>
-                <span className="annotation">03 / SCHOORSTEEN VERWIJDEREN</span>
-                <select
-                  value={chimney}
-                  onChange={(event) => {
-                    setChimney(event.target.value);
-                    setSubmitted(false);
-                  }}
-                >
-                  <option value="nee">Nee</option>
-                  <option value="ja">Ja, meenemen in indicatie</option>
-                </select>
-              </label>
-
-              <label>
-                <span className="annotation">04 / OPPERVLAKTE DAK</span>
-                <div className="calculator-number">
-                  <input
-                    type="number"
-                    min="1"
-                    inputMode="numeric"
-                    value={area}
-                    onChange={(event) => {
-                      setArea(event.target.value);
-                      setSubmitted(false);
-                    }}
-                    placeholder="Bijv. 40"
-                  />
-                  <span className="mono">M²</span>
-                </div>
-              </label>
-
-              <label className="calculator-wide">
-                <span className="annotation">05 / BEREIKBAARHEID</span>
-                <select
-                  value={access}
-                  onChange={(event) => {
-                    setAccess(event.target.value as CalculatorAccess);
-                    setSubmitted(false);
-                  }}
-                >
-                  <option value="goed">Goed bereikbaar</option>
-                  <option value="normaal">Normaal bereikbaar</option>
-                  <option value="moeilijk">Moeilijk bereikbaar</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="calculator-live-preview">
-              <span className="annotation">HUIDIGE REKENBAND / INCL. BTW</span>
-              <strong className="mono">{formatEuro(minInclVat)} – {formatEuro(maxInclVat)}</strong>
-              <small>{sourceLabel}</small>
-            </div>
-
-            <button className="btn calculator-submit" type="submit">
-              PRIJSINDICATIE BEREKENEN
-            </button>
-          </form>
-
-          <aside className="calculator-v3-visual">
-            <MeasuredArea area={areaNumber}/>
-          </aside>
-        </div>
-      </section>
-
-      {submitted && (
-        <section className="calculator-result-zone" aria-live="polite">
-          <div className="shell calculator-result-v3">
-            <div>
-              <span className="annotation">UITKOMST / {roofType.toUpperCase()}</span>
-              <h2>{work[1]}</h2>
-              <dl className="calculator-summary">
-                <div><dt>OPPERVLAKTE</dt><dd className="mono">{areaNumber} M²</dd></div>
-                <div><dt>BEREIKBAARHEID</dt><dd>{access}</dd></div>
-                <div><dt>SCHOORSTEEN</dt><dd>{chimney === "ja" ? "Ja" : "Nee"}</dd></div>
-                <div><dt>PRIJSBASIS</dt><dd>{sourceLabel}</dd></div>
-              </dl>
-            </div>
-
-            <div className="calculator-price-panel">
-              <span className="annotation">PRIJSINDICATIE INCL. 21% BTW</span>
-              <strong className="mono">
-                {formatEuro(minInclVat)} – {formatEuro(maxInclVat)}
-              </strong>
-              <p>
-                Excl. btw: <span className="mono">{formatEuro(minExVat)} – {formatEuro(maxExVat)}</span>.
-              </p>
-              <p>{rule.note}</p>
-              {access === "moeilijk" && (
-                <p className="calculator-model-note">
-                  In het online model is voor moeilijke bereikbaarheid een correctie van 10% meegenomen.
-                </p>
-              )}
-              {chimney === "ja" && (
-                <p className="calculator-model-note">
-                  Voor het verwijderen van het deel boven het dak plus dakherstel is een actuele
-                  marktrichtband meegenomen. De constructieve situatie kan de definitieve prijs wijzigen.
-                </p>
-              )}
-              <p className="calculator-disclaimer">
-                Dit is een online prijsindicatie en geen bindende offerte. Na beoordeling van
-                ondergrond, details, materiaalkeuze en bereikbaarheid kan de definitieve LRS-prijs
-                hoger of lager uitvallen.
-              </p>
-
-              <a
-                className="btn primary-light"
-                href={whatsapp(whatsappText)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                STUUR DEZE BEREKENING
-              </a>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="paper-deep-zone section-block calculator-explain">
-        <div className="shell">
-          <SectionIndex n="02" label="PRIJSBASIS"/>
-          <div className="section-heading split-heading">
-            <div>
-              <p className="annotation">TRANSPARANT REKENMODEL</p>
-              <h2>De calculator geeft altijd een bedrag.</h2>
-            </div>
-            <div>
-              <p>
-                Lekkage: bestaande openbare LRS-bandbreedte. Pannen, renovatie, isolatie en bitumen:
-                actuele Nederlandse 2026-richtprijzen omgerekend naar uw ingevoerde dakoppervlak.
-              </p>
-              <p>
-                De invoer wordt ook meegenomen in de WhatsApp-samenvatting, zodat u niet opnieuw
-                alles hoeft uit te leggen.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
-  );
+  .calculator-price-panel {
+    padding-left: 0;
+    padding-top: 38px;
+    border-left: 0;
+    border-top: 1px solid var(--line-dark);
+  }
 }
 
-function Contact() {
-  const [name,setName]=useState(""); const [place,setPlace]=useState(""); const [text,setText]=useState("");
-  const message=useMemo(()=>`Hallo LRS Daktechniek.\nNaam: ${name}\nPlaats: ${place}\nSituatie: ${text}`,[name,place,text]);
-  function submit(e:FormEvent){e.preventDefault(); window.open(whatsapp(message),"_blank","noopener,noreferrer");}
-  return <>
-    <PageHero eyebrow="CONTACT / DIRECTE LIJN" title="Geen callcenter. Gewoon LRS." lead="Foto’s kunnen helpen, maar zijn niet nodig om uw vraag te stellen."/>
-    <section className="work-zone section-block"><div className="shell contact-v2-grid"><div><SectionIndex n="01" label="AANVRAAG"/><p className="annotation">DIRECT CONTACT</p><h2>Vertel kort wat u ziet.</h2><a className="contact-number mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a><p>{site.hours}</p></div><form className="technical-form" onSubmit={submit}><label><span className="annotation">NAAM</span><input required value={name} onChange={e=>setName(e.target.value)}/></label><label><span className="annotation">WOONPLAATS</span><input required value={place} onChange={e=>setPlace(e.target.value)}/></label><label><span className="annotation">SITUATIE</span><textarea required rows={6} value={text} onChange={e=>setText(e.target.value)}/></label><button className="btn primary-light">OPEN IN WHATSAPP</button></form></div></section>
-  </>;
+@media (max-width: 640px) {
+  .hero-photo-v3 {
+    min-height: 790px;
+  }
+
+  .hero-photo-layer img {
+    object-position: 62% center;
+  }
+
+  .hero-photo-shade {
+    background:
+      linear-gradient(180deg, rgba(7,10,13,.72) 0%, rgba(7,10,13,.72) 38%, rgba(7,10,13,.96) 78%, rgba(7,10,13,1) 100%);
+  }
+
+  .hero-photo-content {
+    min-height: 790px;
+    padding-top: 126px;
+    padding-bottom: 56px;
+  }
+
+  .hero-photo-copy .section-index {
+    margin-bottom: 34px;
+  }
+
+  .hero-photo-copy h1 {
+    font-size: clamp(3.55rem,18vw,5.5rem);
+  }
+
+  .hero-photo-copy .hero-statement {
+    max-width: 330px;
+  }
+
+  .hero-actions-v3 {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .hero-primary {
+    width: 100%;
+  }
+
+  .hero-phone {
+    width: fit-content;
+  }
+
+  .hero-spec-panel {
+    display: none;
+  }
+
+  .editorial-material-band {
+    padding-bottom: 88px;
+  }
+
+  .editorial-material-grid {
+    gap: 14px;
+  }
+
+  .editorial-photo-large,
+  .editorial-photo-small {
+    min-height: 390px;
+  }
+
+  .editorial-photo figcaption {
+    display: grid;
+    padding: 18px;
+  }
+
+  .editorial-note {
+    grid-template-columns: 36px 1fr;
+    padding-top: 24px;
+  }
+
+  .page-hero-photo {
+    padding: 62px 0 42px;
+  }
+
+  .page-hero-image {
+    min-height: 330px;
+  }
+
+  .calculator-v3-form {
+    padding: 24px 18px;
+  }
+
+  .calculator-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calculator-field-grid .calculator-wide {
+    grid-column: auto;
+  }
+
+  .calculator-result-zone {
+    padding: 64px 0 86px;
+  }
+
+  .calculator-summary div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .calculator-price-panel > strong {
+    font-size: clamp(2.3rem,11vw,4rem);
+  }
 }
 
-function WorkArea() {
-  return <><PageHero eyebrow="WERKGEBIED / BREDA E.O." title="Breda en de regio eromheen." lead="Lokale focus zonder fictieve vestigingen."/><section className="dark-zone section-block"><div className="shell"><WorkAreaSchematic/><div className="location-register">{locations.map((l,i)=><Link key={l[0]} href={`/${l[0]}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><strong>{l[1]}</strong><span>↗</span></Link>)}</div></div></section></>;
+/* =========================================================
+   LRS JOUWWEB ASSET + REAL CALCULATOR FIX
+   ========================================================= */
+
+.brand-with-original {
+  gap: 12px;
 }
 
-function LocalPage({slug}:{slug:string}) {
-  const l=locationBySlug(slug)!;
-  return <><PageHero eyebrow="WERKGEBIED" title={`Dakdekker ${l.name}`} lead={`LRS Daktechniek voor pannendaken, bitumen, isolatie, lekkage en schoorsteenwerk in ${l.name} en de regio Breda.`}/><section className="work-zone section-block"><div className="shell"><SectionIndex n="01" label="DIENSTEN"/><div className="service-register">{services.map((s,i)=><Link key={s.slug} href={`/${s.slug}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><small className="annotation">{s.eyebrow}</small><strong>{s.name}</strong></div><span>↗</span></Link>)}</div></div></section><div className="shell"><CTA title={`Dakwerk in ${l.name} bespreken?`}/></div></>;
+.original-logo-frame {
+  position: relative;
+  display: block;
+  width: 58px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--line-dark);
+  background: var(--paper);
 }
 
-function BlogIndex() {
-  return <><PageHero eyebrow="KENNISBANK" title="Dakvragen duidelijk uitgelegd."/><section className="work-zone section-block"><div className="shell article-register">{articles.map((a,i)=><Link key={a.slug} href={`/blog-s/${a.slug}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><span className="annotation">KENNISBANK</span><h2>{a.title}</h2><p>{a.description}</p></div><span>↗</span></Link>)}</div></section></>;
+.original-logo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
-function Article({slug}:{slug:string}) {
-  const a=articleBySlug(slug)!;
-  return <><PageHero eyebrow="KENNISBANK" title={a.title} lead={a.description}/><section className="work-zone section-block"><article className="shell article-body-v2">{a.sections.map(([h,b],i)=><section key={h}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><h2>{h}</h2><p>{b}</p></div></section>)}</article></section></>;
+.brand-text-fallback {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
 }
 
-function About() {
-  return <><PageHero eyebrow="OVER LRS" title="Korte lijnen. Duidelijk dakwerk." lead="LRS Daktechniek werkt vanuit Breda en kiest voor direct contact en begrijpelijke uitleg."/><section className="work-zone section-block"><div className="shell contact-proof-grid"><div><SectionIndex n="01" label="WERKWIJZE"/><p className="annotation">ÉÉN CONTACTLIJN</p><h2>De uitvoering hoeft niet door vijf lagen communicatie.</h2><p>De website is daarom net zo opgebouwd als de werkwijze: duidelijk, technisch en zonder onnodige tussenstappen.</p></div><SingleContactTable/></div></section></>;
+.brand-text-fallback strong {
+  color: var(--paper);
 }
 
-function ServicesIndex(){return <><PageHero eyebrow="DIENSTEN" title="Van gericht herstel tot complete renovatie."/><section className="work-zone section-block"><div className="shell service-register">{services.map((s,i)=><Link key={s.slug} href={`/${s.slug}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><small className="annotation">{s.eyebrow}</small><strong>{s.title}</strong><p>{s.intro}</p></div><span>↗</span></Link>)}</div></section></>}
-
-function Privacy(){return <><PageHero eyebrow="PRIVACY" title="Privacyverklaring"/><section className="work-zone section-block"><div className="shell article-body-v2"><section><span className="mono">01</span><div><h2>Contactgegevens</h2><p>Contactgegevens worden verwerkt wanneer u die zelf verstrekt om uw vraag of opdracht te behandelen.</p></div></section><section><span className="mono">02</span><div><h2>Contact</h2><p>U kunt contact opnemen via {site.email}.</p></div></section><section><span className="mono">03</span><div><h2>Projectgegevens</h2><p>Klantadressen worden niet automatisch als openbare content gepubliceerd.</p></div></section></div></section></>}
-
-function Footer() {
-  return <footer className="site-footer-v2">
-    <div className="shell footer-contact-zone">
-      <SectionIndex n="10" label="CONTACT" dark/>
-      <div><p className="annotation">VOLGENDE STAP</p><h2>Uw dak bespreken?</h2></div>
-      <div className="footer-actions"><a className="btn primary-dark" href={`tel:${site.phoneHref}`}>BEL LRS</a><a className="footer-phone mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a><a href={`mailto:${site.email}`}>{site.email}</a></div>
-    </div>
-    <div className="shell title-block">
-      <div className="title-brand"><strong>LRS DAKTECHNIEK</strong><span className="annotation">DIGITAAL DAKDOCUMENT</span></div>
-      <dl>
-        <div><dt>ONDERWERP</dt><dd>Dakwerk Breda e.o.</dd></div>
-        <div><dt>BLAD</dt><dd className="mono">01 / 01</dd></div>
-        <div><dt>DATUM</dt><dd className="mono">{new Date().getFullYear()}</dd></div>
-        <div><dt>UITGEVOERD DOOR</dt><dd>LRS Daktechniek</dd></div>
-        <div><dt>TELEFOON</dt><dd className="mono">{site.phoneDisplay}</dd></div>
-        <div><dt>KVK</dt><dd className="mono">{site.kvk}</dd></div>
-      </dl>
-    </div>
-    <div className="shell legal-row"><span>© {new Date().getFullYear()} LRS Daktechniek</span><Link href="/privacyverklaring">Privacy</Link><span>{site.hours}</span></div>
-  </footer>;
+.brand-text-fallback > span {
+  color: var(--cool-steel);
 }
 
-function NotFound(){return <section className="notfound-v2"><div className="shell"><span className="mono">404</span><h1>Deze pagina bestaat niet.</h1><Link className="btn primary-dark" href="/">TERUG NAAR HOME</Link></div></section>}
-
-export function PublicSite({segments}:{segments:string[]}) {
-  const path=segments.join("/");
-  let view:ReactNode;
-  if(!path) view=<Home/>;
-  else if(path==="diensten") view=<ServicesIndex/>;
-  else if(path==="dakcheck") view=<Dakcheck/>;
-  else if(path==="prijsindicatie") view=<PricePage/>;
-  else if(path==="contact") view=<Contact/>;
-  else if(path==="werkgebied") view=<WorkArea/>;
-  else if(path==="over-ons") view=<About/>;
-  else if(path==="privacyverklaring") view=<Privacy/>;
-  else if(path==="blog-s") view=<BlogIndex/>;
-  else if(segments[0]==="blog-s" && segments[1] && articleBySlug(segments[1])) view=<Article slug={segments[1]}/>;
-  else if(serviceBySlug(path)) view=<ServicePage slug={path}/>;
-  else if(locationBySlug(path)) view=<LocalPage slug={path}/>;
-  else view=<NotFound/>;
-
-  return <>
-    <Waterline/>
-    <Header/>
-    <main id="main">{view}</main>
-    <Footer/>
-    <div className="mobile-contact-bar"><a href={`tel:${site.phoneHref}`}>BEL</a><Link href="/prijsindicatie">PRIJSINDICATIE</Link></div>
-  </>;
+.hero-photo-copy h1 {
+  max-width: 980px;
 }
+
+.hero-photo-copy h1 > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--champagne);
+  font-family: var(--font-mono), "IBM Plex Mono", ui-monospace, monospace;
+  font-size: clamp(.72rem, 1.1vw, .92rem);
+  font-weight: 500;
+  letter-spacing: .12em;
+}
+
+.hero-photo-layer img,
+.page-hero-image img,
+.editorial-photo img {
+  filter: saturate(.82) contrast(1.04);
+}
+
+.editorial-photo-large img {
+  object-position: 50% 36%;
+}
+
+.editorial-photo-small img {
+  object-position: 72% 64%;
+  transform: scale(1.08);
+}
+
+.editorial-photo-small:hover img {
+  transform: scale(1.1);
+}
+
+.calculator-live-preview {
+  display: grid;
+  gap: 8px;
+  margin: 22px 0 26px;
+  padding: 22px 0;
+  border-top: 1px solid var(--line-light);
+  border-bottom: 1px solid var(--line-light);
+}
+
+.calculator-live-preview > strong {
+  color: var(--slate);
+  font-size: clamp(1.9rem, 4vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: -.045em;
+}
+
+.calculator-live-preview > small {
+  color: var(--cool-steel);
+  font-family: var(--font-mono), "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  letter-spacing: .08em;
+}
+
+.calculator-model-note {
+  padding-left: 14px;
+  border-left: 2px solid var(--champagne);
+}
+
+.calculator-disclaimer {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.14);
+  font-size: .9rem;
+}
+
+.calculator-price-panel .calculator-model-note,
+.calculator-price-panel .calculator-disclaimer {
+  color: var(--cool-steel);
+}
+
+@media (max-width: 860px) {
+  .original-logo-frame {
+    width: 48px;
+    height: 38px;
+  }
+
+  .brand-text-fallback > span {
+    display: none;
+  }
+
+  .hero-photo-copy h1 > span {
+    margin-bottom: 7px;
+    font-size: .7rem;
+  }
+
+  .calculator-live-preview > strong {
+    font-size: clamp(1.7rem, 9vw, 2.8rem);
+  }
+}
+
