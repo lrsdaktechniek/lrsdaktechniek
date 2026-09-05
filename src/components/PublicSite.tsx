@@ -20,6 +20,8 @@ import {
   serviceBySlug,
   serviceDetails,
   services,
+  specialtyBySlug,
+  specialtyPages,
   site,
   whatsapp,
 } from "@/lib/content";
@@ -1069,6 +1071,7 @@ function ServicePage({ slug }: { slug: string }) {
         <span className="premium-kicker">VERDER KIJKEN</span>
         <div className="seo-related-links">
           {detail.related.map(item => <Link key={item.href} href={item.href}>{item.label}<span>→</span></Link>)}
+          {specialtyPages.filter(item => item.parentService === service.slug).map(item => <Link key={item.slug} href={`/${item.slug}`}>{item.title}<span>→</span></Link>)}
         </div>
       </div>
     </section>
@@ -1076,6 +1079,65 @@ function ServicePage({ slug }: { slug: string }) {
     <div className="shell premium-service-cta-wrap">
       <CTA title={`${service.name} bespreken?`}/>
     </div>
+  </>;
+}
+
+
+function SpecialtyPageView({ slug }: { slug: string }) {
+  const page = specialtyBySlug(slug)!;
+  const parent = serviceBySlug(page.parentService)!;
+  const relatedSpecialties = specialtyPages.filter(item => item.parentService === page.parentService && item.slug !== page.slug);
+
+  return <>
+    <PageHero eyebrow={`${page.eyebrow} · BREDA E.O.`} title={page.title} lead={page.intro}/>
+
+    <section className="specialty-intro-section">
+      <div className="shell specialty-intro-grid">
+        <div>
+          <span className="premium-kicker">SPECIALISTISCHE UITLEG</span>
+          <h2>{page.summary}</h2>
+        </div>
+        <div className="specialty-parent-card">
+          <small>HOOFDDIENST</small>
+          <strong>{parent.name}</strong>
+          <p>{parent.intro}</p>
+          <Link href={`/${parent.slug}`}>BEKIJK {parent.name.toUpperCase()} →</Link>
+        </div>
+      </div>
+    </section>
+
+    <section className="seo-depth-section specialty-depth-section">
+      <div className="shell">
+        <div className="premium-section-head">
+          <div><span className="premium-kicker">WAT TECHNISCH TELT</span><h2>Niet alleen het zichtbare probleem.</h2></div>
+          <p>Deze pagina behandelt één concreet dakonderwerp diep genoeg om vooraf te begrijpen welke onderdelen bij beoordeling en herstel relevant zijn.</p>
+        </div>
+        <div className="seo-topic-grid">
+          {page.topics.map((topic, index) => <article className="seo-topic-card" key={topic.title}><span className="mono">{String(index+1).padStart(2,"0")}</span><h3>{topic.title}</h3><p>{topic.text}</p></article>)}
+        </div>
+      </div>
+    </section>
+
+    <section className="seo-faq-section">
+      <div className="shell seo-faq-layout">
+        <div><span className="premium-kicker">VEELGESTELDE VRAGEN</span><h2>{page.title} duidelijk uitgelegd.</h2></div>
+        <div className="seo-faq-list">
+          {page.faq.map((item,index)=><details key={item.question}><summary><span className="mono">{String(index+1).padStart(2,"0")}</span>{item.question}</summary><p>{item.answer}</p></details>)}
+        </div>
+      </div>
+    </section>
+
+    <section className="seo-related-section">
+      <div className="shell">
+        <span className="premium-kicker">VERDER KIJKEN</span>
+        <div className="seo-related-links">
+          {page.related.map(item => <Link key={item.href} href={item.href}>{item.label}<span>→</span></Link>)}
+          {relatedSpecialties.slice(0,2).map(item => <Link key={item.slug} href={`/${item.slug}`}>{item.title}<span>→</span></Link>)}
+        </div>
+      </div>
+    </section>
+
+    <div className="shell premium-service-cta-wrap"><CTA title={`${parent.name} bespreken?`}/></div>
   </>;
 }
 
@@ -1703,7 +1765,19 @@ function ReviewPage() {
 
 function LocalPage({slug}:{slug:string}) {
   const l=locationBySlug(slug)!;
-  return <><PageHero eyebrow="WERKGEBIED" title={`Dakdekker ${l.name}`} lead={`LRS Daktechniek voor pannendaken, bitumen, isolatie, lekkage en schoorsteenwerk in ${l.name} en de regio Breda.`}/><section className="work-zone section-block"><div className="shell"><SectionIndex n="01" label="DIENSTEN"/><div className="service-register">{services.map((s,i)=><Link key={s.slug} href={`/${s.slug}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><small className="annotation">{s.eyebrow}</small><strong>{s.name}</strong></div><span>↗</span></Link>)}</div></div></section><div className="shell"><CTA title={`Dakwerk in ${l.name} bespreken?`}/></div></>;
+  const coreLinks = services.map(service => ({ label: `${service.name} in ${l.name}`, href: `/${service.slug}`, text: service.intro }));
+  return <>
+    <PageHero eyebrow={`WERKGEBIED · ${l.name.toUpperCase()}`} title={`Dakdekker ${l.name}`} lead={`LRS Daktechniek werkt vanuit Breda voor pannendaken, bitumen, isolatie, daklekkage en schoorsteenwerk in ${l.name} en de omliggende regio.`}/>
+    <section className="local-depth-intro">
+      <div className="shell local-depth-grid">
+        <div><span className="premium-kicker">DAKWERK IN {l.name.toUpperCase()}</span><h2>Eerst bepalen welk dakonderdeel werkelijk aandacht nodig heeft.</h2><p>LRS combineert de lokale route met dezelfde technische aanpak als in Breda: niet automatisch groot vervangen, maar beginnen bij daktype, klacht, aansluitingen en de staat van de relevante lagen.</p></div>
+        <div className="local-proof-card"><small>WERKGEBIED</small><strong>{l.name}</strong><p>Opgenomen in het werkgebied van LRS Daktechniek vanuit Breda.</p><Link href="/werkgebied">BEKIJK WERKGEBIED →</Link></div>
+      </div>
+    </section>
+    <section className="work-zone section-block"><div className="shell"><SectionIndex n="01" label="DIENSTEN"/><div className="local-service-depth-grid">{coreLinks.map((item,index)=><Link key={item.href} href={item.href}><span className="mono">{String(index+1).padStart(2,"0")}</span><div><strong>{item.label}</strong><p>{item.text}</p></div><span>→</span></Link>)}</div></div></section>
+    <section className="local-action-band"><div className="shell local-action-grid"><Link href="/dak-lekkage"><span className="premium-kicker">LEKKAGE</span><h3>Vooraf situatie + volledig adres doorgeven.</h3><p>De slimme lekkagecheck maakt een technische samenvatting voor WhatsApp en gebruikt alleen de vaste voorrijkosten van €75 excl. btw.</p><strong>START LEKKAGECHECK →</strong></Link><Link href="/prijsindicatie"><span className="premium-kicker">PRIJS</span><h3>Prijsindicatie voor planbaar dakwerk.</h3><p>Bereken een eerste prijsband wanneer oppervlakte en soort werkzaamheden vooraf voldoende duidelijk zijn.</p><strong>OPEN PRIJSINDICATIE →</strong></Link></div></section>
+    <div className="shell"><CTA title={`Dakwerk in ${l.name} bespreken?`}/></div>
+  </>;
 }
 
 function BlogIndex() {
@@ -1716,10 +1790,22 @@ function Article({slug}:{slug:string}) {
 }
 
 function About() {
-  return <><PageHero eyebrow="OVER LRS" title="Korte lijnen. Duidelijk dakwerk." lead="LRS Daktechniek werkt vanuit Breda en kiest voor direct contact en begrijpelijke uitleg."/><section className="work-zone section-block"><div className="shell contact-proof-grid"><div><SectionIndex n="01" label="WERKWIJZE"/><p className="annotation">ÉÉN CONTACTLIJN</p><h2>De uitvoering hoeft niet door vijf lagen communicatie.</h2><p>De website is daarom net zo opgebouwd als de werkwijze: duidelijk, technisch en zonder onnodige tussenstappen.</p></div><SingleContactTable/></div></section></>;
+  return <>
+    <PageHero eyebrow="OVER LRS · BREDA" title="Direct contact met de dakdekker die het werk uitvoert." lead="LRS Daktechniek werkt vanuit Breda aan pannendaken, bitumen platte daken, dakisolatie, daklekkages en het verwijderen van schoorstenen."/>
+    <section className="about-proof-section"><div className="shell about-proof-grid"><div><span className="premium-kicker">LRS DAKTECHNIEK</span><h2>Korte lijnen zijn onderdeel van de werkwijze.</h2><p>Geen callcenter en geen wisselende lagen communicatie. U bespreekt de situatie rechtstreeks met LRS, krijgt uitleg over wat technisch relevant is en weet vooraf welke volgende stap wordt voorgesteld.</p></div><dl><div><dt>REGIO</dt><dd>Breda & omgeving</dd></div><div><dt>TELEFOON</dt><dd>{site.phoneDisplay}</dd></div><div><dt>E-MAIL</dt><dd>{site.email}</dd></div><div><dt>KVK</dt><dd>{site.kvk}</dd></div><div><dt>BEREIKBAAR</dt><dd>{site.shortHours}</dd></div></dl></div></section>
+    <section className="work-zone section-block"><div className="shell contact-proof-grid"><div><SectionIndex n="01" label="WERKWIJZE"/><p className="annotation">ÉÉN CONTACTLIJN</p><h2>Van eerste vraag tot uitvoering zonder onnodige tussenstappen.</h2><p>Bij een lekkage kan vooraf een technische intake worden gestuurd. Voor planbaar dakwerk is er een online prijsindicatie. Op locatie wordt vervolgens gekeken welke werkzaamheden werkelijk nodig zijn.</p></div><SingleContactTable/></div></section>
+    <section className="about-services-section"><div className="shell"><div className="premium-section-head"><div><span className="premium-kicker">SPECIALISATIES</span><h2>Waar LRS zich op richt.</h2></div><p>Geen lange lijst met diensten die niet bij het bedrijf horen. De website draait om de werkzaamheden die LRS daadwerkelijk aanbiedt.</p></div><div className="seo-related-links">{services.map(service=><Link key={service.slug} href={`/${service.slug}`}>{service.name}<span>→</span></Link>)}</div></div></section>
+    <div className="shell premium-service-cta-wrap"><CTA title="Uw dak rechtstreeks met LRS bespreken?"/></div>
+  </>;
 }
 
-function ServicesIndex(){return <><PageHero eyebrow="DIENSTEN" title="Van gericht herstel tot complete renovatie."/><section className="work-zone section-block"><div className="shell service-register">{services.map((s,i)=><Link key={s.slug} href={`/${s.slug}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><small className="annotation">{s.eyebrow}</small><strong>{s.title}</strong><p>{s.intro}</p></div><span>↗</span></Link>)}</div></section></>}
+function ServicesIndex(){
+  return <>
+    <PageHero eyebrow="DIENSTEN · BREDA E.O." title="Van gericht herstel tot complete renovatie." lead="Vijf hoofddiensten, met daaronder specialistische uitleg voor concrete dakonderdelen en renovatiekeuzes."/>
+    <section className="work-zone section-block"><div className="shell service-register">{services.map((s,i)=><Link key={s.slug} href={`/${s.slug}`}><span className="mono">{String(i+1).padStart(2,"0")}</span><div><small className="annotation">{s.eyebrow}</small><strong>{s.title}</strong><p>{s.intro}</p></div><span>↗</span></Link>)}</div></section>
+    <section className="specialty-index-section"><div className="shell"><div className="premium-section-head"><div><span className="premium-kicker">VERDIEPING</span><h2>Zoek op het concrete dakonderdeel.</h2></div><p>Deze pagina's behandelen één duidelijke vraag of werkzaamhedenreeks diepgaand, zonder tientallen bijna-identieke SEO-pagina's te maken.</p></div><div className="specialty-index-grid">{specialtyPages.map((page,index)=><Link href={`/${page.slug}`} key={page.slug}><span className="mono">{String(index+1).padStart(2,"0")}</span><div><small>{page.eyebrow}</small><strong>{page.title}</strong><p>{page.intro}</p></div><span>→</span></Link>)}</div></div></section>
+  </>;
+}
 
 function Privacy(){return <><PageHero eyebrow="PRIVACY" title="Privacyverklaring"/><section className="work-zone section-block"><div className="shell article-body-v2"><section><span className="mono">01</span><div><h2>Contactgegevens</h2><p>Contactgegevens worden verwerkt wanneer u die zelf verstrekt om uw vraag of opdracht te behandelen.</p></div></section><section><span className="mono">02</span><div><h2>Contact</h2><p>U kunt contact opnemen via {site.email}.</p></div></section><section><span className="mono">03</span><div><h2>Projectgegevens</h2><p>Klantadressen worden niet automatisch als openbare content gepubliceerd.</p></div></section></div></section></>}
 
@@ -1765,6 +1851,7 @@ export function PublicSite({segments}:{segments:string[]}) {
   else if(path==="blog-s") view=<BlogIndex/>;
   else if(segments[0]==="blog-s" && segments[1] && articleBySlug(segments[1])) view=<Article slug={segments[1]}/>;
   else if(serviceBySlug(path)) view=<ServicePage slug={path}/>;
+  else if(specialtyBySlug(path)) view=<SpecialtyPageView slug={path}/>;
   else if(path==="dakdekker-breda") view=<BredaPage/>;
   else if(locationBySlug(path)) view=<LocalPage slug={path}/>;
   else view=<NotFound/>;
