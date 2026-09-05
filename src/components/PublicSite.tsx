@@ -676,39 +676,151 @@ function CTA({ title="Niet zeker wat uw dak nodig heeft?" }: { title?: string })
 }
 
 function LeakagePage() {
-  const leakageWhatsapp = whatsapp("Hallo LRS Daktechniek, ik heb een daklekkage en wil graag dat u de situatie beoordeelt.");
+  const [roofType, setRoofType] = useState("Pannendak");
+  const [visibleAt, setVisibleAt] = useState("Plafond / zolder");
+  const [trigger, setTrigger] = useState("Bij harde of langdurige regen");
+  const [outsideSign, setOutsideSign] = useState("Niet bekend");
+  const [roofDetail, setRoofDetail] = useState("Geen / weet ik niet");
+  const [access, setAccess] = useState("Normaal bereikbaar");
+  const [urgency, setUrgency] = useState("Actief maar beheersbaar");
+  const [place, setPlace] = useState("");
+  const [notes, setNotes] = useState("");
+  const [intakeReady, setIntakeReady] = useState(false);
+
+  const leakageBaseMin = 338.80;
+  const leakageBaseMax = 592.90;
+  const accessMultiplier = access === "Moeilijk bereikbaar" ? 1.10 : 1;
+  const intakeMin = leakageBaseMin * accessMultiplier;
+  const intakeMax = leakageBaseMax * accessMultiplier;
+  const euro = (value:number) => new Intl.NumberFormat("nl-NL", { style:"currency", currency:"EUR", minimumFractionDigits:2 }).format(value);
+
+  const leakageWhatsapp = whatsapp([
+    "Hallo LRS Daktechniek, ik wil een daklekkage laten beoordelen.",
+    `Daktype: ${roofType}`,
+    `Waar zichtbaar: ${visibleAt}`,
+    `Wanneer lekt het: ${trigger}`,
+    `Wat is buiten zichtbaar: ${outsideSign}`,
+    `Dakdetail: ${roofDetail}`,
+    `Bereikbaarheid: ${access}`,
+    `Urgentie: ${urgency}`,
+    `Plaats/postcode: ${place || "nog niet ingevuld"}`,
+    notes ? `Extra uitleg: ${notes}` : "Extra uitleg: geen",
+    `Online prijsindicatie: ${euro(intakeMin)} – ${euro(intakeMax)} incl. btw`,
+    "Standaard voorrijkosten binnen LRS-werkgebied: inbegrepen",
+  ].join("\n"));
+
   const causes = [
     ["01", "Kapotte of verschoven dakpannen", "Wind, ouderdom of een beschadigde pan kan water onder de dakbedekking laten komen."],
     ["02", "Nokvorsten en aansluitingen", "Losse nokvorsten, verouderde mortel of aansluitdetails kunnen bij slagregen water doorlaten."],
-    ["03", "Schoorsteen, lood en kilgoot", "Lekkages ontstaan vaak bij loodslabben, voegen, schoorsteenaansluitingen of een vervuilde/beschadigde kilgoot."],
+    ["03", "Schoorsteen, lood en kilgoot", "Lekkages ontstaan vaak bij loodslabben, voegen, schoorsteenaansluitingen of een vervuilde of beschadigde kilgoot."],
     ["04", "Bitumen en platte daken", "Scheurtjes, blazen, open naden, afvoeren en dakdoorvoeren zijn veelvoorkomende aandachtspunten."],
     ["05", "Dakvoet, folie en onderliggende lagen", "Water kan elders binnendringen en pas meters verder zichtbaar worden aan de binnenzijde."],
     ["06", "Condens of vochtprobleem", "Niet iedere vochtplek is een lekkage. Daarom wordt eerst gekeken naar de waarschijnlijke bron."],
   ];
+
   const process = [
-    ["01", "Melding", "U geeft door waar u vocht, druppels of schade ziet."],
-    ["02", "Beoordeling", "De relevante dakdelen en aansluitingen worden gecontroleerd."],
-    ["03", "Bron bepalen", "Niet alleen de vochtplek, maar de waarschijnlijke ingang van het water wordt gezocht."],
-    ["04", "Herstel", "Waar mogelijk wordt gericht hersteld in plaats van onnodig groot vervangen."],
+    ["01", "Vooraf uitvragen", "Daktype, zichtbare plek, weersomstandigheden, dakdetails, bereikbaarheid en woonplaats zijn vooraf bekend."],
+    ["02", "Beoordeling op locatie", "De relevante dakdelen en aansluitingen worden gecontroleerd in plaats van alleen naar de vochtplek binnen te kijken."],
+    ["03", "Bron bepalen", "De waarschijnlijke ingang van het water wordt gezocht. Water kan vanaf een ander punt naar binnen lopen."],
+    ["04", "Herstel bespreken", "Gericht herstel heeft de voorkeur. Grotere of aanvullende werkzaamheden worden eerst besproken."],
+  ];
+
+  const intakeGroups = [
+    {label:"01 / DAKTYPE", value:roofType, set:setRoofType, options:["Pannendak","Bitumen / plat dak","Anders / weet ik niet"]},
+    {label:"02 / WAAR ZIET U HET WATER?", value:visibleAt, set:setVisibleAt, options:["Plafond / zolder","Muur / schoorsteen","Dakrand / aanbouw","Rond dakraam / doorvoer","Meerdere plekken"]},
+    {label:"03 / WANNEER LEKT HET?", value:trigger, set:setTrigger, options:["Bij harde of langdurige regen","Bij regen + wind","Na een storm","Ook zonder regen","Onregelmatig / weet ik niet"]},
+    {label:"04 / WAT ZIET U BUITEN?", value:outsideSign, set:setOutsideSign, options:["Niet bekend","Kapotte / verschoven pan","Probleem bij schoorsteen of lood","Scheur / blaas in bitumen","Probleem bij afvoer of dakrand","Anders"]},
+    {label:"05 / DAKDETAIL", value:roofDetail, set:setRoofDetail, options:["Geen / weet ik niet","Schoorsteen aanwezig","Kilgoot aanwezig","Dakraam / doorvoer aanwezig","Meerdere aansluitingen"]},
+    {label:"06 / BEREIKBAARHEID", value:access, set:setAccess, options:["Goed bereikbaar","Normaal bereikbaar","Moeilijk bereikbaar"]},
+    {label:"07 / URGENTIE", value:urgency, set:setUrgency, options:["Actief maar beheersbaar","Water druppelt nu binnen","Gevolgschade neemt toe","Terugkerend probleem","Controle / twijfel"]},
   ];
 
   return <>
     <section className="leak-hero">
-      <div className="leak-hero-media"><img src={editorialImages.hero} alt="Daklekkage controle door LRS Daktechniek"/></div>
+      <div className="leak-hero-media"><img src={editorialImages.hero} alt="Daklekkage en dakcontrole door LRS Daktechniek"/></div>
       <div className="leak-hero-shade"/>
       <div className="shell leak-hero-content">
         <span className="premium-kicker on-dark">DAKLEKKAGE · BREDA E.O.</span>
-        <h1>Daklekkage?<br/><em>Eerst de bron.</em></h1>
-        <p>Vocht binnen betekent niet automatisch dat het dak precies boven die plek lek is. LRS zoekt gericht naar de oorzaak en bespreekt daarna de juiste reparatie.</p>
+        <h1>Daklekkage?<br/><em>Vooraf duidelijk.</em></h1>
+        <p>Geef vóór het bezoek door welk dak u heeft, waar het water zichtbaar is en wanneer de lekkage optreedt. Zo kan LRS gerichter naar de waarschijnlijke oorzaak kijken.</p>
         <div className="leak-hero-actions">
           <a className="btn hero-primary" href={`tel:${site.phoneHref}`}>BEL DIRECT</a>
-          <a className="hero-phone mono" href={leakageWhatsapp} target="_blank" rel="noreferrer">WHATSAPP</a>
+          <a className="btn leak-secondary-action" href="#lekkage-intake">VUL LEKKAGECHECK IN</a>
         </div>
         <div className="leak-hero-price">
-          <span>ONLINE PRIJSINDICATIE</span>
+          <span>STANDAARD ONLINE LEKKAGE-INDICATIE</span>
           <strong className="mono">€338,80 – €592,90</strong>
-          <small>incl. 21% btw · standaard voorrijkosten binnen werkgebied inbegrepen</small>
+          <small>incl. 21% btw · standaard voorrijkosten binnen het LRS-werkgebied inbegrepen</small>
         </div>
+      </div>
+    </section>
+
+    <section id="lekkage-intake" className="leak-intake-section">
+      <div className="shell">
+        <div className="premium-section-head leak-intake-head">
+          <div><span className="premium-kicker">LEKKAGECHECK VOORAF</span><h2>Vertel vooraf precies<br/><em>wat er aan de hand is.</em></h2></div>
+          <p>Deze gegevens komen in één overzicht terecht. U weet welke prijsroute geldt en LRS weet vóór vertrek welk dak en welke lekkagesituatie verwacht wordt.</p>
+        </div>
+
+        <div className="leak-intake-layout">
+          <div className="leak-intake-form">
+            {intakeGroups.map((group)=><fieldset key={group.label} className="leak-intake-group">
+              <legend className="mono">{group.label}</legend>
+              <div className="leak-intake-options">
+                {group.options.map((option)=><button type="button" key={option} className={`leak-intake-choice ${group.value===option?"active":""}`} onClick={()=>{group.set(option);setIntakeReady(false)}}>{option}</button>)}
+              </div>
+            </fieldset>)}
+
+            <div className="leak-intake-fields">
+              <label><span className="mono">08 / PLAATS OF POSTCODE</span><input value={place} onChange={(e)=>{setPlace(e.target.value);setIntakeReady(false)}} placeholder="Bijv. Breda 4822"/></label>
+              <label><span className="mono">09 / EXTRA UITLEG</span><textarea rows={5} value={notes} onChange={(e)=>{setNotes(e.target.value);setIntakeReady(false)}} placeholder="Bijv. sinds gisteren, alleen bij zuidwestenwind, vochtplek naast schoorsteen..."/></label>
+            </div>
+
+            <button type="button" className="btn leak-intake-submit" onClick={()=>setIntakeReady(true)}>MAAK MIJN LEKKAGEOVERZICHT</button>
+          </div>
+
+          <aside className="leak-intake-summary">
+            <span className="premium-kicker on-dark">UW LEKKAGEOVERZICHT</span>
+            <h3>{roofType}</h3>
+            <dl>
+              <div><dt>Zichtbaar bij</dt><dd>{visibleAt}</dd></div>
+              <div><dt>Moment</dt><dd>{trigger}</dd></div>
+              <div><dt>Buiten zichtbaar</dt><dd>{outsideSign}</dd></div>
+              <div><dt>Dakdetail</dt><dd>{roofDetail}</dd></div>
+              <div><dt>Bereikbaarheid</dt><dd>{access}</dd></div>
+              <div><dt>Urgentie</dt><dd>{urgency}</dd></div>
+              <div><dt>Plaats</dt><dd>{place || "Nog invullen"}</dd></div>
+            </dl>
+            <div className="leak-intake-price">
+              <small>VERWACHTE ONLINE PRIJSINDICATIE</small>
+              <strong className="mono">{euro(intakeMin)} – {euro(intakeMax)}</strong>
+              <span>incl. 21% btw</span>
+            </div>
+            <ul className="leak-intake-includes">
+              <li>Standaard voorrijkosten binnen werkgebied inbegrepen</li>
+              <li>{access === "Moeilijk bereikbaar" ? "10% correctie moeilijke bereikbaarheid meegenomen" : "Geen toeslag voor moeilijke bereikbaarheid geselecteerd"}</li>
+              <li>Aanvullend werk wordt vooraf besproken</li>
+            </ul>
+            {intakeReady && <a className="btn leak-whatsapp-submit" href={leakageWhatsapp} target="_blank" rel="noreferrer">STUUR OVERZICHT VIA WHATSAPP</a>}
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section className="leak-price-section leak-transparency-section">
+      <div className="shell">
+        <div className="premium-section-head">
+          <div><span className="premium-kicker">TRANSPARANTE KOSTEN</span><h2>Vooraf zien<br/><em>waar u aan toe bent.</em></h2></div>
+          <p>Geen vage “vanaf”-prijs zonder uitleg. De standaard lekkageroute en de bekende toeslagen staan afzonderlijk benoemd.</p>
+        </div>
+        <div className="leak-price-table">
+          <div className="head"><span>ONDERDEEL</span><span>PRIJS / REGEL</span><span>WANNEER</span></div>
+          <div><strong>Standaard lekkage-indicatie</strong><span className="mono">€338,80 – €592,90 incl.</span><span>Gerichte lekkagebeoordeling en standaard lekkageroute</span></div>
+          <div><strong>Voorrijkosten</strong><span className="mono">INBEGREPEN</span><span>Binnen het LRS-werkgebied</span></div>
+          <div><strong>Moeilijke bereikbaarheid</strong><span className="mono">+10%</span><span>Wanneer het dak aantoonbaar moeilijk bereikbaar is</span></div>
+          <div><strong>Extra werkzaamheden</strong><span>VOORAF BESPROKEN</span><span>Alleen als meer nodig blijkt dan de standaard lekkageroute</span></div>
+        </div>
+        <p className="leak-price-footnote">De online prijsindicatie is inclusief 21% btw. Een groter dakvlak vervangen, uitgebreid lood- of schoorsteenwerk of andere aanvullende werkzaamheden vallen niet stilzwijgend binnen de lekkageband en worden eerst besproken.</p>
       </div>
     </section>
 
@@ -716,8 +828,8 @@ function LeakagePage() {
       <div className="shell leak-intro-grid">
         <div>
           <span className="premium-kicker">WAT KAN ER LEKKEN?</span>
-          <h2>Een lekkage begint vaak ergens anders dan waar u hem ziet.</h2>
-          <p>Water volgt constructies, folie, balken en naden. Daardoor kan de zichtbare vochtplek binnen op een andere plaats zitten dan de daadwerkelijke schade buiten.</p>
+          <h2>De vochtplek binnen hoeft niet de ingang buiten te zijn.</h2>
+          <p>Water volgt constructies, folie, balken en naden. Daarom wordt niet alleen gekeken naar de plek waar u binnen vocht ziet.</p>
         </div>
         <div className="leak-cause-grid">
           {causes.map(([n,title,copy])=><article key={n}><span className="mono">{n}</span><h3>{title}</h3><p>{copy}</p></article>)}
@@ -728,9 +840,9 @@ function LeakagePage() {
     <section className="leak-dark-section">
       <div className="shell leak-dark-grid">
         <div>
-          <span className="premium-kicker on-dark">AANPAK</span>
-          <h2>Van vochtplek naar gerichte reparatie.</h2>
-          <p>Het doel is niet zo veel mogelijk vervangen. Het doel is bepalen waar het water binnendringt en welk herstel technisch nodig is.</p>
+          <span className="premium-kicker on-dark">ZO WERKT HET</span>
+          <h2>Van melding naar gerichte reparatie.</h2>
+          <p>De informatie uit de lekkagecheck maakt het bezoek gerichter. Daarna wordt de waarschijnlijke bron gecontroleerd en wordt besproken wat technisch nodig is.</p>
         </div>
         <div className="leak-process-list">
           {process.map(([n,title,copy])=><div key={n}><span className="mono">{n}</span><div><strong>{title}</strong><p>{copy}</p></div></div>)}
@@ -741,46 +853,24 @@ function LeakagePage() {
     <section className="leak-roof-types">
       <div className="shell">
         <div className="premium-section-head">
-          <div><span className="premium-kicker">HELLEND & PLAT</span><h2>Andere daken.<br/><em>Andere faalpunten.</em></h2></div>
-          <p>LRS controleert de onderdelen die bij het betreffende daktype het meest logisch zijn.</p>
+          <div><span className="premium-kicker">HELLEND & PLAT</span><h2>Per daktype andere<br/><em>aandachtspunten.</em></h2></div>
+          <p>De lekkagepagina maakt vooraf duidelijk welke onderdelen bij uw daktype logisch zijn om te controleren.</p>
         </div>
         <div className="leak-roof-grid">
-          <article><span className="mono">01</span><h3>Pannendak</h3><p>Dakpannen, nokvorsten, folie, dakvoet, lood, schoorsteen, kilgoten en aansluitingen.</p><Link href="/dakpannen">Bekijk pannendaken →</Link></article>
-          <article><span className="mono">02</span><h3>Bitumen / plat dak</h3><p>Naden, scheuren, blazen, hemelwaterafvoer, opstanden, dakranden en doorvoeren.</p><Link href="/betumendaken">Bekijk bitumen →</Link></article>
-        </div>
-      </div>
-    </section>
-
-    <section className="leak-price-section">
-      <div className="shell leak-price-grid">
-        <div>
-          <span className="premium-kicker">KOSTEN</span>
-          <h2>Duidelijke prijsroute voor lekkage.</h2>
-          <p>De online lekkage-indicatie bedraagt €338,80 tot €592,90 inclusief 21% btw. Binnen het LRS-werkgebied zijn de standaard voorrijkosten in deze indicatie opgenomen.</p>
-          <p>Wanneer tijdens de beoordeling blijkt dat aanvullend werk nodig is, wordt dat eerst besproken voordat extra werkzaamheden worden uitgevoerd.</p>
-          <Link className="premium-cta" href="/prijsindicatie">OPEN PRIJSREKENMACHINE <span>→</span></Link>
-        </div>
-        <div className="leak-price-card">
-          <small>DAKLEKKAGE · INCL. BTW</small>
-          <strong className="mono">€338,80 – €592,90</strong>
-          <ul>
-            <li>Gerichte beoordeling van de lekkagesituatie</li>
-            <li>Standaard voorrijkosten binnen werkgebied inbegrepen</li>
-            <li>Prijsindicatie inclusief 21% btw</li>
-            <li>Extra werkzaamheden vooraf bespreken</li>
-          </ul>
+          <article><span className="mono">01</span><h3>Pannendak</h3><p>Dakpannen, nokvorsten, folie, dakvoet, lood, schoorsteen, kilgoten, dakramen en aansluitingen.</p><Link className="leak-inline-action" href="/dakpannen">BEKIJK PANNENDAKEN →</Link></article>
+          <article><span className="mono">02</span><h3>Bitumen / plat dak</h3><p>Naden, scheuren, blazen, hemelwaterafvoer, opstanden, dakranden, kimmen en doorvoeren.</p><Link className="leak-inline-action" href="/betumendaken">BEKIJK BITUMEN →</Link></article>
         </div>
       </div>
     </section>
 
     <section className="leak-now-section">
       <div className="shell leak-now-grid">
-        <div><span className="premium-kicker">WAT KUNT U NU DOEN?</span><h2>Beperk gevolgschade zolang het veilig kan.</h2></div>
+        <div><span className="premium-kicker">TOT HET BEZOEK</span><h2>Beperk gevolgschade zonder risico te nemen.</h2></div>
         <div className="leak-now-list">
           <p><strong>01</strong> Vang binnendringend water op en bescherm vloer, plafond en meubels.</p>
-          <p><strong>02</strong> Maak foto’s van de vochtplek en, alleen als dat veilig kan, van de buitenzijde.</p>
+          <p><strong>02</strong> Maak foto’s van de vochtplek en, alleen als dat veilig kan, van de buitenzijde. U kunt die na het overzicht via WhatsApp meesturen.</p>
           <p><strong>03</strong> Ga niet zelf een nat, glad of beschadigd dak op.</p>
-          <p><strong>04</strong> Noteer wanneer de lekkage optreedt: continu, alleen bij harde regen of bij wind uit een bepaalde richting.</p>
+          <p><strong>04</strong> Noteer of de lekkage samenhangt met windrichting, langdurige regen, storm of een specifieke dakzone.</p>
         </div>
       </div>
     </section>
