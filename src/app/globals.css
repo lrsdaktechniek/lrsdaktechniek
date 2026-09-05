@@ -2864,3 +2864,352 @@ body {
     font-size: clamp(2rem, 11vw, 3.6rem);
   }
 }
+
+/* ==========================================================
+   V8 — SITEWIDE LRS BLACK HOVER + LEAKAGE INTAKE
+   ========================================================== */
+
+/* One interaction language across the public website */
+@media (hover: hover) {
+  .btn:hover,
+  .premium-cta:hover,
+  .calculator-submit:hover,
+  .leak-intake-submit:hover,
+  .leak-whatsapp-submit:hover {
+    background: #070a0d !important;
+    color: #f2f0ec !important;
+    border-color: #070a0d !important;
+  }
+
+  .premium-cta.light:hover,
+  .hero-primary:hover,
+  .leak-secondary-action:hover {
+    background: #070a0d !important;
+    color: #f2f0ec !important;
+    border-color: #f2f0ec !important;
+  }
+
+  .leak-intake-choice:hover,
+  .leak-inline-action:hover {
+    background: #070a0d;
+    color: #f2f0ec;
+    border-color: #070a0d;
+  }
+}
+
+.leak-secondary-action {
+  border-color: rgba(255,255,255,.55);
+  background: rgba(7,10,13,.18);
+  color: #fff;
+}
+
+.leak-intake-section {
+  padding: 140px 0;
+  background: #f6f4ef;
+  border-bottom: 1px solid rgba(7,10,13,.12);
+}
+
+.leak-intake-head {
+  margin-bottom: 68px;
+}
+
+.leak-intake-layout {
+  display: grid;
+  grid-template-columns: minmax(0,1.2fr) minmax(350px,.8fr);
+  gap: 54px;
+  align-items: start;
+}
+
+.leak-intake-form {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid rgba(7,10,13,.16);
+}
+
+.leak-intake-group {
+  min-width: 0;
+  margin: 0;
+  padding: 28px 0 30px;
+  border: 0;
+  border-bottom: 1px solid rgba(7,10,13,.16);
+}
+
+.leak-intake-group legend {
+  margin-bottom: 18px;
+  padding: 0;
+  color: var(--steel);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.leak-intake-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.leak-intake-choice {
+  min-height: 46px;
+  padding: 0 15px;
+  border: 1px solid rgba(7,10,13,.18);
+  border-radius: 2px;
+  background: transparent;
+  color: #182027;
+  cursor: pointer;
+  font-size: .88rem;
+  font-weight: 650;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.leak-intake-choice.active {
+  border-color: #070a0d;
+  background: #070a0d;
+  color: #f2f0ec;
+}
+
+.leak-intake-fields {
+  display: grid;
+  gap: 22px;
+  padding: 30px 0;
+}
+
+.leak-intake-fields label {
+  display: grid;
+  gap: 9px;
+}
+
+.leak-intake-fields label > span {
+  color: var(--steel);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.leak-intake-fields input,
+.leak-intake-fields textarea {
+  width: 100%;
+  border: 1px solid rgba(7,10,13,.18);
+  border-radius: 2px;
+  background: #fff;
+  color: #10171c;
+  outline: 0;
+}
+
+.leak-intake-fields input {
+  min-height: 54px;
+  padding: 0 15px;
+}
+
+.leak-intake-fields textarea {
+  resize: vertical;
+  padding: 14px 15px;
+}
+
+.leak-intake-fields input:focus,
+.leak-intake-fields textarea:focus {
+  border-color: var(--steel);
+  box-shadow: 0 0 0 1px var(--steel);
+}
+
+.leak-intake-submit,
+.leak-whatsapp-submit {
+  width: 100%;
+  min-height: 60px;
+  border: 1px solid var(--steel);
+  background: var(--steel);
+  color: #fff;
+}
+
+.leak-intake-summary {
+  position: sticky;
+  top: 110px;
+  padding: 38px;
+  background: #0b1014;
+  color: #f2f0ec;
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.leak-intake-summary h3 {
+  margin: 12px 0 28px;
+  color: #fff;
+  font-size: clamp(2rem,3.5vw,3.6rem);
+}
+
+.leak-intake-summary dl {
+  margin: 0;
+  border-top: 1px solid rgba(255,255,255,.14);
+}
+
+.leak-intake-summary dl > div {
+  display: grid;
+  grid-template-columns: .8fr 1.2fr;
+  gap: 18px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(255,255,255,.14);
+}
+
+.leak-intake-summary dt {
+  color: #7f929e;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.leak-intake-summary dd {
+  margin: 0;
+  color: #e9edef;
+  font-size: .86rem;
+  text-align: right;
+}
+
+.leak-intake-price {
+  display: grid;
+  gap: 4px;
+  margin: 30px 0 22px;
+}
+
+.leak-intake-price small {
+  color: var(--champagne);
+  font-size: .68rem;
+  letter-spacing: .08em;
+}
+
+.leak-intake-price strong {
+  color: #fff;
+  font-size: clamp(1.75rem,3.5vw,3rem);
+  line-height: 1;
+}
+
+.leak-intake-price span {
+  color: #aeb9bf;
+  font-size: .78rem;
+}
+
+.leak-intake-includes {
+  margin: 0 0 26px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(255,255,255,.14);
+}
+
+.leak-intake-includes li {
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255,255,255,.14);
+  color: #c8d1d6;
+  font-size: .84rem;
+}
+
+.leak-transparency-section {
+  padding: 135px 0;
+  background: #fff;
+}
+
+.leak-price-table {
+  margin-top: 54px;
+  border-top: 1px solid rgba(7,10,13,.18);
+}
+
+.leak-price-table > div {
+  display: grid;
+  grid-template-columns: 1fr .7fr 1.35fr;
+  gap: 30px;
+  align-items: center;
+  min-height: 84px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(7,10,13,.16);
+}
+
+.leak-price-table .head {
+  min-height: 48px;
+  color: var(--steel);
+  font-family: var(--font-plex), monospace;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.leak-price-table strong {
+  font-size: 1rem;
+}
+
+.leak-price-table span {
+  color: #5e6970;
+  font-size: .88rem;
+}
+
+.leak-price-table .mono {
+  color: #11191e;
+  font-weight: 600;
+}
+
+.leak-price-footnote {
+  max-width: 880px;
+  margin: 30px 0 0;
+  font-size: .9rem;
+}
+
+.leak-inline-action {
+  display: inline-flex !important;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid rgba(7,10,13,.18);
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+@media (max-width: 980px) {
+  .leak-intake-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .leak-intake-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 700px) {
+  .leak-intake-section,
+  .leak-transparency-section {
+    padding: 82px 0;
+  }
+
+  .leak-intake-head {
+    margin-bottom: 42px;
+  }
+
+  .leak-intake-options {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .leak-intake-choice {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .leak-intake-summary {
+    padding: 26px;
+  }
+
+  .leak-intake-summary dl > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .leak-intake-summary dd {
+    text-align: left;
+  }
+
+  .leak-price-table > div,
+  .leak-price-table .head {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 18px 0;
+  }
+
+  .leak-price-table .head {
+    display: none;
+  }
+}
