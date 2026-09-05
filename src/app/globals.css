@@ -3271,3 +3271,18 @@ body {
 .calculator-price-panel .btn + .btn {
   margin-top: 10px;
 }
+
+
+/* ---------- V10 ADDRESS / MAPS SHORTCUT ---------- */
+.leak-map-link {
+  width: 100%;
+  margin: 4px 0 18px;
+  background: var(--paper);
+  color: var(--graphite);
+  border-color: var(--paper);
+}
+.leak-map-link:hover {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
