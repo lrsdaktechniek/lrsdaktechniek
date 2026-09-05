@@ -638,7 +638,7 @@ function Home() {
             </div>
             <p>Bekijk de plaatsen waar LRS Daktechniek actief is.</p>
           </div>
-          <WorkAreaSchematic/>
+          <RealWorkAreaMap/>
         </div>
       </section>
     </>
