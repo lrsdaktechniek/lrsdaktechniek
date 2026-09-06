@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${site.url}/diensten`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${site.url}/dakcheck`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${site.url}/prijsindicatie`, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${site.url}/reparatie-indicatie`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${site.url}/contact`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${site.url}/werkgebied`, changeFrequency: "monthly", priority: 0.85 },
     { url: `${site.url}/blog-s`, changeFrequency: "weekly", priority: 0.8 },
