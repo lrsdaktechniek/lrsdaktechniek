@@ -18,11 +18,19 @@ type CatalogItem = {
 type SelectedLine = { id: string; qty: number };
 type CustomLine = { id: string; description: string; qty: number; unit: string; priceEx: number };
 type PriceBook = Record<string, number>;
+type InvoiceSettings = {
+  businessAddress: string;
+  vatId: string;
+  iban: string;
+  paymentTermDays: number;
+};
 
 const VAT_DEFAULT = 21;
 const DIFFICULT_DEFAULT = 10;
 const STORAGE_BOOK = "lrs-internal-pricebook-v4-50repair";
 const STORAGE_DRAFT = "lrs-internal-workorder-v5-smartstaffel";
+const STORAGE_INVOICE_SETTINGS = "lrs-invoice-settings-v1";
+const STORAGE_INVOICE_SEQUENCE = "lrs-invoice-sequence-v1";
 
 const CATALOG: readonly CatalogItem[] = [
   { id: "travel", category: "Voorrijden", label: "Voorrijkosten", unit: "post", defaultPriceEx: 75, defaultQty: 1, note: "Vast LRS-tarief. Reparatietarieven hieronder zijn exclusief voorrijkosten." },
@@ -145,7 +153,7 @@ function uid(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function QuoteBuilder() {
+export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   const [book, setBook] = useState<PriceBook>(defaultBook);
   const [vat, setVat] = useState(VAT_DEFAULT);
   const [showBook, setShowBook] = useState(false);
@@ -170,6 +178,16 @@ export function QuoteBuilder() {
   const [copied, setCopied] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
   const [timerNow, setTimerNow] = useState(Date.now());
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>({
+    businessAddress: "",
+    vatId: "",
+    iban: "",
+    paymentTermDays: 14,
+  });
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [invoiceStatus, setInvoiceStatus] = useState("");
 
   useEffect(() => {
     try {
@@ -194,7 +212,20 @@ export function QuoteBuilder() {
         setMinutes(Number(draft.minutes ?? 0));
         setDifficult(Boolean(draft.difficult));
         setTimerStartedAt(typeof draft.timerStartedAt === "number" ? draft.timerStartedAt : null);
+        setCustomerEmail(draft.customerEmail ?? "");
       }
+      const storedInvoiceSettings = localStorage.getItem(STORAGE_INVOICE_SETTINGS);
+      if (storedInvoiceSettings) {
+        const parsed = JSON.parse(storedInvoiceSettings) as Partial<InvoiceSettings>;
+        setInvoiceSettings({
+          businessAddress: parsed.businessAddress ?? "",
+          vatId: parsed.vatId ?? "",
+          iban: parsed.iban ?? "",
+          paymentTermDays: Number(parsed.paymentTermDays ?? 14),
+        });
+      }
+      const seq = Math.max(1, Number(localStorage.getItem(STORAGE_INVOICE_SEQUENCE) ?? "1") || 1);
+      setInvoiceNumber(`LRS-${new Date().getFullYear()}-${String(seq).padStart(4,"0")}`);
     } catch {
       // Beschadigde lokale opslag mag de interne tool niet blokkeren.
     }
@@ -202,9 +233,9 @@ export function QuoteBuilder() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_DRAFT, JSON.stringify({
-      customer, address, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, timerStartedAt,
+      customer, address, customerEmail, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, timerStartedAt,
     }));
-  }, [customer, address, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, timerStartedAt]);
+  }, [customer, address, customerEmail, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, timerStartedAt]);
 
   useEffect(() => {
     if (timerStartedAt === null) return;
@@ -351,6 +382,7 @@ export function QuoteBuilder() {
     if (!window.confirm("Nieuwe werkbon starten? De huidige selectie wordt gewist.")) return;
     setCustomer("");
     setAddress("");
+    setCustomerEmail("");
     setJobTitle("Werkbon dakreparatie");
     setWorkDate(new Date().toISOString().slice(0, 10));
     setNotes("");
@@ -393,6 +425,99 @@ export function QuoteBuilder() {
     await navigator.clipboard.writeText(customerText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  }
+
+
+  function saveInvoiceSettings(next: InvoiceSettings) {
+    setInvoiceSettings(next);
+    localStorage.setItem(STORAGE_INVOICE_SETTINGS, JSON.stringify(next));
+  }
+
+  async function sendInvoice() {
+    setInvoiceStatus("");
+    if (unknownSelected.length > 0) {
+      setInvoiceStatus("Er staat nog een regel zonder prijs.");
+      return;
+    }
+    if (!customer.trim() || !address.trim() || !customerEmail.trim()) {
+      setInvoiceStatus("Vul klantnaam, volledig adres en e-mailadres in.");
+      return;
+    }
+    if (!invoiceSettings.businessAddress.trim() || !invoiceSettings.vatId.trim()) {
+      setInvoiceStatus("Vul eerst jouw bedrijfsadres en btw-id in bij Factuurinstellingen.");
+      return;
+    }
+    if (!invoiceNumber.trim()) {
+      setInvoiceStatus("Factuurnummer ontbreekt.");
+      return;
+    }
+
+    const invoiceLines = [
+      ...workLines.map(line => ({
+        description: `${line.number ? `${line.number}. ` : ""}${line.description}`,
+        qty: line.qty,
+        unit: line.unit,
+        amountEx: line.lineTotalEx,
+      })),
+      ...customLines.map(line => ({
+        description: line.description || "Extra werkzaamheden",
+        qty: line.qty,
+        unit: line.unit,
+        amountEx: roundMoney((Number(line.qty) || 0) * (Number(line.priceEx) || 0)),
+      })),
+      ...(difficultAmount > 0 ? [{
+        description: `Moeilijk bereikbaar (${difficultPct}%)`,
+        qty: 1,
+        unit: "post",
+        amountEx: difficultAmount,
+      }] : []),
+    ];
+
+    setInvoiceBusy(true);
+    try {
+      const response = await fetch("/api/factuur", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken,
+          customer: { name: customer.trim(), address: address.trim(), email: customerEmail.trim() },
+          business: {
+            name: site.name,
+            address: invoiceSettings.businessAddress.trim(),
+            email: site.email,
+            phone: site.phoneDisplay,
+            kvk: site.kvk,
+            vatId: invoiceSettings.vatId.trim(),
+            iban: invoiceSettings.iban.trim(),
+          },
+          invoice: {
+            number: invoiceNumber.trim(),
+            issueDate: new Date().toISOString().slice(0,10),
+            serviceDate: workDate,
+            title: jobTitle,
+            paymentTermDays: Math.max(0, Number(invoiceSettings.paymentTermDays) || 0),
+            notes,
+          },
+          lines: invoiceLines,
+          subtotal,
+          vatRate: vat,
+          vatAmount,
+          total,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Factuur kon niet worden verstuurd.");
+
+      const currentSeq = Math.max(1, Number(localStorage.getItem(STORAGE_INVOICE_SEQUENCE) ?? "1") || 1);
+      const nextSeq = currentSeq + 1;
+      localStorage.setItem(STORAGE_INVOICE_SEQUENCE, String(nextSeq));
+      setInvoiceNumber(`LRS-${new Date().getFullYear()}-${String(nextSeq).padStart(4,"0")}`);
+      setInvoiceStatus(`Factuur ${data.invoiceNumber || invoiceNumber} is verstuurd naar ${customerEmail}.`);
+    } catch (error) {
+      setInvoiceStatus(error instanceof Error ? error.message : "Factuur kon niet worden verstuurd.");
+    } finally {
+      setInvoiceBusy(false);
+    }
   }
 
   return (
@@ -488,6 +613,7 @@ export function QuoteBuilder() {
             <div className="internal-form-grid">
               <label><span>Klantnaam</span><input value={customer} onChange={event => setCustomer(event.target.value)} placeholder="Naam klant"/></label>
               <label><span>Volledig adres</span><input value={address} onChange={event => setAddress(event.target.value)} placeholder="Straat 1, 4811 AA Breda"/></label>
+              <label><span>E-mail klant</span><input type="email" value={customerEmail} onChange={event => setCustomerEmail(event.target.value)} placeholder="klant@email.nl"/></label>
               <label><span>Datum</span><input type="date" value={workDate} onChange={event => setWorkDate(event.target.value)}/></label>
               <label><span>Titel</span><input value={jobTitle} onChange={event => setJobTitle(event.target.value)}/></label>
             </div>
@@ -513,6 +639,28 @@ export function QuoteBuilder() {
               <button type="button" onClick={() => setCustomLines(current => current.filter(item => item.id !== line.id))}>×</button>
             </div>)}
             <label className="internal-notes"><span>Opmerking</span><textarea rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Bijzonderheden..."/></label>
+
+
+            <section className="invoice-send-panel">
+              <div className="invoice-send-head">
+                <div><span className="internal-kicker">FACTUUR</span><h3>Factuur direct e-mailen</h3></div>
+                <strong>{invoiceNumber || "—"}</strong>
+              </div>
+              <p className="invoice-help">De factuur gebruikt exact de aangevinkte werkzaamheden en het totaal hierboven. Gebruik bij voorkeur één apparaat/browser voor de factuurnummerreeks.</p>
+
+              <div className="invoice-settings-grid">
+                <label><span>Factuurnummer</span><input value={invoiceNumber} onChange={event=>setInvoiceNumber(event.target.value)} placeholder="LRS-2026-0001"/></label>
+                <label><span>Bedrijfsadres LRS</span><input value={invoiceSettings.businessAddress} onChange={event=>saveInvoiceSettings({...invoiceSettings,businessAddress:event.target.value})} placeholder="Straat + huisnummer, postcode Breda"/></label>
+                <label><span>BTW-ID</span><input value={invoiceSettings.vatId} onChange={event=>saveInvoiceSettings({...invoiceSettings,vatId:event.target.value})} placeholder="NL123456789B01"/></label>
+                <label><span>IBAN (optioneel)</span><input value={invoiceSettings.iban} onChange={event=>saveInvoiceSettings({...invoiceSettings,iban:event.target.value})} placeholder="NL00 BANK 0000 0000 00"/></label>
+                <label><span>Betaaltermijn dagen</span><input type="number" min="0" value={invoiceSettings.paymentTermDays} onChange={event=>saveInvoiceSettings({...invoiceSettings,paymentTermDays:Number(event.target.value)})}/></label>
+              </div>
+
+              <button className="internal-btn invoice-send-button" type="button" onClick={sendInvoice} disabled={invoiceBusy || total <= 0}>
+                {invoiceBusy ? "FACTUUR WORDT VERSTUURD..." : "FACTUUR VERSTUREN"}
+              </button>
+              {invoiceStatus && <p className="invoice-status">{invoiceStatus}</p>}
+            </section>
 
             <div className="tap-detail-actions">
               <button className="internal-btn ghost" type="button" onClick={() => setShowBook(value => !value)}>PRIJSBOEK</button>
