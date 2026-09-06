@@ -5144,3 +5144,135 @@ body {
     font-size: 16px;
   }
 }
+
+
+/* =========================================================
+   V23 — duidelijkere werkzaamheden + compactere klantfactuur
+   ========================================================= */
+
+.tap-repair-copy strong {
+  font-size: clamp(1.05rem, 2vw, 1.22rem);
+}
+
+.tap-repair-copy small {
+  margin-top: 7px;
+  color: inherit;
+  opacity: .82;
+  font-size: .92rem;
+  line-height: 1.45;
+}
+
+.tap-repair-card.selected .tap-qty-row {
+  background: #eef1f2;
+  color: #070a0d;
+}
+
+.tap-repair-card.selected .tap-qty-row label,
+.tap-repair-card.selected .tap-qty-row label span,
+.tap-repair-card.selected .tap-qty-row input {
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+}
+
+.tap-qty-row {
+  grid-template-columns: 54px 1fr 54px;
+}
+
+.tap-qty-row > button {
+  color: #070a0d;
+  font-weight: 800;
+}
+
+.tap-qty-row label {
+  gap: 12px;
+  color: #526b7a;
+}
+
+.tap-qty-row label > span {
+  color: #526b7a;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+
+.tap-qty-row input {
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+  font-size: 1.15rem;
+}
+
+.invoice-image-preview-wrap {
+  padding: 20px;
+  background: #edf1f3;
+}
+
+.invoice-image-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+}
+
+.invoice-image-preview-head h4 {
+  margin: 4px 0 0;
+  color: #070a0d;
+  font-size: 1.15rem;
+}
+
+.invoice-image-open-link {
+  color: #294b5e;
+  text-decoration: none;
+  font-family: var(--font-plex), monospace;
+  font-size: .78rem;
+  letter-spacing: .06em;
+}
+
+.invoice-image-open-link:hover {
+  color: #070a0d;
+}
+
+.invoice-image-preview {
+  width: 100%;
+  max-width: 760px;
+  border: 1px solid rgba(7,10,13,.12);
+  box-shadow: 0 10px 28px rgba(7,10,13,.12);
+}
+
+.invoice-image-preview-wrap > small {
+  color: #526b7a;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .tap-repair-copy small {
+    font-size: .88rem;
+  }
+
+  .tap-qty-row {
+    grid-template-columns: 48px 1fr 48px;
+  }
+
+  .tap-qty-row label {
+    grid-template-columns: minmax(0,1fr) 82px;
+    padding: 10px;
+  }
+
+  .invoice-image-preview-wrap {
+    margin-left: -6px;
+    margin-right: -6px;
+    padding: 14px;
+  }
+
+  .invoice-image-preview-head {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .invoice-image-open-link {
+    display: inline-block;
+    margin-top: 4px;
+  }
+
+  .invoice-image-preview {
+    max-width: 100%;
+  }
+}
