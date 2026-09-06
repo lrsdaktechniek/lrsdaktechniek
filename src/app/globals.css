@@ -4197,3 +4197,303 @@ body {
   .tap-picked-list > div { align-items:flex-start; }
   .tap-pricebook { inset:8px; }
 }
+
+
+/* =========================================================
+   V17 — HOME DUAL PRICE ACTIONS
+   ========================================================= */
+
+.hero-price-actions {
+  flex-wrap: wrap;
+}
+.hero-secondary-quiet {
+  border-color: rgba(255,255,255,.42);
+  background: rgba(7,10,13,.22);
+  color: var(--paper);
+  backdrop-filter: blur(8px);
+}
+.hero-secondary-quiet:hover {
+  border-color: var(--paper);
+  background: #070a0d;
+  color: var(--paper);
+}
+
+/* =========================================================
+   V17 — PUBLIC REPAIR ESTIMATE
+   ========================================================= */
+
+.repair-estimate-hero {
+  padding: 116px 0 82px;
+  background: var(--graphite);
+  color: var(--paper);
+  border-bottom: 1px solid var(--line-dark);
+}
+.repair-estimate-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0,1.2fr) minmax(300px,.55fr);
+  gap: 72px;
+  align-items: end;
+}
+.repair-estimate-hero h1 {
+  max-width: 900px;
+  margin: 18px 0 24px;
+  color: var(--paper);
+  font-size: clamp(3rem,6vw,6.8rem);
+}
+.repair-estimate-hero .lead {
+  max-width: 760px;
+  color: #c6d0d5;
+  font-size: 1.08rem;
+}
+.repair-estimate-promise {
+  padding: 28px 0 0 28px;
+  border-left: 1px solid rgba(255,255,255,.24);
+}
+.repair-estimate-promise strong {
+  display: block;
+  margin: 12px 0;
+  font-size: 1.35rem;
+}
+.repair-estimate-promise p {
+  color: #aebbc2;
+}
+
+.repair-estimate-zone {
+  padding: 92px 0;
+  background: var(--paper);
+}
+.repair-estimate-grid {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(300px,.52fr);
+  gap: 72px;
+  align-items: start;
+}
+.repair-estimate-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+  padding: 36px;
+  background: #f7f5f0;
+  border: 1px solid var(--line-light);
+}
+.repair-estimate-form > label {
+  display: grid;
+  gap: 9px;
+}
+.repair-estimate-form input,
+.repair-estimate-form select {
+  width: 100%;
+  min-height: 58px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(7,10,13,.28);
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: #070a0d;
+  -webkit-text-fill-color: #070a0d;
+  font: inherit;
+}
+.repair-qty-input {
+  position: relative;
+}
+.repair-qty-input input {
+  padding-right: 90px;
+}
+.repair-qty-input span {
+  position: absolute;
+  right: 0;
+  bottom: 19px;
+  color: var(--steel);
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  text-transform: uppercase;
+}
+.repair-estimate-live {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--line-light);
+}
+.repair-estimate-live strong {
+  font-size: clamp(2rem,4vw,4rem);
+}
+.repair-estimate-live small {
+  color: #5f6d74;
+}
+.repair-estimate-form .calculator-submit {
+  grid-column: 1 / -1;
+}
+.repair-estimate-explain {
+  position: sticky;
+  top: 140px;
+  padding: 36px;
+  background: var(--graphite);
+  color: var(--paper);
+}
+.repair-estimate-explain h2 {
+  margin: 14px 0;
+  color: var(--paper);
+}
+.repair-estimate-explain p {
+  color: #aebbc2;
+}
+.repair-estimate-explain dl {
+  margin: 28px 0 0;
+}
+.repair-estimate-explain dl div {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 18px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-dark);
+}
+.repair-estimate-explain dt {
+  color: var(--cool-steel);
+  font-family: var(--font-mono);
+  font-size: .68rem;
+}
+.repair-estimate-explain dd {
+  margin: 0;
+}
+.repair-estimate-result {
+  padding: 80px 0;
+  background: var(--graphite);
+  color: var(--paper);
+}
+.repair-result-grid {
+  display: grid;
+  grid-template-columns: .8fr 1.2fr;
+  gap: 90px;
+  align-items: start;
+}
+.repair-result-grid h2 {
+  color: var(--paper);
+}
+.repair-result-price {
+  padding-left: 48px;
+  border-left: 1px solid var(--line-dark);
+}
+.repair-result-price > strong {
+  display: block;
+  font-size: clamp(3rem,6vw,6rem);
+  line-height: 1;
+}
+.repair-result-price > span {
+  display: block;
+  margin-top: 8px;
+  color: var(--cool-steel);
+}
+.repair-result-price p {
+  max-width: 680px;
+  margin: 24px 0;
+  color: #aebbc2;
+}
+
+/* =========================================================
+   V17 — PRIVATE INVOICE EMAIL
+   ========================================================= */
+
+.invoice-send-panel {
+  margin-top: 30px;
+  padding: 26px;
+  border: 1px solid rgba(7,10,13,.18);
+  background: #eef3f5;
+  color: #070a0d;
+}
+.invoice-send-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.invoice-send-head h3 {
+  margin: 5px 0 0;
+  font-size: 1.5rem;
+}
+.invoice-send-head > strong {
+  font-family: var(--font-mono);
+  font-size: .9rem;
+}
+.invoice-help {
+  max-width: 760px;
+  color: #50616a;
+}
+.invoice-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+.invoice-settings-grid label {
+  display: grid;
+  gap: 7px;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.invoice-settings-grid input {
+  min-height: 48px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid rgba(7,10,13,.2);
+  background: #fff;
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+  opacity: 1;
+  font: inherit;
+}
+.invoice-send-button {
+  width: 100%;
+  margin-top: 20px;
+}
+.invoice-status {
+  margin: 12px 0 0;
+  padding: 12px;
+  background: #fff;
+  border-left: 3px solid #294b5e;
+  color: #070a0d;
+}
+
+@media (max-width: 820px) {
+  .repair-estimate-hero-grid,
+  .repair-estimate-grid,
+  .repair-result-grid {
+    grid-template-columns: 1fr;
+    gap: 38px;
+  }
+  .repair-estimate-hero {
+    padding-top: 92px;
+  }
+  .repair-estimate-promise {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(255,255,255,.24);
+    padding-top: 24px;
+  }
+  .repair-estimate-form {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+  .repair-estimate-form > *,
+  .repair-estimate-live,
+  .repair-estimate-form .calculator-submit {
+    grid-column: 1;
+  }
+  .repair-estimate-explain {
+    position: static;
+  }
+  .repair-result-price {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line-dark);
+    padding-top: 28px;
+  }
+  .invoice-settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .invoice-send-head {
+    display: grid;
+  }
+}
