@@ -180,8 +180,9 @@ function Hero() {
           <h1><span>DAKDEKKER BREDA</span> LRS DAKTECHNIEK</h1>
           <p className="hero-statement">U spreekt de dakdekker die het werk uitvoert.</p>
 
-          <div className="hero-actions-v3">
-            <Link className="btn hero-primary" href="/prijsindicatie">PRIJSINDICATIE</Link>
+          <div className="hero-actions-v3 hero-price-actions">
+            <Link className="btn hero-primary" href="/prijsindicatie">DAK PRIJSINDICATIE</Link>
+            <Link className="btn hero-secondary-quiet" href="/reparatie-indicatie">REPARATIE INDICATIE</Link>
             <a className="hero-phone mono" href={`tel:${site.phoneHref}`}>{site.phoneDisplay}</a>
           </div>
 
@@ -1558,6 +1559,153 @@ function PricePage() {
   );
 }
 
+
+type PublicRepairOption = {
+  id: string;
+  label: string;
+  unit: string;
+  baseEx: number;
+  extraEx: number;
+  help: string;
+};
+
+const PUBLIC_REPAIR_OPTIONS: readonly PublicRepairOption[] = [
+  { id:"dakpan", label:"Gebroken dakpan(nen) vervangen", unit:"pan", baseEx:95, extraEx:25, help:"Voor één of meerdere gebroken dakpannen die bereikbaar zijn zonder extra voorzieningen." },
+  { id:"pannen-recht", label:"Verschoven dakpannen rechtleggen", unit:"zone", baseEx:85, extraEx:25, help:"Voor lokaal verschoven pannen zonder grote schade aan de onderliggende dakopbouw." },
+  { id:"nok", label:"Losse nokvorsten / Flexim herstellen", unit:"meter", baseEx:75, extraEx:40, help:"Lokale nokreparatie. Een volledige nokrenovatie wordt apart beoordeeld." },
+  { id:"folie", label:"Dampopen dakfolie lokaal herstellen", unit:"plek", baseEx:215, extraEx:145, help:"Voor een lokaal bereikbaar gat of beschadigde plek in het onderdak." },
+  { id:"kit", label:"Kit / naad bij aansluiting herstellen", unit:"naad", baseEx:85, extraEx:30, help:"Bijvoorbeeld rond een aansluiting, doorvoer of klein detail." },
+  { id:"lood", label:"Loodvoeg / loodaansluiting lokaal herstellen", unit:"meter", baseEx:120, extraEx:70, help:"Voor plaatselijk lood- of voegwerk; uitgebreide loodvervanging valt buiten deze snelle indicatie." },
+  { id:"schoorsteen", label:"Schoorsteen lokaal behandelen / impregneren", unit:"schoorsteen", baseEx:315, extraEx:200, help:"Voor lokaal herstel of impregneren; constructieve schade wordt eerst beoordeeld." },
+  { id:"bitumen-scheur", label:"Scheur / naad in bitumen lokaal herstellen", unit:"plek", baseEx:95, extraEx:35, help:"Lokale reparatie aan een verder bruikbaar plat dak." },
+  { id:"bitumen-blaas", label:"Bitumen blaas opensnijden en herstellen", unit:"blaas", baseEx:155, extraEx:90, help:"Voor lokale blazen; meerdere grote blazen kunnen wijzen op een breder dakprobleem." },
+  { id:"dakraam", label:"Aansluiting rond dakraam / doorvoer", unit:"stuk", baseEx:195, extraEx:120, help:"Voor een lokale aansluiting. Vervanging van complete dakramen is niet inbegrepen." },
+  { id:"goot", label:"Zinken goot lokaal solderen / herstellen", unit:"naad", baseEx:185, extraEx:110, help:"Voor een lokale soldeernaad of klein gootdefect." },
+  { id:"afvoer", label:"Dakafvoer / stadsuitloop lokaal herstellen", unit:"afvoer", baseEx:195, extraEx:120, help:"Voor een lokale afvoer of uitloop; verborgen verstopping of gevolgschade kan extra werk geven." },
+] as const;
+
+function roundUpFive(value:number){ return Math.ceil(value / 5) * 5; }
+
+function RepairEstimatePage() {
+  const [repairId,setRepairId]=useState(PUBLIC_REPAIR_OPTIONS[0].id);
+  const [qty,setQty]=useState("1");
+  const [access,setAccess]=useState<"normaal"|"moeilijk">("normaal");
+  const [address,setAddress]=useState("");
+  const [submitted,setSubmitted]=useState(false);
+
+  const option=PUBLIC_REPAIR_OPTIONS.find(item=>item.id===repairId) ?? PUBLIC_REPAIR_OPTIONS[0];
+  const amount=Math.max(1,Number(qty)||1);
+  const smartInternalEx=(option.baseEx + Math.max(0,amount-1)*option.extraEx) * (access==="moeilijk"?1.10:1);
+  const lowEx=roundUpFive(smartInternalEx*1.12);
+  const highEx=roundUpFive(smartInternalEx*1.28);
+  const lowIncl=roundUpFive(lowEx*1.21);
+  const highIncl=roundUpFive(highEx*1.21);
+
+  const message=[
+    "Hallo LRS Daktechniek, ik heb de online reparatie-indicatie ingevuld.",
+    `Reparatie: ${option.label}`,
+    `Hoeveelheid: ${amount} ${option.unit}`,
+    `Bereikbaarheid: ${access==="moeilijk"?"Moeilijk bereikbaar":"Normaal bereikbaar"}`,
+    `Adres: ${address || "Nog niet ingevuld"}`,
+    `Online indicatie incl. btw: €${lowIncl} – €${highIncl}`,
+    "Ik begrijp dat dit een ruime online indicatie is en dat de definitieve prijs afhangt van de werkelijke situatie."
+  ].join("\n");
+
+  return <>
+    <section className="repair-estimate-hero">
+      <div className="shell repair-estimate-hero-grid">
+        <div>
+          <SectionIndex n="01" label="REPARATIE INDICATIE"/>
+          <p className="annotation">KLEIN DAKHERSTEL · BREDA E.O.</p>
+          <h1>Vooraf een ruime reparatie-indicatie.</h1>
+          <p className="lead">Kies wat u aan het dak ziet en hoeveel. De calculator geeft bewust een iets ruimere indicatie, zodat een eenvoudige uitvoering in de praktijk ook lager kan uitvallen.</p>
+        </div>
+        <aside className="repair-estimate-promise">
+          <span className="annotation">BELANGRIJK</span>
+          <strong>Indicatie, geen vaste offerte.</strong>
+          <p>Verborgen schade, onveilige bereikbaarheid of een andere oorzaak kan de uiteindelijke prijs veranderen. Extra werk wordt eerst besproken.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section className="repair-estimate-zone">
+      <div className="shell repair-estimate-grid">
+        <form className="repair-estimate-form" onSubmit={(event)=>{event.preventDefault();setSubmitted(true);}}>
+          <label>
+            <span className="annotation">01 / WAT ZIET U?</span>
+            <select value={repairId} onChange={event=>{setRepairId(event.target.value);setSubmitted(false);}}>
+              {PUBLIC_REPAIR_OPTIONS.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className="annotation">02 / HOEVEEL?</span>
+            <div className="repair-qty-input">
+              <input type="number" min="1" step="1" inputMode="numeric" value={qty} onChange={event=>{setQty(event.target.value);setSubmitted(false);}}/>
+              <span>{option.unit}</span>
+            </div>
+          </label>
+          <label>
+            <span className="annotation">03 / BEREIKBAARHEID</span>
+            <select value={access} onChange={event=>{setAccess(event.target.value as "normaal"|"moeilijk");setSubmitted(false);}}>
+              <option value="normaal">Normaal bereikbaar</option>
+              <option value="moeilijk">Moeilijk bereikbaar</option>
+            </select>
+          </label>
+          <label>
+            <span className="annotation">04 / ADRES</span>
+            <input value={address} onChange={event=>setAddress(event.target.value)} placeholder="Straatnaam 1, 4811 AA Breda"/>
+          </label>
+
+          <div className="repair-estimate-live">
+            <span className="annotation">ONLINE INDICATIE INCL. 21% BTW</span>
+            <strong className="mono">€{lowIncl} – €{highIncl}</strong>
+            <small>Standaard bezoek/startkosten zijn in deze indicatie verwerkt.</small>
+          </div>
+          <button className="btn calculator-submit" type="submit">BEKIJK MIJN INDICATIE</button>
+        </form>
+
+        <aside className="repair-estimate-explain">
+          <span className="annotation">GEKOZEN SITUATIE</span>
+          <h2>{option.label}</h2>
+          <p>{option.help}</p>
+          <dl>
+            <div><dt>HOEVEELHEID</dt><dd>{amount} {option.unit}</dd></div>
+            <div><dt>BEREIKBAARHEID</dt><dd>{access==="moeilijk"?"Moeilijk":"Normaal"}</dd></div>
+            <div><dt>ADRES</dt><dd>{address||"Nog niet ingevuld"}</dd></div>
+          </dl>
+        </aside>
+      </div>
+    </section>
+
+    {submitted && <section className="repair-estimate-result" aria-live="polite">
+      <div className="shell repair-result-grid">
+        <div>
+          <span className="annotation">UW ONLINE REPARATIE-INDICATIE</span>
+          <h2>{option.label}</h2>
+          <p>Op basis van de gekozen situatie rekenen we online bewust met een ruime band.</p>
+        </div>
+        <div className="repair-result-price">
+          <strong className="mono">€{lowIncl} – €{highIncl}</strong>
+          <span>incl. 21% btw</span>
+          <p>De werkelijke prijs kan lager uitvallen wanneer het probleem eenvoudiger blijkt. Als er verborgen schade of extra werkzaamheden nodig zijn, wordt dat vooraf besproken.</p>
+          <a className="btn primary-light" href={whatsapp(message)} target="_blank" rel="noreferrer">STUUR INDICATIE NAAR LRS</a>
+        </div>
+      </div>
+    </section>}
+
+    <section className="paper-deep-zone section-block">
+      <div className="shell">
+        <SectionIndex n="02" label="GROTER DAKWERK"/>
+        <div className="section-heading split-heading">
+          <h2>Gaat het om vervangen of renoveren?</h2>
+          <div><p>Gebruik voor complete pannendaken, bitumen daken of isolatie de aparte dakprijs-indicatie.</p><Link className="text-action" href="/prijsindicatie">DAK PRIJSINDICATIE →</Link></div>
+        </div>
+      </div>
+    </section>
+  </>;
+}
+
+
 function Contact() {
   const [name,setName]=useState(""); const [place,setPlace]=useState(""); const [text,setText]=useState("");
   const message=useMemo(()=>`Hallo LRS Daktechniek.\nNaam: ${name}\nPlaats: ${place}\nSituatie: ${text}`,[name,place,text]);
@@ -1840,6 +1988,7 @@ export function PublicSite({segments}:{segments:string[]}) {
   else if(path==="diensten") view=<ServicesIndex/>;
   else if(path==="dakcheck") view=<Dakcheck/>;
   else if(path==="prijsindicatie") view=<PricePage/>;
+  else if(path==="reparatie-indicatie") view=<RepairEstimatePage/>;
   else if(path==="dak-lekkage") view=<LeakagePage/>;
   else if(path==="projecten") view=<ProjectsIndex/>;
   else if(segments[0]==="projecten" && segments[1] && projectBySlug(segments[1])) view=<ProjectPage slug={segments[1]}/>;
