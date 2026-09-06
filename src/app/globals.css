@@ -4497,3 +4497,227 @@ body {
     display: grid;
   }
 }
+
+/* =========================================================
+   V19 — MOBILE FIT + FRIENDLIER PUBLIC REPAIR UI
+   ========================================================= */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.repair-estimate-form > label,
+.repair-qty-input,
+.repair-estimate-form input,
+.repair-estimate-form select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-bottom: 48px;
+  }
+
+  .shell {
+    width: min(calc(100% - 20px), var(--max));
+  }
+
+  .hero-photo-v3,
+  .hero-photo-content {
+    min-height: 720px;
+  }
+
+  .hero-photo-content {
+    padding-top: 104px;
+    padding-bottom: 62px;
+  }
+
+  .hero-photo-copy {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .hero-photo-copy h1 {
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+    font-size: clamp(2.65rem, 12.4vw, 3.45rem);
+    line-height: .91;
+    letter-spacing: -.055em;
+    overflow: visible;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .hero-photo-copy h1 > span {
+    font-size: .67rem;
+    letter-spacing: .1em;
+  }
+
+  .hero-photo-copy .hero-statement {
+    max-width: 100%;
+    font-size: 1.08rem;
+  }
+
+  .hero-actions-v3,
+  .hero-price-actions {
+    width: 100%;
+    max-width: 100%;
+    gap: 12px;
+  }
+
+  .hero-price-actions .btn,
+  .hero-primary,
+  .hero-secondary-quiet {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-inline: 12px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .repair-estimate-hero {
+    padding: 72px 0 48px;
+  }
+
+  .repair-estimate-hero h1 {
+    max-width: 100%;
+    font-size: clamp(2.45rem, 11vw, 3.45rem);
+    line-height: 1;
+  }
+
+  .repair-estimate-zone {
+    padding: 22px 0 64px;
+  }
+
+  .repair-estimate-grid {
+    gap: 24px;
+  }
+
+  .repair-estimate-form {
+    width: 100%;
+    min-width: 0;
+    gap: 22px;
+    padding: 18px;
+    overflow: hidden;
+  }
+
+  .repair-estimate-form > label {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .repair-estimate-form input,
+  .repair-estimate-form select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 54px;
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .repair-estimate-form select {
+    padding-right: 30px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .repair-qty-input input {
+    padding-right: 74px;
+  }
+
+  .repair-qty-input span {
+    right: 2px;
+    bottom: 17px;
+    max-width: 68px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .repair-estimate-live {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .repair-estimate-live strong {
+    max-width: 100%;
+    font-size: clamp(2.15rem, 10.8vw, 3rem);
+    line-height: 1;
+    letter-spacing: -.055em;
+    white-space: nowrap;
+  }
+
+  .repair-estimate-live small {
+    font-size: .9rem;
+    line-height: 1.55;
+  }
+
+  .repair-estimate-explain {
+    width: 100%;
+    min-width: 0;
+    padding: 22px 18px;
+  }
+
+  .repair-estimate-explain h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .repair-estimate-explain dl div {
+    grid-template-columns: 100px minmax(0,1fr);
+    gap: 12px;
+  }
+
+  .repair-estimate-explain dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .repair-estimate-result {
+    padding: 56px 0;
+  }
+
+  .repair-result-price > strong {
+    max-width: 100%;
+    font-size: clamp(2.5rem, 11.5vw, 3.7rem);
+    white-space: nowrap;
+    letter-spacing: -.055em;
+  }
+
+  .mobile-contact-bar {
+    height: 48px;
+  }
+
+  .mobile-contact-bar a {
+    min-width: 0;
+    padding: 0 8px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero-photo-copy h1 {
+    font-size: clamp(2.45rem, 11.8vw, 3rem);
+  }
+
+  .repair-estimate-form {
+    padding: 16px 14px;
+  }
+
+  .repair-estimate-form input,
+  .repair-estimate-form select {
+    font-size: .96rem;
+  }
+
+  .repair-estimate-live strong {
+    font-size: clamp(2rem, 10vw, 2.55rem);
+  }
+}
