@@ -397,11 +397,13 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   }
 
   const customerText = useMemo(() => {
+    const visibleRepairs = workLines.filter(line => line.key.startsWith("repair-"));
     const lineText = [
-      ...workLines.map(line => `- ${line.number ? `${line.number}. ` : ""}${line.description}: ${line.qty} ${line.unit} — ${euro(line.lineTotalEx)} excl. btw${line.key.startsWith("repair-") ? ` (${line.pricingMode === "primary" ? "hoofdklus" : "meeneemtarief"})` : ""}`),
-      ...customLines.map(line => `- ${line.description || "Extra werkzaamheden"}: ${line.qty} ${line.unit} × ${euro(line.priceEx)} = ${euro(line.qty * line.priceEx)} excl. btw`),
+      ...visibleRepairs.map(line => `- ${line.number ? `${line.number}. ` : ""}${line.description}: ${line.qty} ${line.unit}`),
+      ...customLines.map(line => `- ${line.description || "Extra werkzaamheden"}: ${line.qty} ${line.unit}`),
     ];
-    if (difficult && difficultAmount > 0) lineText.push(`- Toeslag moeilijke bereikbaarheid (${difficultPct}%): ${euro(difficultAmount)} excl. btw`);
+    if (travelSelected) lineText.push("- Voorrij- en startkosten: verwerkt in het afgesproken totaal");
+    if (difficult && difficultAmount > 0) lineText.push("- Moeilijke bereikbaarheid: verwerkt in het afgesproken totaal");
 
     return [
       `LRS Daktechniek — ${jobTitle}`,
@@ -411,14 +413,14 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       durationHours > 0 ? `Tijd op locatie: ${Math.floor(durationHours)} uur ${Math.round((durationHours % 1) * 60)} min` : "",
       "",
       "Uitgevoerde werkzaamheden:",
-      ...lineText,
+      ...(lineText.length ? lineText : ["- Dakservice / controle volgens afspraak"]),
       "",
       `Subtotaal excl. btw: ${euro(subtotal)}`,
       `BTW ${vat}%: ${euro(vatAmount)}`,
       `Totaal incl. btw: ${euro(total)}`,
       notes ? `\nOpmerking: ${notes}` : "",
     ].filter(Boolean).join("\n");
-  }, [jobTitle, customer, address, workDate, durationHours, workLines, customLines, difficult, difficultAmount, difficultPct, subtotal, vat, vatAmount, total, notes]);
+  }, [jobTitle, customer, address, workDate, durationHours, workLines, customLines, travelSelected, difficult, difficultAmount, subtotal, vat, vatAmount, total, notes]);
 
   async function copyCustomerText() {
     if (unknownSelected.length > 0) return;
@@ -452,26 +454,24 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       return;
     }
 
-    const invoiceLines = [
-      ...workLines.map(line => ({
-        description: `${line.number ? `${line.number}. ` : ""}${line.description}`,
-        qty: line.qty,
-        unit: line.unit,
-        amountEx: line.lineTotalEx,
-      })),
-      ...customLines.map(line => ({
-        description: line.description || "Extra werkzaamheden",
-        qty: line.qty,
-        unit: line.unit,
-        amountEx: roundMoney((Number(line.qty) || 0) * (Number(line.priceEx) || 0)),
-      })),
-      ...(difficultAmount > 0 ? [{
-        description: `Moeilijk bereikbaar (${difficultPct}%)`,
-        qty: 1,
-        unit: "post",
-        amountEx: difficultAmount,
-      }] : []),
+    const performedWork = [
+      ...workLines
+        .filter(line => line.key.startsWith("repair-"))
+        .map(line => `${line.number ? `${line.number}. ` : ""}${line.description} (${line.qty} ${line.unit})`),
+      ...customLines.map(line => `${line.description || "Extra werkzaamheden"} (${line.qty} ${line.unit})`),
     ];
+    const invoiceDescription = [
+      performedWork.length ? `Dakreparatie volgens werkbon: ${performedWork.join("; ")}` : "Dakservice / controle volgens werkbon",
+      travelSelected ? "voorrij- en startkosten inbegrepen" : "",
+      difficultAmount > 0 ? "bereikbaarheid verwerkt in totaal" : "",
+    ].filter(Boolean).join(" · ");
+
+    const invoiceLines = [{
+      description: invoiceDescription,
+      qty: 1,
+      unit: "opdracht",
+      amountEx: subtotal,
+    }];
 
     setInvoiceBusy(true);
     try {
@@ -646,7 +646,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 <div><span className="internal-kicker">FACTUUR</span><h3>Factuur direct e-mailen</h3></div>
                 <strong>{invoiceNumber || "—"}</strong>
               </div>
-              <p className="invoice-help">De factuur gebruikt exact de aangevinkte werkzaamheden en het totaal hierboven. Gebruik bij voorkeur één apparaat/browser voor de factuurnummerreeks.</p>
+              <p className="invoice-help">De factuur vermeldt de werkelijk uitgevoerde werkzaamheden en één afgesproken totaal. Interne prijsopbouw en partnerafspraken worden niet als aparte klantregel getoond. Gebruik bij voorkeur één apparaat/browser voor de factuurnummerreeks.</p>
 
               <div className="invoice-settings-grid">
                 <label><span>Factuurnummer</span><input value={invoiceNumber} onChange={event=>setInvoiceNumber(event.target.value)} placeholder="LRS-2026-0001"/></label>
@@ -683,10 +683,11 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         <header><div><strong>LRS DAKTECHNIEK</strong><span>Breda & omgeving</span></div><div><span>{site.phoneDisplay}</span><span>{site.email}</span><span>KVK {site.kvk}</span></div></header>
         <div className="print-title"><small>WERKBON / PRIJSOVERZICHT</small><h1>{jobTitle}</h1></div>
         <dl className="print-customer"><div><dt>Klant</dt><dd>{customer || "—"}</dd></div><div><dt>Adres</dt><dd>{address || "—"}</dd></div><div><dt>Datum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div><div><dt>Tijd op locatie</dt><dd>{durationHours > 0 ? `${Math.floor(durationHours)} uur ${Math.round((durationHours % 1) * 60)} min` : "—"}</dd></div></dl>
-        <table><thead><tr><th>Werkzaamheden</th><th>Aantal</th><th>Eenheid</th><th>Prijs excl.</th><th>Totaal excl.</th></tr></thead><tbody>
-          {workLines.map(line => <tr key={line.key}><td>{line.number ? `${line.number}. ` : ""}{line.description}</td><td>{line.qty}</td><td>{line.unit}</td><td>{line.key.startsWith("repair-") ? "staffel" : euro(line.basePriceEx)}</td><td>{euro(line.lineTotalEx)}</td></tr>)}
-          {customLines.map(line => <tr key={line.id}><td>{line.description}</td><td>{line.qty}</td><td>{line.unit}</td><td>{euro(line.priceEx)}</td><td>{euro(line.qty * line.priceEx)}</td></tr>)}
-          {difficultAmount > 0 && <tr><td>Moeilijk bereikbaar ({difficultPct}%)</td><td>1</td><td>post</td><td>{euro(difficultAmount)}</td><td>{euro(difficultAmount)}</td></tr>}
+        <table><thead><tr><th>Uitgevoerde werkzaamheden</th><th>Aantal</th><th>Eenheid</th></tr></thead><tbody>
+          {workLines.filter(line => line.key.startsWith("repair-")).map(line => <tr key={line.key}><td>{line.number ? `${line.number}. ` : ""}{line.description}</td><td>{line.qty}</td><td>{line.unit}</td></tr>)}
+          {customLines.map(line => <tr key={line.id}><td>{line.description || "Extra werkzaamheden"}</td><td>{line.qty}</td><td>{line.unit}</td></tr>)}
+          {travelSelected && <tr><td>Voorrij- en startkosten verwerkt in totaal</td><td>1</td><td>opdracht</td></tr>}
+          {difficultAmount > 0 && <tr><td>Moeilijke bereikbaarheid verwerkt in totaal</td><td>1</td><td>opdracht</td></tr>}
         </tbody></table>
         <div className="print-totals"><p><span>Subtotaal excl. btw</span><strong>{euro(subtotal)}</strong></p><p><span>BTW {vat}%</span><strong>{euro(vatAmount)}</strong></p><p><span>Totaal incl. btw</span><strong>{euro(total)}</strong></p></div>
         {notes && <div className="print-notes"><strong>Opmerking</strong><p>{notes}</p></div>}
