@@ -1570,18 +1570,18 @@ type PublicRepairOption = {
 };
 
 const PUBLIC_REPAIR_OPTIONS: readonly PublicRepairOption[] = [
-  { id:"dakpan", label:"Gebroken dakpan(nen) vervangen", unit:"pan", baseEx:95, extraEx:25, help:"Voor één of meerdere gebroken dakpannen die bereikbaar zijn zonder extra voorzieningen." },
+  { id:"dakpan", label:"Gebroken dakpannen vervangen", unit:"pan", baseEx:95, extraEx:25, help:"Voor één of meerdere gebroken dakpannen die bereikbaar zijn zonder extra voorzieningen." },
   { id:"pannen-recht", label:"Verschoven dakpannen rechtleggen", unit:"zone", baseEx:85, extraEx:25, help:"Voor lokaal verschoven pannen zonder grote schade aan de onderliggende dakopbouw." },
-  { id:"nok", label:"Losse nokvorsten / Flexim herstellen", unit:"meter", baseEx:75, extraEx:40, help:"Lokale nokreparatie. Een volledige nokrenovatie wordt apart beoordeeld." },
-  { id:"folie", label:"Dampopen dakfolie lokaal herstellen", unit:"plek", baseEx:215, extraEx:145, help:"Voor een lokaal bereikbaar gat of beschadigde plek in het onderdak." },
-  { id:"kit", label:"Kit / naad bij aansluiting herstellen", unit:"naad", baseEx:85, extraEx:30, help:"Bijvoorbeeld rond een aansluiting, doorvoer of klein detail." },
-  { id:"lood", label:"Loodvoeg / loodaansluiting lokaal herstellen", unit:"meter", baseEx:120, extraEx:70, help:"Voor plaatselijk lood- of voegwerk; uitgebreide loodvervanging valt buiten deze snelle indicatie." },
-  { id:"schoorsteen", label:"Schoorsteen lokaal behandelen / impregneren", unit:"schoorsteen", baseEx:315, extraEx:200, help:"Voor lokaal herstel of impregneren; constructieve schade wordt eerst beoordeeld." },
-  { id:"bitumen-scheur", label:"Scheur / naad in bitumen lokaal herstellen", unit:"plek", baseEx:95, extraEx:35, help:"Lokale reparatie aan een verder bruikbaar plat dak." },
-  { id:"bitumen-blaas", label:"Bitumen blaas opensnijden en herstellen", unit:"blaas", baseEx:155, extraEx:90, help:"Voor lokale blazen; meerdere grote blazen kunnen wijzen op een breder dakprobleem." },
-  { id:"dakraam", label:"Aansluiting rond dakraam / doorvoer", unit:"stuk", baseEx:195, extraEx:120, help:"Voor een lokale aansluiting. Vervanging van complete dakramen is niet inbegrepen." },
-  { id:"goot", label:"Zinken goot lokaal solderen / herstellen", unit:"naad", baseEx:185, extraEx:110, help:"Voor een lokale soldeernaad of klein gootdefect." },
-  { id:"afvoer", label:"Dakafvoer / stadsuitloop lokaal herstellen", unit:"afvoer", baseEx:195, extraEx:120, help:"Voor een lokale afvoer of uitloop; verborgen verstopping of gevolgschade kan extra werk geven." },
+  { id:"nok", label:"Nokvorsten / Flexim herstellen", unit:"meter", baseEx:75, extraEx:40, help:"Lokale nokreparatie. Een volledige nokrenovatie wordt apart beoordeeld." },
+  { id:"folie", label:"Dakfolie lokaal herstellen", unit:"plek", baseEx:215, extraEx:145, help:"Voor een lokaal bereikbaar gat of beschadigde plek in het onderdak." },
+  { id:"kit", label:"Kit / aansluiting herstellen", unit:"naad", baseEx:85, extraEx:30, help:"Bijvoorbeeld rond een aansluiting, doorvoer of klein detail." },
+  { id:"lood", label:"Lood / loodaansluiting herstellen", unit:"meter", baseEx:120, extraEx:70, help:"Voor plaatselijk lood- of voegwerk; uitgebreide loodvervanging valt buiten deze snelle indicatie." },
+  { id:"schoorsteen", label:"Schoorsteen lokaal herstellen", unit:"schoorsteen", baseEx:315, extraEx:200, help:"Voor lokaal herstel of impregneren; constructieve schade wordt eerst beoordeeld." },
+  { id:"bitumen-scheur", label:"Bitumen scheur / naad herstellen", unit:"plek", baseEx:95, extraEx:35, help:"Lokale reparatie aan een verder bruikbaar plat dak." },
+  { id:"bitumen-blaas", label:"Bitumen blaas herstellen", unit:"blaas", baseEx:155, extraEx:90, help:"Voor lokale blazen; meerdere grote blazen kunnen wijzen op een breder dakprobleem." },
+  { id:"dakraam", label:"Dakraam / doorvoer aansluiting", unit:"stuk", baseEx:195, extraEx:120, help:"Voor een lokale aansluiting. Vervanging van complete dakramen is niet inbegrepen." },
+  { id:"goot", label:"Zinken goot lokaal herstellen", unit:"naad", baseEx:185, extraEx:110, help:"Voor een lokale soldeernaad of klein gootdefect." },
+  { id:"afvoer", label:"Dakafvoer / stadsuitloop herstellen", unit:"afvoer", baseEx:195, extraEx:120, help:"Voor een lokale afvoer of uitloop; verborgen verstopping of gevolgschade kan extra werk geven." },
 ] as const;
 
 function roundUpFive(value:number){ return Math.ceil(value / 5) * 5; }
@@ -1596,13 +1596,19 @@ function RepairEstimatePage() {
   const option=PUBLIC_REPAIR_OPTIONS.find(item=>item.id===repairId) ?? PUBLIC_REPAIR_OPTIONS[0];
   const amount=Math.max(1,Number(qty)||1);
   const smartInternalEx=(option.baseEx + Math.max(0,amount-1)*option.extraEx) * (access==="moeilijk"?1.10:1);
-  // Publiek rekenen we bewust ruimer dan de interne werkprijs.
-  // Minimaal €50 reserve voorkomt dat een normale commerciële marge of externe aanbrengkost
-  // later boven op de getoonde indicatie hoeft te komen. De klant ziet alleen de totaalband.
-  const lowEx=roundUpFive(Math.max(smartInternalEx*1.12, smartInternalEx+50));
-  const highEx=roundUpFive(Math.max(smartInternalEx*1.28, smartInternalEx+80));
+
+  // Publieke DIRECTE LRS-klanten krijgen een praktische richtprijs.
+  // Geen vaste +€50/+€80 reserve: die maakte kleine reparaties onnodig duur.
+  // Kleine klussen krijgen een kleine buffer; grotere klussen iets meer ruimte.
+  const [lowFactor,highFactor] = smartInternalEx <= 120
+    ? [1.03,1.14]
+    : smartInternalEx <= 220
+      ? [1.04,1.15]
+      : [1.05,1.16];
+  const lowEx=roundUpFive(smartInternalEx*lowFactor);
+  const highEx=roundUpFive(Math.max(smartInternalEx*highFactor,lowEx+10));
   const lowIncl=roundUpFive(lowEx*1.21);
-  const highIncl=roundUpFive(highEx*1.21);
+  const highIncl=roundUpFive(Math.max(highEx*1.21,lowIncl+10));
 
   const message=[
     "Hallo LRS Daktechniek, ik heb de online reparatie-indicatie ingevuld.",
@@ -1611,7 +1617,7 @@ function RepairEstimatePage() {
     `Bereikbaarheid: ${access==="moeilijk"?"Moeilijk bereikbaar":"Normaal bereikbaar"}`,
     `Adres: ${address || "Nog niet ingevuld"}`,
     `Online indicatie incl. btw: €${lowIncl} – €${highIncl}`,
-    "Ik begrijp dat dit een ruime online indicatie is en dat de definitieve prijs afhangt van de werkelijke situatie."
+    "Ik begrijp dat dit een online richtprijs is en dat de definitieve prijs afhangt van de werkelijke situatie."
   ].join("\n");
 
   return <>
@@ -1620,12 +1626,12 @@ function RepairEstimatePage() {
         <div>
           <SectionIndex n="01" label="REPARATIE INDICATIE"/>
           <p className="annotation">KLEIN DAKHERSTEL · BREDA E.O.</p>
-          <h1>Vooraf een ruime reparatie-indicatie.</h1>
-          <p className="lead">Kies wat u aan het dak ziet en hoeveel. De calculator geeft bewust een ruime totaalindicatie met reserve voor normale uitvoeringsverschillen. Daardoor kan een eenvoudige uitvoering in de praktijk lager uitvallen.</p>
+          <h1>Vooraf een duidelijke reparatie-indicatie.</h1>
+          <p className="lead">Kies wat u aan het dak ziet en hoeveel. De calculator geeft een praktische richtprijs inclusief de normale bezoek- en startkosten. Bij meerdere stuks of meters rekent het systeem met een staffel in plaats van simpel alles te vermenigvuldigen.</p>
         </div>
         <aside className="repair-estimate-promise">
           <span className="annotation">BELANGRIJK</span>
-          <strong>Indicatie, geen vaste offerte.</strong>
+          <strong>Richtprijs, geen vaste offerte.</strong>
           <p>Verborgen schade, onveilige bereikbaarheid of een andere oorzaak kan de uiteindelijke prijs veranderen. Extra werk wordt eerst besproken.</p>
         </aside>
       </div>
@@ -1662,7 +1668,7 @@ function RepairEstimatePage() {
           <div className="repair-estimate-live">
             <span className="annotation">ONLINE INDICATIE INCL. 21% BTW</span>
             <strong className="mono">€{lowIncl} – €{highIncl}</strong>
-            <small>Bezoek, startkosten en een normale prijsreserve zijn in deze totaalindicatie verwerkt.</small>
+            <small>Normale bezoek- en startkosten zijn in deze richtprijs verwerkt.</small>
           </div>
           <button className="btn calculator-submit" type="submit">BEKIJK MIJN INDICATIE</button>
         </form>
@@ -1685,12 +1691,12 @@ function RepairEstimatePage() {
         <div>
           <span className="annotation">UW ONLINE REPARATIE-INDICATIE</span>
           <h2>{option.label}</h2>
-          <p>Op basis van de gekozen situatie rekenen we online bewust met een ruime band.</p>
+          <p>Op basis van de gekozen situatie geven we een praktische online prijsband.</p>
         </div>
         <div className="repair-result-price">
           <strong className="mono">€{lowIncl} – €{highIncl}</strong>
           <span>incl. 21% btw</span>
-          <p>De werkelijke prijs kan lager uitvallen wanneer het probleem eenvoudiger blijkt. Als er verborgen schade of extra werkzaamheden nodig zijn, wordt dat vooraf besproken.</p>
+          <p>De uiteindelijke prijs kan lager uitvallen wanneer de uitvoering eenvoudiger blijkt. Verborgen schade of extra werkzaamheden worden altijd eerst besproken.</p>
           <a className="btn primary-light" href={whatsapp(message)} target="_blank" rel="noreferrer">STUUR INDICATIE NAAR LRS</a>
         </div>
       </div>
