@@ -4830,3 +4830,96 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* =========================================================
+   V21 — iOS / Safari input readability hard fix
+   Witte privépanelen moeten ALTIJD donkere invoertekst tonen.
+   ========================================================= */
+
+.tap-details-body input,
+.tap-details-body textarea,
+.tap-details-body select,
+.invoice-send-panel input,
+.invoice-send-panel textarea,
+.invoice-send-panel select,
+.invoice-settings-grid input,
+.invoice-settings-grid textarea,
+.invoice-settings-grid select {
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+  caret-color: #070a0d !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  color-scheme: light !important;
+}
+
+/* Klantgegevens / datum / titel */
+.tap-details-body .internal-form-grid input,
+.tap-details-body .internal-form-grid textarea,
+.tap-details-body .time-grid input,
+.tap-details-body .internal-notes textarea {
+  border: 1px solid rgba(7,10,13,.18) !important;
+  border-radius: 0 !important;
+  padding: 11px 10px !important;
+  min-height: 48px;
+}
+
+.tap-details-body .internal-notes textarea {
+  min-height: 96px;
+}
+
+/* Placeholder moet zichtbaar blijven maar duidelijk lichter dan echte invoer */
+.tap-details-body input::placeholder,
+.tap-details-body textarea::placeholder,
+.invoice-send-panel input::placeholder,
+.invoice-send-panel textarea::placeholder {
+  color: #7b858c !important;
+  -webkit-text-fill-color: #7b858c !important;
+  opacity: 1 !important;
+}
+
+/* iOS/Safari autofill kan eigen tekst/background forceren */
+.tap-details-body input:-webkit-autofill,
+.tap-details-body input:-webkit-autofill:hover,
+.tap-details-body input:-webkit-autofill:focus,
+.tap-details-body textarea:-webkit-autofill,
+.invoice-send-panel input:-webkit-autofill,
+.invoice-send-panel input:-webkit-autofill:hover,
+.invoice-send-panel input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #070a0d !important;
+  caret-color: #070a0d !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* Safari datumvelden */
+.tap-details-body input[type="date"],
+.tap-details-body input[type="email"],
+.tap-details-body input[type="text"],
+.tap-details-body input[type="number"] {
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+}
+
+/* Eigen regels staan in een licht detailpaneel: ook daar donkere tekst */
+.tap-details-body .custom-line input {
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+  caret-color: #070a0d !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(7,10,13,.18) !important;
+}
+
+/* Focus blijft zichtbaar */
+.tap-details-body input:focus,
+.tap-details-body textarea:focus,
+.tap-details-body select:focus,
+.invoice-send-panel input:focus,
+.invoice-send-panel textarea:focus,
+.invoice-send-panel select:focus {
+  border-color: #294b5e !important;
+  outline: 2px solid rgba(41,75,94,.12) !important;
+  outline-offset: 0;
+}
