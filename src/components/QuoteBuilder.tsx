@@ -39,6 +39,11 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   paymentTermDays: 14,
 };
 
+const INVOICE_BANK_ACCOUNTS = [
+  { id: "ing-1", label: "ING rekening 1", iban: "NL69 INGB 0112 7815 51" },
+  { id: "ing-2", label: "ING rekening 2", iban: "NL46 INGB 0109 0156 49" },
+] as const;
+
 const CATALOG: readonly CatalogItem[] = [
   { id: "travel", category: "Voorrijden", label: "Voorrijkosten", unit: "post", defaultPriceEx: 75, defaultQty: 1, note: "Vast LRS-tarief. Reparatietarieven hieronder zijn exclusief voorrijkosten." },
   { id: "referral-fee", category: "Voorrijden", label: "Opdrachttoeslag via opdrachtgever / tussenpersoon", unit: "post", defaultPriceEx: 50, defaultQty: 1, note: "Alleen aanvinken wanneer de klus via een opdrachtgever of tussenpersoon is binnengekomen. Wordt bovenop de klantprijs gerekend." },
@@ -195,6 +200,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   const [invoiceImageBlob, setInvoiceImageBlob] = useState<Blob | null>(null);
   const [invoiceImageFingerprint, setInvoiceImageFingerprint] = useState("");
   const [invoiceImageBusy, setInvoiceImageBusy] = useState(false);
+  const [invoiceTextCopied, setInvoiceTextCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -493,6 +499,55 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     ];
     if (names.length === 0) return "Dakwerkzaamheden volgens afspraak";
     return `Dakreparatie: ${names.slice(0, 2).join(" + ")}${names.length > 2 ? " e.a." : ""}`;
+  }
+
+  const invoiceMessageText = useMemo(() => {
+    const performed = [
+      ...workLines
+        .filter(line => line.key.startsWith("repair-"))
+        .map(line => `- ${line.description}${line.qty > 1 || line.unit.includes("meter") || line.unit === "m²" ? ` (${line.qty} ${line.unit})` : ""}`),
+      ...customLines
+        .filter(line => line.description.trim())
+        .map(line => `- ${line.description.trim()}${line.qty > 1 ? ` (${line.qty} ${line.unit})` : ""}`),
+    ];
+
+    const term = Math.max(0, Number(invoiceSettings.paymentTermDays) || 0);
+    const greeting = customer.trim() ? `Beste ${customer.trim()},` : "Goedendag,";
+
+    return [
+      greeting,
+      "",
+      `Hierbij stuur ik de factuur voor de uitgevoerde dakwerkzaamheden${address.trim() ? ` aan ${address.trim()}` : ""}.`,
+      "",
+      "Uitgevoerde werkzaamheden:",
+      ...(performed.length ? performed : [`- ${invoiceDescriptionText()}`]),
+      "",
+      `Factuurnummer: ${invoiceNumber || "—"}`,
+      `Totaal te betalen: ${euro(total)}`,
+      "",
+      "Betaling:",
+      `IBAN: ${invoiceSettings.iban}`,
+      "Ten name van: LRS Daktechniek",
+      `Onder vermelding van: Factuur ${invoiceNumber || "—"}`,
+      term === 0 ? "Betaaltermijn: graag direct." : `Betaaltermijn: ${term} dagen.`,
+      "",
+      "De factuur stuur ik als afbeelding mee met dit bericht.",
+      "",
+      "Met vriendelijke groet,",
+      "LRS Daktechniek",
+      site.phoneDisplay,
+      site.email,
+    ].join("\n");
+  }, [customer, address, workLines, customLines, invoiceNumber, total, invoiceSettings.iban, invoiceSettings.paymentTermDays]);
+
+  async function copyInvoiceMessageText() {
+    try {
+      await navigator.clipboard.writeText(invoiceMessageText);
+      setInvoiceTextCopied(true);
+      window.setTimeout(() => setInvoiceTextCopied(false), 1800);
+    } catch {
+      setInvoiceStatus("Kopiëren lukte niet. Houd de tekst ingedrukt en kies Kopieer.");
+    }
   }
 
   function validateInvoiceImage() {
@@ -900,7 +955,19 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         <section className="tap-section tap-selected-section">
           <div className="tap-section-head"><span>03</span><div><small>CONTROLE</small><h2>Dit staat nu op de bon</h2></div></div>
           {workLines.length === 0 && customLines.length === 0 ? <p className="tap-empty">Nog niets geselecteerd.</p> : <div className="tap-picked-list">
-            {workLines.map(line => <div key={line.key}><span>{line.number ? `${line.number}. ` : ""}{line.description}<small>{line.qty} {line.unit} · {line.rateLabel}</small></span><strong>{euro(line.lineTotalEx)}</strong></div>)}
+            {workLines.map(line => <div key={line.key}>
+              <span>{line.number ? `${line.number}. ` : ""}{line.description}
+                <small>{line.key === "travel"
+                  ? "Vaste voorrij- en startkosten"
+                  : line.key === "referral-fee"
+                    ? "Alleen intern · opdracht via partner/tussenpersoon"
+                    : line.pricingMode === "primary"
+                      ? `${line.qty} ${line.unit} · ${line.qty > 1 ? "slimme staffel toegepast" : "hoofdreparatie"}`
+                      : `${line.qty} ${line.unit} · aanvullend werk tijdens dezelfde klus`}
+                </small>
+              </span>
+              <strong>{euro(line.lineTotalEx)}</strong>
+            </div>)}
             {customLines.map(line => <div key={line.id}><span>{line.description || "Extra werkzaamheden"}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
             {difficultAmount > 0 && <div><span>Moeilijk bereikbaar<small>{difficultPct}% toeslag</small></span><strong>{euro(difficultAmount)}</strong></div>}
           </div>}
@@ -957,8 +1024,31 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 <label><span>Factuurnummer</span><input value={invoiceNumber} onChange={event=>setInvoiceNumber(event.target.value)} placeholder="LRS-2026-0001"/></label>
                 <label><span>Bedrijfsadres LRS</span><input value={invoiceSettings.businessAddress} onChange={event=>saveInvoiceSettings({...invoiceSettings,businessAddress:event.target.value})} placeholder="Pietersberg 21, 4822 TS Breda"/></label>
                 <label><span>BTW-ID</span><input value={invoiceSettings.vatId} onChange={event=>saveInvoiceSettings({...invoiceSettings,vatId:event.target.value})} placeholder="NL003787454B48"/></label>
-                <label><span>IBAN</span><input value={invoiceSettings.iban} onChange={event=>saveInvoiceSettings({...invoiceSettings,iban:event.target.value})} placeholder="NL69 INGB 0112 7815 51"/></label>
                 <label><span>Betaaltermijn dagen</span><input type="number" min="0" value={invoiceSettings.paymentTermDays} onChange={event=>saveInvoiceSettings({...invoiceSettings,paymentTermDays:Number(event.target.value)})}/></label>
+              </div>
+
+              <div className="invoice-bank-choice">
+                <div className="invoice-bank-head"><span>Bankrekening op deze factuur</span><strong>{invoiceSettings.iban}</strong></div>
+                <div className="invoice-bank-grid">
+                  {INVOICE_BANK_ACCOUNTS.map(account => <button
+                    key={account.id}
+                    type="button"
+                    className={invoiceSettings.iban === account.iban ? "selected" : ""}
+                    onClick={() => saveInvoiceSettings({ ...invoiceSettings, iban: account.iban })}
+                  >
+                    <span>{invoiceSettings.iban === account.iban ? "✓" : "+"}</span>
+                    <div><strong>{account.label}</strong><small>{account.iban}</small></div>
+                  </button>)}
+                </div>
+              </div>
+
+              <div className="invoice-copy-message">
+                <div className="invoice-copy-message-head">
+                  <div><span className="internal-kicker">KOPIE / PLAK TEKST</span><h4>Stuur deze tekst mee met de factuur</h4></div>
+                  <button className="internal-btn" type="button" onClick={copyInvoiceMessageText}>{invoiceTextCopied ? "TEKST GEKOPIEERD" : "KOPIEER TEKST"}</button>
+                </div>
+                <textarea readOnly value={invoiceMessageText} onFocus={event => event.currentTarget.select()} aria-label="Kopieertekst voor WhatsApp of e-mail" />
+                <small>Plak deze tekst 1-op-1 in WhatsApp of e-mail en stuur daarna de factuurafbeelding mee.</small>
               </div>
 
               <div className="invoice-image-actions">
