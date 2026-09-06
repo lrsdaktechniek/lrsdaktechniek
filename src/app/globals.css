@@ -4923,3 +4923,224 @@ body {
   outline: 2px solid rgba(41,75,94,.12) !important;
   outline-offset: 0;
 }
+
+
+/* =========================================================
+   V22 — duidelijkere bon + 2 bankrekeningen + kopie/plak tekst
+   ========================================================= */
+
+/* Interne controlebon moet op witte achtergrond altijd donker en leesbaar zijn */
+.tap-selected-section,
+.tap-selected-section .tap-section-head h2,
+.tap-selected-section .tap-picked-list > div > span,
+.tap-selected-section .tap-picked-list > div > strong,
+.tap-selected-section .tap-final-total p,
+.tap-selected-section .tap-final-total span,
+.tap-selected-section .tap-final-total strong {
+  color: #070a0d !important;
+  opacity: 1 !important;
+}
+
+.tap-selected-section .tap-section-head small {
+  color: #526b7a !important;
+}
+
+.tap-selected-section .tap-picked-list > div {
+  padding: 16px 0 !important;
+  border-bottom: 1px solid rgba(7,10,13,.16) !important;
+}
+
+.tap-selected-section .tap-picked-list > div > span {
+  min-width: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.tap-selected-section .tap-picked-list span small {
+  display: block;
+  margin-top: 5px;
+  color: #526b7a !important;
+  font-size: .76rem;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.tap-selected-section .tap-picked-list > div > strong {
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.tap-selected-section .tap-final-total {
+  margin-top: 30px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(7,10,13,.18);
+}
+
+.tap-selected-section .tap-final-total p {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tap-selected-section .tap-final-total .grand {
+  border-top: 3px solid #070a0d !important;
+  font-weight: 800;
+}
+
+/* Keuze tussen de twee LRS-bankrekeningen */
+.invoice-bank-choice {
+  margin-top: 18px;
+  padding: 18px;
+  background: #f4f6f7;
+  border: 1px solid rgba(7,10,13,.14);
+}
+
+.invoice-bank-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+  margin-bottom: 12px;
+  color: #070a0d;
+}
+
+.invoice-bank-head > span {
+  font-weight: 800;
+}
+
+.invoice-bank-head > strong {
+  font-family: var(--font-plex), monospace;
+  font-size: .78rem;
+  color: #294b5e;
+  text-align: right;
+}
+
+.invoice-bank-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+
+.invoice-bank-grid button {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid rgba(7,10,13,.18);
+  background: #fff;
+  color: #070a0d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.invoice-bank-grid button > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid currentColor;
+  font-weight: 900;
+}
+
+.invoice-bank-grid button strong,
+.invoice-bank-grid button small {
+  display: block;
+  color: inherit !important;
+}
+
+.invoice-bank-grid button small {
+  margin-top: 4px;
+  font-family: var(--font-plex), monospace;
+  font-size: .72rem;
+  opacity: .72;
+}
+
+.invoice-bank-grid button.selected {
+  background: #070a0d;
+  color: #fff;
+  border-color: #070a0d;
+}
+
+/* Tekst die 1-op-1 met de factuur meegestuurd kan worden */
+.invoice-copy-message {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(7,10,13,.16);
+  background: #ffffff;
+}
+
+.invoice-copy-message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.invoice-copy-message-head h4 {
+  margin: 3px 0 0;
+  color: #070a0d !important;
+  font-size: 1.15rem;
+}
+
+.invoice-copy-message textarea {
+  display: block;
+  width: 100%;
+  min-height: 390px;
+  resize: vertical;
+  padding: 16px;
+  border: 1px solid rgba(7,10,13,.18) !important;
+  background: #f7f8f8 !important;
+  color: #070a0d !important;
+  -webkit-text-fill-color: #070a0d !important;
+  caret-color: #070a0d !important;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.invoice-copy-message > small {
+  display: block;
+  margin-top: 9px;
+  color: #526b7a !important;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .tap-selected-section .tap-picked-list > div {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 10px;
+  }
+
+  .tap-selected-section .tap-picked-list > div > strong {
+    font-size: .98rem;
+  }
+
+  .invoice-bank-head,
+  .invoice-copy-message-head {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .invoice-bank-head > strong {
+    text-align: left;
+  }
+
+  .invoice-bank-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-copy-message-head .internal-btn {
+    width: 100%;
+  }
+
+  .invoice-copy-message textarea {
+    min-height: 470px;
+    font-size: 16px;
+  }
+}
