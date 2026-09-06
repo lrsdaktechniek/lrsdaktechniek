@@ -4721,3 +4721,112 @@ body {
     font-size: clamp(2rem, 10vw, 2.55rem);
   }
 }
+
+
+/* ============================================================
+   V20 · PRIVÉ FACTUUR ALS AFBEELDING / NATIVE SHARE
+   ============================================================ */
+
+.invoice-image-panel {
+  overflow: hidden;
+}
+
+.invoice-image-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.invoice-image-actions .internal-btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.invoice-image-actions .internal-btn:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.invoice-build-button {
+  grid-column: 1 / -1;
+  min-height: 58px;
+}
+
+.invoice-image-preview-wrap {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(7,10,13,.14);
+  background: #dfe4e7;
+}
+
+.invoice-image-preview-wrap > .internal-kicker {
+  color: #294b5e;
+}
+
+.invoice-image-preview {
+  display: block;
+  width: min(100%, 860px);
+  height: auto;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 16px 44px rgba(7,10,13,.16);
+}
+
+.invoice-email-optional {
+  margin-top: 18px;
+  border-top: 1px solid rgba(7,10,13,.14);
+  border-bottom: 1px solid rgba(7,10,13,.14);
+}
+
+.invoice-email-optional summary {
+  padding: 16px 0;
+  cursor: pointer;
+  color: #294b5e;
+  font-family: var(--font-plex), "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  list-style-position: inside;
+}
+
+.invoice-email-optional[open] {
+  padding-bottom: 18px;
+}
+
+.invoice-email-optional .invoice-send-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .invoice-send-panel.invoice-image-panel {
+    margin-inline: 0;
+    padding: 20px 14px;
+  }
+
+  .invoice-image-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-build-button {
+    grid-column: auto;
+  }
+
+  .invoice-image-preview-wrap {
+    margin-inline: -4px;
+    padding: 10px;
+  }
+
+  .invoice-image-preview {
+    width: 100%;
+    box-shadow: 0 10px 28px rgba(7,10,13,.14);
+  }
+
+  .invoice-settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
