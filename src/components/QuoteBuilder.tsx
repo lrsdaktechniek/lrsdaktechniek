@@ -115,6 +115,20 @@ const categories = Array.from(new Set(CATALOG.map(item => item.category)));
 const euro = (value: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(value || 0);
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const roundToFive = (value: number) => Math.max(0, Math.round(value / 5) * 5);
+const formatQty = (value: number) => {
+  if (Number.isInteger(value)) return String(value);
+  return value.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+};
+
+function pricingPreviewText(item: CatalogItem, basePrice: number) {
+  const extra = extraUnitRate(item, basePrice);
+  if (item.unit === "pan") return `Eerste pan ${euro(basePrice)} · daarna ${euro(extra)}/pan`;
+  if (item.unit === "zone") return `Eerste zone ${euro(basePrice)} · daarna ${euro(extra)}/zone`;
+  if (item.unit === "rij") return `Eerste rij ${euro(basePrice)} · daarna ${euro(extra)}/rij`;
+  if (item.unit === "m²") return `Eerste m² ${euro(basePrice)} · daarna ${euro(extra)}/m²`;
+  if (item.unit === "meter" || item.unit.includes("meter")) return `Eerste meter ${euro(basePrice)} · daarna ${euro(extra)}/${item.unit}`;
+  return `Startprijs ${euro(basePrice)} · daarna ${euro(extra)}/${item.unit}`;
+}
 
 function isLinearUnit(unit: string) {
   return unit === "m²" || unit === "meter" || unit.includes("meter");
@@ -306,8 +320,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       basePriceEx, firstRateEx, extraRateEx, lineTotalEx, known: basePriceEx > 0,
       pricingMode: isPrimary ? "primary" as const : "carry" as const,
       rateLabel: isPrimary
-        ? `${travelSelected ? "hoofdklus na €" + travelPrice.toFixed(0) + " startcorrectie" : "hoofdklus"} · extra ${euro(extraRateEx)}/${item.unit}`
-        : `meeneemtarief ${euro(firstRateEx)} · extra ${euro(extraRateEx)}/${item.unit}`,
+        ? `${travelSelected ? `hoofduitvoering · voorrijkosten al verwerkt · daarna ${euro(extraRateEx)}/${item.unit}` : `hoofduitvoering · daarna ${euro(extraRateEx)}/${item.unit}`}`
+        : `aanvullend werk tijdens dezelfde klus · vanaf ${euro(firstRateEx)} · daarna ${euro(extraRateEx)}/${item.unit}`,
     };
   }), [selected, book, primaryRepairId, travelSelected, travelPrice]);
 
@@ -572,15 +586,15 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   }
 
   async function buildInvoiceImageBlob() {
-    const validation = validateInvoiceImage();
-    if (validation) {
-      setInvoiceStatus(validation);
+    const validationError = validateInvoiceImage();
+    if (validationError) {
+      setInvoiceStatus(validationError);
       return null;
     }
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1600;
-    canvas.height = 2263;
+    canvas.width = 1500;
+    canvas.height = 1500;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       setInvoiceStatus("Factuurafbeelding kon niet worden opgebouwd.");
@@ -591,12 +605,15 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     const H = canvas.height;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
-    ctx.textBaseline = "top";
+    ctx.strokeStyle = "#d8dde0";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(22, 22, W - 44, H - 44);
 
-    const draw = (value: string, x: number, y: number, size = 26, weight = 400, color = "#111111", align: CanvasTextAlign = "left") => {
-      ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
+    const draw = (value: string, x: number, y: number, size = 24, weight = 400, color = "#111111", align: CanvasTextAlign = "left") => {
       ctx.fillStyle = color;
+      ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
       ctx.textAlign = align;
+      ctx.textBaseline = "top";
       ctx.fillText(value, x, y);
     };
     const line = (x1: number, y1: number, x2: number, y2: number, color = "#d2d2d2", width = 1) => {
@@ -625,108 +642,128 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       return rows;
     };
 
-    // Kop en klant
-    draw("Factuur", 90, 245, 34, 700);
-    draw(customer.trim(), 90, 340, 25, 700);
-    const customerAddressLines = wrap(address.trim(), 610, 24, 400);
-    customerAddressLines.slice(0, 3).forEach((row, index) => draw(row, 90, 382 + index * 36, 24, 400));
+    const leftX = 86;
+    const rightX = 955;
 
-    // Bedrijfsgegevens rechtsboven
-    const rx = 1015;
-    draw("LRS Daktechniek", rx, 34, 25, 700);
+    draw("Factuur", leftX, 92, 42, 700);
+    draw(customer.trim(), leftX, 176, 27, 700);
+    const customerAddressLines = wrap(address.trim(), 560, 24, 400);
+    customerAddressLines.slice(0, 3).forEach((row, index) => draw(row, leftX, 220 + index * 34, 24, 400));
+
+    draw("LRS Daktechniek", rightX, 74, 28, 700);
     const businessAddressParts = invoiceSettings.businessAddress.split(",").map(part => part.trim()).filter(Boolean);
-    businessAddressParts.slice(0, 3).forEach((row, index) => draw(row, rx, 72 + index * 34, 23, 400));
-    const businessDataY = 72 + Math.max(2, businessAddressParts.length) * 34;
-    draw("t", rx, businessDataY + 6, 22, 700);
-    draw(site.phoneHref, rx + 34, businessDataY + 6, 22, 400);
-    draw("e", rx, businessDataY + 42, 22, 700);
-    draw(site.email, rx + 34, businessDataY + 42, 22, 400);
-    draw("i", rx, businessDataY + 78, 22, 700);
-    draw("www.lrsdaktechniek.nl", rx + 34, businessDataY + 78, 22, 400);
+    businessAddressParts.slice(0, 3).forEach((row, index) => draw(row, rightX, 116 + index * 30, 22, 400));
+    const businessDataY = 116 + Math.max(2, businessAddressParts.length) * 30 + 8;
+    draw("t", rightX, businessDataY, 22, 700);
+    draw(site.phoneHref, rightX + 30, businessDataY, 22, 400);
+    draw("e", rightX, businessDataY + 34, 22, 700);
+    draw(site.email, rightX + 30, businessDataY + 34, 22, 400);
+    draw("i", rightX, businessDataY + 68, 22, 700);
+    draw("www.lrsdaktechniek.nl", rightX + 30, businessDataY + 68, 22, 400);
 
-    const bankY = businessDataY + 160;
-    draw("IBAN", rx, bankY, 22, 700);
-    draw(invoiceSettings.iban, rx + 120, bankY, 22, 400);
-    draw("Btw-nr", rx, bankY + 38, 22, 700);
-    draw(invoiceSettings.vatId, rx + 120, bankY + 38, 22, 400);
-    draw("KvK", rx, bankY + 76, 22, 700);
-    draw(site.kvk, rx + 120, bankY + 76, 22, 400);
+    const bankY = businessDataY + 130;
+    draw("IBAN", rightX, bankY, 22, 700);
+    draw(invoiceSettings.iban, rightX + 118, bankY, 22, 400);
+    draw("Btw-nr", rightX, bankY + 34, 22, 700);
+    draw(invoiceSettings.vatId, rightX + 118, bankY + 34, 22, 400);
+    draw("KvK", rightX, bankY + 68, 22, 700);
+    draw(site.kvk, rightX + 118, bankY + 68, 22, 400);
 
-    // Betaalgegevens
-    const payX = 65, payY = 590, payW = 730, payH = 245;
+    const payX = 78, payY = 380, payW = 620, payH = 208;
     ctx.fillStyle = "#f4f4f4";
     ctx.fillRect(payX, payY, payW, payH);
     ctx.strokeStyle = "#d4d4d4";
     ctx.lineWidth = 2;
     ctx.strokeRect(payX, payY, payW, payH);
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(payX + 18, payY - 22, 205, 44);
-    ctx.strokeRect(payX + 18, payY - 22, 205, 44);
-    draw("Betaalgegevens", payX + 34, payY - 13, 21, 700);
-    const payLabelX = payX + 28, payValueX = payX + 235;
-    draw("Te betalen", payLabelX, payY + 48, 22, 700);
-    draw(`€ ${invoiceMoney(total)}`, payValueX, payY + 48, 24, 700);
-    draw("Naar IBAN", payLabelX, payY + 93, 22, 700);
-    draw(invoiceSettings.iban, payValueX, payY + 93, 22, 700);
-    draw("Op naam van", payLabelX, payY + 138, 22, 400);
-    draw("LRS Daktechniek", payValueX, payY + 138, 22, 700);
-    draw("Omschrijving", payLabelX, payY + 183, 22, 400);
-    draw(`Factuur ${invoiceNumber}`, payValueX, payY + 183, 22, 700);
+    ctx.fillRect(payX + 18, payY - 20, 185, 40);
+    ctx.strokeRect(payX + 18, payY - 20, 185, 40);
+    draw("Betaalgegevens", payX + 30, payY - 10, 20, 700);
 
-    // Factuurmeta rechts
-    const metaX = 1015, metaValueX = 1225;
-    draw("Factuurnummer", metaX, payY + 15, 22, 400);
-    draw(invoiceNumber, metaValueX, payY + 15, 22, 700);
-    draw("Factuurdatum", metaX, payY + 58, 22, 400);
-    draw(new Date().toLocaleDateString("nl-NL"), metaValueX, payY + 58, 22, 700);
-    draw("Klantnummer", metaX, payY + 140, 22, 400);
-    draw(customerNumber.trim() || "—", metaValueX, payY + 140, 22, 700);
-    draw("Leverdatum", metaX, payY + 183, 22, 400);
-    draw(invoiceDate(workDate), metaValueX, payY + 183, 22, 700);
+    const payLabelX = payX + 22;
+    const payValueX = payX + 205;
+    draw("Te betalen", payLabelX, payY + 34, 21, 700);
+    draw(`€ ${invoiceMoney(total)}`, payValueX, payY + 34, 23, 700);
+    draw("Naar IBAN", payLabelX, payY + 76, 21, 700);
+    draw(invoiceSettings.iban, payValueX, payY + 76, 21, 700);
+    draw("Op naam van", payLabelX, payY + 118, 21, 400);
+    draw("LRS Daktechniek", payValueX, payY + 118, 21, 700);
+    draw("Omschrijving", payLabelX, payY + 160, 21, 400);
+    draw(`Factuur ${invoiceNumber}`, payValueX, payY + 160, 21, 700);
 
-    // Factuurregel
-    const tableY = 865;
+    const metaX = 955;
+    const metaValueX = 1178;
+    draw("Factuurnummer", metaX, 398, 21, 400);
+    draw(invoiceNumber, metaValueX, 398, 21, 700);
+    draw("Factuurdatum", metaX, 438, 21, 400);
+    draw(new Date().toLocaleDateString("nl-NL"), metaValueX, 438, 21, 700);
+    draw("Klantnummer", metaX, 516, 21, 400);
+    draw(customerNumber.trim() || "—", metaValueX, 516, 21, 700);
+    draw("Leverdatum", metaX, 556, 21, 400);
+    draw(invoiceDate(workDate), metaValueX, 556, 21, 700);
+
+    const tableY = 656;
     ctx.fillStyle = "#f3f3f3";
-    ctx.fillRect(55, tableY, 1490, 44);
-    draw("Omschrijving", 70, tableY + 8, 21, 700);
-    draw("Aantal", 1090, tableY + 8, 21, 700, "#111111", "right");
-    draw("Prijs", 1320, tableY + 8, 21, 700, "#111111", "right");
-    draw("Totaal", 1520, tableY + 8, 21, 700, "#111111", "right");
+    ctx.fillRect(56, tableY, 1388, 42);
+    draw("Omschrijving", 72, tableY + 8, 20, 700);
+    draw("Aantal", 1018, tableY + 8, 20, 700, "#111111", "right");
+    draw("Prijs", 1218, tableY + 8, 20, 700, "#111111", "right");
+    draw("Totaal", 1382, tableY + 8, 20, 700, "#111111", "right");
 
-    const descriptionRows = wrap(invoiceDescriptionText(), 920, 23, 400).slice(0, 3);
-    descriptionRows.forEach((row, index) => draw(row, 70, tableY + 58 + index * 34, 23, 400));
-    draw("1,00", 1090, tableY + 58, 23, 400, "#111111", "right");
-    draw(invoiceMoney(subtotal), 1320, tableY + 58, 23, 400, "#111111", "right");
-    draw(invoiceMoney(subtotal), 1520, tableY + 58, 23, 400, "#111111", "right");
+    const descriptionRows = wrap(invoiceDescriptionText(), 860, 22, 400).slice(0, 3);
+    descriptionRows.forEach((row, index) => draw(row, 72, tableY + 56 + index * 30, 22, 400));
+    draw("1,00", 1018, tableY + 56, 22, 400, "#111111", "right");
+    draw(invoiceMoney(subtotal), 1218, tableY + 56, 22, 400, "#111111", "right");
+    draw(invoiceMoney(subtotal), 1382, tableY + 56, 22, 400, "#111111", "right");
 
+    let cursorY = tableY + 56 + descriptionRows.length * 30 + 32;
     if (notes.trim()) {
-      const noteRows = wrap(`Opmerking: ${notes.trim()}`, 1360, 19, 400).slice(0, 4);
-      noteRows.forEach((row, index) => draw(row, 70, tableY + 185 + index * 28, 19, 400, "#444444"));
+      const noteRows = wrap(`Opmerking: ${notes.trim()}`, 1260, 18, 400).slice(0, 4);
+      noteRows.forEach((row, index) => draw(row, 72, cursorY + index * 24, 18, 400, "#444444"));
+      cursorY += noteRows.length * 24 + 18;
     }
 
-    // Onderste btw- en totalenbalk
-    const bottomY = 1940;
-    ctx.fillStyle = "#f5f5f5";
-    ctx.fillRect(55, bottomY, 1490, 165);
-    draw("Btw %", 62, bottomY + 72, 20, 400);
-    draw("Grondslag", 190, bottomY + 72, 20, 400);
-    draw("Bedrag", 405, bottomY + 72, 20, 400);
-    line(58, bottomY + 102, 505, bottomY + 102, "#444444", 2);
-    draw(vat.toFixed(2).replace(".", ","), 62, bottomY + 112, 20, 400);
-    draw(invoiceMoney(subtotal), 190, bottomY + 112, 20, 400);
-    draw(invoiceMoney(vatAmount), 405, bottomY + 112, 20, 400);
+    line(58, cursorY, 1442, cursorY, "#cfd5d8", 1);
+    const summaryY = cursorY + 54;
+    draw("Uitgevoerde werkzaamheden", 72, summaryY, 20, 700, "#294b5e");
+    const summaryRows = wrap(
+      [
+        ...workLines.filter(line => line.key.startsWith("repair-")).map(line => `${line.description}${line.qty > 1 || line.unit.includes("meter") || line.unit === "m²" ? ` (${formatQty(line.qty)} ${line.unit})` : ""}`),
+        ...customLines.filter(line => line.description.trim()).map(line => `${line.description.trim()}${line.qty > 1 ? ` (${formatQty(line.qty)} ${line.unit})` : ""}`),
+      ].join(" · ") || invoiceDescriptionText(),
+      1260,
+      18,
+      400,
+    ).slice(0, 4);
+    summaryRows.forEach((row, index) => draw(row, 72, summaryY + 30 + index * 24, 18, 400, "#444444"));
 
-    const totalLabelX = 1068, euroX = 1328, amountX = 1530;
-    draw("Totaal excl. btw", totalLabelX, bottomY + 20, 22, 400);
-    draw("€", euroX, bottomY + 20, 22, 700);
-    draw(invoiceMoney(subtotal), amountX, bottomY + 20, 22, 400, "#111111", "right");
-    draw("Totaal btw", totalLabelX, bottomY + 63, 22, 400);
-    draw("€", euroX, bottomY + 63, 22, 700);
-    draw(invoiceMoney(vatAmount), amountX, bottomY + 63, 22, 400, "#111111", "right");
-    line(totalLabelX, bottomY + 104, amountX, bottomY + 104, "#777777", 1);
-    draw("Te betalen", totalLabelX, bottomY + 116, 23, 700);
-    draw("€", euroX, bottomY + 116, 23, 700);
-    draw(invoiceMoney(total), amountX, bottomY + 116, 23, 700, "#111111", "right");
+    const bottomY = 1230;
+    ctx.fillStyle = "#f5f5f5";
+    ctx.fillRect(56, bottomY, 1388, 146);
+    draw("Btw %", 64, bottomY + 52, 19, 400);
+    draw("Grondslag", 178, bottomY + 52, 19, 400);
+    draw("Bedrag", 370, bottomY + 52, 19, 400);
+    line(60, bottomY + 80, 470, bottomY + 80, "#444444", 2);
+    draw(vat.toFixed(2).replace(".", ","), 64, bottomY + 88, 19, 400);
+    draw(invoiceMoney(subtotal), 178, bottomY + 88, 19, 400);
+    draw(invoiceMoney(vatAmount), 370, bottomY + 88, 19, 400);
+
+    const totalLabelX = 980;
+    const euroX = 1245;
+    const amountX = 1392;
+    draw("Totaal excl. btw", totalLabelX, bottomY + 18, 21, 400);
+    draw("€", euroX, bottomY + 18, 21, 700);
+    draw(invoiceMoney(subtotal), amountX, bottomY + 18, 21, 400, "#111111", "right");
+    draw("Totaal btw", totalLabelX, bottomY + 54, 21, 400);
+    draw("€", euroX, bottomY + 54, 21, 700);
+    draw(invoiceMoney(vatAmount), amountX, bottomY + 54, 21, 400, "#111111", "right");
+    line(totalLabelX, bottomY + 92, amountX, bottomY + 92, "#777777", 1);
+    draw("Te betalen", totalLabelX, bottomY + 102, 23, 700);
+    draw("€", euroX, bottomY + 102, 23, 700);
+    draw(invoiceMoney(total), amountX, bottomY + 102, 23, 700, "#111111", "right");
+
+    draw(`Betaaltermijn: ${Math.max(0, Number(invoiceSettings.paymentTermDays) || 0)} dagen`, 72, 1404, 18, 400, "#526b7a");
+    draw(`Onder vermelding van: Factuur ${invoiceNumber}`, 72, 1432, 18, 400, "#526b7a");
 
     return await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png", 1));
   }
@@ -939,7 +976,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
               return <article key={item.id} className={`tap-repair-card ${chosen ? "selected" : ""}`}>
                 <button type="button" className="tap-repair-select" onClick={() => toggleItem(item)}>
                   <span className="tap-repair-number">{String(item.number).padStart(2,"0")}</span>
-                  <span className="tap-repair-copy"><strong>{item.label}</strong><small>Basis {euro(price)} · extra {euro(extraUnitRate(item, price))}/{item.unit}</small></span>
+                  <span className="tap-repair-copy"><strong>{item.label}</strong><small>{pricingPreviewText(item, price)}</small></span>
                   <span className="tap-repair-mark">{chosen ? "✓" : "+"}</span>
                 </button>
                 {chosen && variableQty && <div className="tap-qty-row">
@@ -960,10 +997,10 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 <small>{line.key === "travel"
                   ? "Vaste voorrij- en startkosten"
                   : line.key === "referral-fee"
-                    ? "Alleen intern · opdracht via partner/tussenpersoon"
+                    ? "Alleen intern · partner / tussenpersoon"
                     : line.pricingMode === "primary"
-                      ? `${line.qty} ${line.unit} · ${line.qty > 1 ? "slimme staffel toegepast" : "hoofdreparatie"}`
-                      : `${line.qty} ${line.unit} · aanvullend werk tijdens dezelfde klus`}
+                      ? `${formatQty(line.qty)} ${line.unit} · hoofduitvoering${line.qty > 1 ? " met lagere vervolgprijs" : ""}`
+                      : `${formatQty(line.qty)} ${line.unit} · aanvullend tijdens dezelfde klus`}
                 </small>
               </span>
               <strong>{euro(line.lineTotalEx)}</strong>
@@ -1018,7 +1055,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 <div><span className="internal-kicker">FACTUUR</span><h3>Factuur als afbeelding</h3></div>
                 <strong>{invoiceNumber || "—"}</strong>
               </div>
-              <p className="invoice-help">Maak onderaan één nette factuurafbeelding zoals je bestaande factuur. Daarna kun je hem op iPhone rechtstreeks delen via het deelmenu naar WhatsApp, Mail of een andere app. De interne staffelprijzen en partnerafspraak staan niet als losse klantregels op de factuur.</p>
+              <p className="invoice-help">Maak hieronder één nette klantfactuur. De factuur laat alleen een duidelijke omschrijving, totaalbedrag, betaalgegevens en factuurgegevens zien. Interne staffels of partnerafspraken worden niet apart aan de klant getoond. Na het maken kun je de afbeelding direct delen via WhatsApp, Mail of openen in een nieuw scherm.</p>
 
               <div className="invoice-settings-grid">
                 <label><span>Factuurnummer</span><input value={invoiceNumber} onChange={event=>setInvoiceNumber(event.target.value)} placeholder="LRS-2026-0001"/></label>
@@ -1061,8 +1098,15 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
               </div>
 
               {invoiceImageUrl && invoiceImageFingerprint === invoiceFingerprint && <div className="invoice-image-preview-wrap">
-                <span className="internal-kicker">VOORBEELD FACTUUR</span>
+                <div className="invoice-image-preview-head">
+                  <div>
+                    <span className="internal-kicker">KLANTFACTUUR</span>
+                    <h4>Klaar om te delen</h4>
+                  </div>
+                  <a className="invoice-image-open-link" href={invoiceImageUrl} target="_blank" rel="noreferrer">OPEN VOLLEDIGE AFBEELDING →</a>
+                </div>
                 <img className="invoice-image-preview" src={invoiceImageUrl} alt={`Factuur ${invoiceNumber} van LRS Daktechniek`} />
+                <small>Tip: op iPhone kun je de afbeelding ook eerst volledig openen en daarna via het deelmenu versturen naar WhatsApp of Mail.</small>
               </div>}
 
               <details className="invoice-email-optional">
