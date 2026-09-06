@@ -39,6 +39,7 @@ function titleForPath(path: string, slug: string[]) {
   if (path === "diensten") return "Dakdekker diensten Breda | LRS Daktechniek";
   if (path === "dakcheck") return "Dakcheck dakwerk | LRS Daktechniek Breda";
   if (path === "prijsindicatie") return "Prijsindicatie dakwerk Breda | LRS Daktechniek";
+  if (path === "reparatie-indicatie") return "Dakreparatie prijsindicatie Breda | LRS Daktechniek";
   if (path === "contact") return "Contact dakdekker Breda | LRS Daktechniek";
   if (path === "werkgebied") return "Werkgebied dakdekker Breda | LRS Daktechniek";
   if (path === "blog-s") return "Dak kennisbank | LRS Daktechniek";
@@ -71,6 +72,7 @@ function descriptionForPath(path: string, slug: string[]) {
 
   if (path === "dak-lekkage") return "Daklekkage in Breda of omgeving? Slimme lekkagecheck, €75 excl. btw voorrijkosten en vooraf duidelijke technische informatie voor LRS.";
   if (path === "prijsindicatie") return "Bereken online een prijsindicatie voor dakwerk bij LRS Daktechniek in Breda en omgeving.";
+  if (path === "reparatie-indicatie") return "Bereken vooraf een ruime online indicatie voor kleine dakreparaties in Breda en omgeving, inclusief btw en standaard bezoek/startkosten.";
   if (path === "werkgebied") return "Bekijk het werkgebied van LRS Daktechniek rond Breda op de kaart en ga direct naar de dakdekker-pagina van uw plaats.";
   if (path === "projecten") return "Projectarchief van LRS Daktechniek. Alleen echte dakprojecten worden gepubliceerd met controleerbare werkzaamheden en projectmateriaal.";
   if (path === "beoordelen") return "Deel uw ervaring met LRS Daktechniek via Google Maps.";
@@ -138,7 +140,8 @@ function breadcrumbFor(path: string, slug: string[]) {
     const labels: Record<string, string> = {
       diensten: "Diensten",
       dakcheck: "Dakcheck",
-      prijsindicatie: "Prijsindicatie",
+      prijsindicatie: "Dak prijsindicatie",
+      "reparatie-indicatie": "Reparatie indicatie",
       contact: "Contact",
       werkgebied: "Werkgebied",
       "blog-s": "Kennisbank",
