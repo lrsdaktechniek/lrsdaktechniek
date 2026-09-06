@@ -1596,8 +1596,11 @@ function RepairEstimatePage() {
   const option=PUBLIC_REPAIR_OPTIONS.find(item=>item.id===repairId) ?? PUBLIC_REPAIR_OPTIONS[0];
   const amount=Math.max(1,Number(qty)||1);
   const smartInternalEx=(option.baseEx + Math.max(0,amount-1)*option.extraEx) * (access==="moeilijk"?1.10:1);
-  const lowEx=roundUpFive(smartInternalEx*1.12);
-  const highEx=roundUpFive(smartInternalEx*1.28);
+  // Publiek rekenen we bewust ruimer dan de interne werkprijs.
+  // Minimaal €50 reserve voorkomt dat een normale commerciële marge of externe aanbrengkost
+  // later boven op de getoonde indicatie hoeft te komen. De klant ziet alleen de totaalband.
+  const lowEx=roundUpFive(Math.max(smartInternalEx*1.12, smartInternalEx+50));
+  const highEx=roundUpFive(Math.max(smartInternalEx*1.28, smartInternalEx+80));
   const lowIncl=roundUpFive(lowEx*1.21);
   const highIncl=roundUpFive(highEx*1.21);
 
@@ -1618,7 +1621,7 @@ function RepairEstimatePage() {
           <SectionIndex n="01" label="REPARATIE INDICATIE"/>
           <p className="annotation">KLEIN DAKHERSTEL · BREDA E.O.</p>
           <h1>Vooraf een ruime reparatie-indicatie.</h1>
-          <p className="lead">Kies wat u aan het dak ziet en hoeveel. De calculator geeft bewust een iets ruimere indicatie, zodat een eenvoudige uitvoering in de praktijk ook lager kan uitvallen.</p>
+          <p className="lead">Kies wat u aan het dak ziet en hoeveel. De calculator geeft bewust een ruime totaalindicatie met reserve voor normale uitvoeringsverschillen. Daardoor kan een eenvoudige uitvoering in de praktijk lager uitvallen.</p>
         </div>
         <aside className="repair-estimate-promise">
           <span className="annotation">BELANGRIJK</span>
@@ -1659,7 +1662,7 @@ function RepairEstimatePage() {
           <div className="repair-estimate-live">
             <span className="annotation">ONLINE INDICATIE INCL. 21% BTW</span>
             <strong className="mono">€{lowIncl} – €{highIncl}</strong>
-            <small>Standaard bezoek/startkosten zijn in deze indicatie verwerkt.</small>
+            <small>Bezoek, startkosten en een normale prijsreserve zijn in deze totaalindicatie verwerkt.</small>
           </div>
           <button className="btn calculator-submit" type="submit">BEKIJK MIJN INDICATIE</button>
         </form>
