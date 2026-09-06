@@ -25,7 +25,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
 
   return (
     <main className="compact-private-shell">
-      <QuoteBuilder />
+      <QuoteBuilder accessToken={token} />
     </main>
   );
 }
