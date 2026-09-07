@@ -1592,6 +1592,14 @@ function RepairEstimatePage() {
   const [access,setAccess]=useState<"normaal"|"moeilijk">("normaal");
   const [address,setAddress]=useState("");
   const [submitted,setSubmitted]=useState(false);
+  const [customerName,setCustomerName]=useState("");
+  const [customerPhone,setCustomerPhone]=useState("");
+  const [customerEmail,setCustomerEmail]=useState("");
+  const [customerNote,setCustomerNote]=useState("");
+  const [websiteTrap,setWebsiteTrap]=useState("");
+  const [sendBusy,setSendBusy]=useState(false);
+  const [sendStatus,setSendStatus]=useState<"idle"|"success"|"error">("idle");
+  const [sendMessage,setSendMessage]=useState("");
 
   const option=PUBLIC_REPAIR_OPTIONS.find(item=>item.id===repairId) ?? PUBLIC_REPAIR_OPTIONS[0];
   const amount=Math.max(1,Number(qty)||1);
@@ -1611,14 +1619,68 @@ function RepairEstimatePage() {
   const highIncl=roundUpFive(Math.max(highEx*1.21,lowIncl+10));
 
   const message=[
-    "Hallo LRS Daktechniek, ik heb de online reparatie-indicatie ingevuld.",
+    "Hallo LRS Daktechniek, ik heb de online reparatie-indicatie ingevuld en mijn aanvraag via de website verstuurd.",
+    `Naam: ${customerName || "Nog niet ingevuld"}`,
+    `Telefoon: ${customerPhone || "Nog niet ingevuld"}`,
+    `E-mail: ${customerEmail || "Nog niet ingevuld"}`,
     `Reparatie: ${option.label}`,
     `Hoeveelheid: ${amount} ${option.unit}`,
     `Bereikbaarheid: ${access==="moeilijk"?"Moeilijk bereikbaar":"Normaal bereikbaar"}`,
     `Adres: ${address || "Nog niet ingevuld"}`,
     `Online indicatie incl. btw: €${lowIncl} – €${highIncl}`,
-    "Ik begrijp dat dit een online richtprijs is en dat de definitieve prijs afhangt van de werkelijke situatie."
-  ].join("\n");
+    customerNote ? `Opmerking: ${customerNote}` : "",
+    "Ik wil eventueel foto's van de situatie meesturen."
+  ].filter(Boolean).join("\n");
+
+  async function sendRepairRequest(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    setSendStatus("idle");
+    setSendMessage("");
+
+    if(!customerName.trim() || !customerPhone.trim() || !customerEmail.trim() || !address.trim()){
+      setSendStatus("error");
+      setSendMessage("Vul naam, telefoon, e-mail en het volledige adres in.");
+      return;
+    }
+
+    setSendBusy(true);
+    try{
+      const response=await fetch("/api/reparatie-aanvraag",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          name:customerName.trim(),
+          phone:customerPhone.trim(),
+          email:customerEmail.trim(),
+          address:address.trim(),
+          repairId:option.id,
+          repair:option.label,
+          qty:amount,
+          unit:option.unit,
+          access,
+          lowIncl,
+          highIncl,
+          note:customerNote.trim(),
+          website:websiteTrap,
+        }),
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(data?.error || "De aanvraag kon niet worden verzonden.");
+      setSendStatus("success");
+      setSendMessage("Aanvraag verzonden. LRS Daktechniek heeft uw gegevens en reparatie-indicatie ontvangen.");
+    }catch(error){
+      setSendStatus("error");
+      setSendMessage(error instanceof Error ? error.message : "Versturen is niet gelukt. Probeer het opnieuw of neem telefonisch contact op.");
+    }finally{
+      setSendBusy(false);
+    }
+  }
+
+  function resetResult(){
+    setSubmitted(false);
+    setSendStatus("idle");
+    setSendMessage("");
+  }
 
   return <>
     <section className="repair-estimate-hero">
@@ -1639,30 +1701,30 @@ function RepairEstimatePage() {
 
     <section className="repair-estimate-zone">
       <div className="shell repair-estimate-grid">
-        <form className="repair-estimate-form" onSubmit={(event)=>{event.preventDefault();setSubmitted(true);}}>
+        <form className="repair-estimate-form" onSubmit={(event)=>{event.preventDefault();setSubmitted(true);setSendStatus("idle");setSendMessage("");}}>
           <label>
             <span className="annotation">01 / WAT ZIET U?</span>
-            <select value={repairId} onChange={event=>{setRepairId(event.target.value);setSubmitted(false);}}>
+            <select value={repairId} onChange={event=>{setRepairId(event.target.value);resetResult();}}>
               {PUBLIC_REPAIR_OPTIONS.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}
             </select>
           </label>
           <label>
             <span className="annotation">02 / HOEVEEL?</span>
             <div className="repair-qty-input">
-              <input type="number" min="1" step="1" inputMode="numeric" value={qty} onChange={event=>{setQty(event.target.value);setSubmitted(false);}}/>
+              <input type="number" min="1" step="1" inputMode="numeric" value={qty} onChange={event=>{setQty(event.target.value);resetResult();}}/>
               <span>{option.unit}</span>
             </div>
           </label>
           <label>
             <span className="annotation">03 / BEREIKBAARHEID</span>
-            <select value={access} onChange={event=>{setAccess(event.target.value as "normaal"|"moeilijk");setSubmitted(false);}}>
+            <select value={access} onChange={event=>{setAccess(event.target.value as "normaal"|"moeilijk");resetResult();}}>
               <option value="normaal">Normaal bereikbaar</option>
               <option value="moeilijk">Moeilijk bereikbaar</option>
             </select>
           </label>
           <label>
-            <span className="annotation">04 / ADRES</span>
-            <input value={address} onChange={event=>setAddress(event.target.value)} placeholder="Straatnaam 1, 4811 AA Breda"/>
+            <span className="annotation">04 / VOLLEDIG ADRES</span>
+            <input required value={address} onChange={event=>{setAddress(event.target.value);setSendStatus("idle");}} placeholder="Straatnaam 1, 4811 AA Breda" autoComplete="street-address"/>
           </label>
 
           <div className="repair-estimate-live">
@@ -1687,18 +1749,57 @@ function RepairEstimatePage() {
     </section>
 
     {submitted && <section className="repair-estimate-result" aria-live="polite">
-      <div className="shell repair-result-grid">
-        <div>
+      <div className="shell repair-result-grid repair-result-with-request">
+        <div className="repair-result-summary">
           <span className="annotation">UW ONLINE REPARATIE-INDICATIE</span>
           <h2>{option.label}</h2>
-          <p>Op basis van de gekozen situatie geven we een praktische online prijsband.</p>
-        </div>
-        <div className="repair-result-price">
-          <strong className="mono">€{lowIncl} – €{highIncl}</strong>
-          <span>incl. 21% btw</span>
+          <div className="repair-result-price compact">
+            <strong className="mono">€{lowIncl} – €{highIncl}</strong>
+            <span>incl. 21% btw</span>
+          </div>
           <p>De uiteindelijke prijs kan lager uitvallen wanneer de uitvoering eenvoudiger blijkt. Verborgen schade of extra werkzaamheden worden altijd eerst besproken.</p>
-          <a className="btn primary-light" href={whatsapp(message)} target="_blank" rel="noreferrer">STUUR INDICATIE NAAR LRS</a>
         </div>
+
+        <form className="repair-lead-form" onSubmit={sendRepairRequest}>
+          <div className="repair-lead-head">
+            <span className="annotation">AANVRAAG NAAR LRS</span>
+            <h3>Wilt u dat LRS contact opneemt?</h3>
+            <p>Vul uw contactgegevens in. Na verzenden ontvangt LRS Daktechniek de volledige aanvraag direct per e-mail.</p>
+          </div>
+
+          <div className="repair-lead-fields">
+            <label><span>Naam *</span><input required value={customerName} onChange={event=>setCustomerName(event.target.value)} autoComplete="name" placeholder="Uw naam"/></label>
+            <label><span>Telefoon *</span><input required type="tel" value={customerPhone} onChange={event=>setCustomerPhone(event.target.value)} autoComplete="tel" placeholder="06 12345678"/></label>
+            <label><span>E-mail *</span><input required type="email" value={customerEmail} onChange={event=>setCustomerEmail(event.target.value)} autoComplete="email" placeholder="naam@email.nl"/></label>
+            <label className="repair-lead-address"><span>Volledig adres *</span><input required value={address} onChange={event=>setAddress(event.target.value)} autoComplete="street-address" placeholder="Straatnaam 1, 4811 AA Breda"/></label>
+            <label className="repair-lead-note"><span>Opmerking (optioneel)</span><textarea rows={3} value={customerNote} onChange={event=>setCustomerNote(event.target.value)} placeholder="Bijvoorbeeld waar de schade zit of wanneer het probleem is ontstaan."/></label>
+            <label className="repair-honeypot" aria-hidden="true"><span>Website</span><input tabIndex={-1} autoComplete="off" value={websiteTrap} onChange={event=>setWebsiteTrap(event.target.value)}/></label>
+          </div>
+
+          <div className="repair-request-recap">
+            <span>{option.label}</span>
+            <span>{amount} {option.unit}</span>
+            <strong>€{lowIncl} – €{highIncl} incl. btw</strong>
+          </div>
+
+          {sendStatus!=="success" && <button className="btn primary-light repair-send-button" type="submit" disabled={sendBusy}>
+            {sendBusy?"AANVRAAG WORDT VERSTUURD...":"VERSTUUR AANVRAAG NAAR LRS"}
+          </button>}
+
+          {sendStatus==="success" && <div className="repair-send-success" role="status">
+            <strong>✓ Aanvraag ontvangen</strong>
+            <p>{sendMessage}</p>
+            <a className="btn primary-light" href={whatsapp(message)} target="_blank" rel="noreferrer">STUUR FOTO'S VIA WHATSAPP</a>
+          </div>}
+
+          {sendStatus==="error" && <div className="repair-send-error" role="alert">
+            <strong>Versturen niet gelukt</strong>
+            <p>{sendMessage}</p>
+            <a className="text-action" href={`tel:${site.phoneHref}`}>Bel {site.phoneDisplay} →</a>
+          </div>}
+
+          <small className="repair-lead-privacy">Uw gegevens worden alleen gebruikt om contact op te nemen over deze aanvraag.</small>
+        </form>
       </div>
     </section>}
 
@@ -1713,7 +1814,6 @@ function RepairEstimatePage() {
     </section>
   </>;
 }
-
 
 function Contact() {
   const [name,setName]=useState(""); const [place,setPlace]=useState(""); const [text,setText]=useState("");
