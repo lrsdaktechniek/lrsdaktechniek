@@ -1643,31 +1643,43 @@ function RepairEstimatePage() {
       return;
     }
 
+    // Simpele spamval: echte bezoekers zien dit veld niet.
+    if(websiteTrap.trim()){
+      setSendStatus("success");
+      setSendMessage("Aanvraag verzonden.");
+      return;
+    }
+
     setSendBusy(true);
     try{
-      const response=await fetch("/api/reparatie-aanvraag",{
+      const formData=new FormData();
+      formData.append("_subject",`Nieuwe reparatie-aanvraag · ${option.label} · ${customerName.trim()}`);
+      formData.append("_template","table");
+      formData.append("_captcha","false");
+      formData.append("Naam",customerName.trim());
+      formData.append("Telefoon",customerPhone.trim());
+      formData.append("E-mail klant",customerEmail.trim());
+      formData.append("Volledig adres",address.trim());
+      formData.append("Reparatie",option.label);
+      formData.append("Hoeveelheid",`${amount} ${option.unit}`);
+      formData.append("Bereikbaarheid",access==="moeilijk"?"Moeilijk bereikbaar":"Normaal bereikbaar");
+      formData.append("Online richtprijs incl. btw",`€${lowIncl} – €${highIncl}`);
+      formData.append("Opmerking",customerNote.trim() || "Geen opmerking");
+      formData.append("Google Maps",`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`);
+      formData.append("Bron","LRS Daktechniek · online reparatie-indicatie");
+
+      const response=await fetch("https://formsubmit.co/ajax/info@lrsdaktechniek.nl",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          name:customerName.trim(),
-          phone:customerPhone.trim(),
-          email:customerEmail.trim(),
-          address:address.trim(),
-          repairId:option.id,
-          repair:option.label,
-          qty:amount,
-          unit:option.unit,
-          access,
-          lowIncl,
-          highIncl,
-          note:customerNote.trim(),
-          website:websiteTrap,
-        }),
+        headers:{Accept:"application/json"},
+        body:formData,
       });
       const data=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(data?.error || "De aanvraag kon niet worden verzonden.");
+      if(!response.ok || data?.success===false){
+        throw new Error(data?.message || "De aanvraag kon niet worden verzonden.");
+      }
+
       setSendStatus("success");
-      setSendMessage("Aanvraag verzonden. LRS Daktechniek heeft uw gegevens en reparatie-indicatie ontvangen.");
+      setSendMessage("Aanvraag verzonden naar info@lrsdaktechniek.nl. LRS neemt zo snel mogelijk contact met u op.");
     }catch(error){
       setSendStatus("error");
       setSendMessage(error instanceof Error ? error.message : "Versturen is niet gelukt. Probeer het opnieuw of neem telefonisch contact op.");
@@ -1764,7 +1776,7 @@ function RepairEstimatePage() {
           <div className="repair-lead-head">
             <span className="annotation">AANVRAAG NAAR LRS</span>
             <h3>Wilt u dat LRS contact opneemt?</h3>
-            <p>Vul uw contactgegevens in. Na verzenden ontvangt LRS Daktechniek de volledige aanvraag direct per e-mail.</p>
+            <p>Vul uw contactgegevens in. Na verzenden wordt de volledige aanvraag per e-mail doorgestuurd naar LRS Daktechniek.</p>
           </div>
 
           <div className="repair-lead-fields">
