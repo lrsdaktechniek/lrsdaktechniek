@@ -5276,3 +5276,220 @@ body {
     max-width: 100%;
   }
 }
+
+
+/* =========================================================
+   V24 — publieke reparatieaanvraag direct per e-mail naar LRS
+   ========================================================= */
+
+.repair-result-with-request {
+  align-items: start;
+  gap: clamp(28px, 5vw, 64px);
+}
+
+.repair-result-summary {
+  min-width: 0;
+}
+
+.repair-result-price.compact {
+  margin-top: 22px;
+}
+
+.repair-lead-form {
+  min-width: 0;
+  padding: clamp(22px, 4vw, 34px);
+  background: #ffffff;
+  border: 1px solid rgba(7,10,13,.16);
+  color: #070a0d;
+}
+
+.repair-lead-head h3 {
+  margin: 5px 0 10px;
+  color: #070a0d;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.15;
+}
+
+.repair-lead-head p {
+  margin-bottom: 22px;
+  color: #526b7a;
+}
+
+.repair-lead-fields {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px;
+}
+
+.repair-lead-fields label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.repair-lead-fields label > span {
+  color: #294b5e;
+  font-family: var(--font-plex), "IBM Plex Mono", monospace;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.repair-lead-fields input,
+.repair-lead-fields textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(7,10,13,.18);
+  border-radius: 0;
+  background: #f7f8f8;
+  color: #070a0d;
+  -webkit-text-fill-color: #070a0d;
+  caret-color: #070a0d;
+  padding: 12px 13px;
+  outline: none;
+  font: inherit;
+  font-size: 16px;
+}
+
+.repair-lead-fields input {
+  min-height: 50px;
+}
+
+.repair-lead-fields textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.repair-lead-fields input::placeholder,
+.repair-lead-fields textarea::placeholder {
+  color: #7b858c;
+  -webkit-text-fill-color: #7b858c;
+  opacity: 1;
+}
+
+.repair-lead-fields input:focus,
+.repair-lead-fields textarea:focus {
+  border-color: #294b5e;
+  outline: 2px solid rgba(41,75,94,.10);
+}
+
+.repair-lead-address,
+.repair-lead-note {
+  grid-column: 1 / -1;
+}
+
+.repair-honeypot {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+}
+
+.repair-request-recap {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 5px 16px;
+  margin-top: 18px;
+  padding: 16px;
+  background: #eef3f5;
+  border-left: 3px solid #294b5e;
+  color: #070a0d;
+}
+
+.repair-request-recap > span:first-child {
+  font-weight: 700;
+}
+
+.repair-request-recap > span:nth-child(2) {
+  color: #526b7a;
+  text-align: right;
+}
+
+.repair-request-recap > strong {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  font-size: 1.15rem;
+}
+
+.repair-send-button {
+  width: 100%;
+  margin-top: 16px;
+  min-height: 58px;
+}
+
+.repair-send-success,
+.repair-send-error {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid rgba(7,10,13,.14);
+}
+
+.repair-send-success {
+  background: #eef3f5;
+}
+
+.repair-send-success > strong {
+  display: block;
+  color: #294b5e;
+  font-size: 1.12rem;
+}
+
+.repair-send-success p,
+.repair-send-error p {
+  margin: 7px 0 14px;
+  color: #526b7a;
+}
+
+.repair-send-success .btn {
+  width: 100%;
+}
+
+.repair-send-error {
+  background: #f7eeee;
+  border-color: rgba(138,74,60,.28);
+}
+
+.repair-send-error > strong {
+  color: #8a4a3c;
+}
+
+.repair-lead-privacy {
+  display: block;
+  margin-top: 12px;
+  color: #6f8796;
+  font-size: .75rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .repair-result-with-request {
+    grid-template-columns: 1fr !important;
+  }
+
+  .repair-lead-form {
+    padding: 18px;
+  }
+
+  .repair-lead-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .repair-lead-address,
+  .repair-lead-note {
+    grid-column: auto;
+  }
+
+  .repair-request-recap {
+    grid-template-columns: 1fr;
+  }
+
+  .repair-request-recap > span:nth-child(2) {
+    text-align: left;
+  }
+
+  .repair-request-recap > strong {
+    grid-column: auto;
+  }
+}
