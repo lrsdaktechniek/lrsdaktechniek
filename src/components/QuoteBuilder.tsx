@@ -747,20 +747,6 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       cursorY += noteRows.length * 24 + 18;
     }
 
-    line(58, cursorY, 1442, cursorY, "#cfd5d8", 1);
-    const summaryY = cursorY + 54;
-    draw("Uitgevoerde werkzaamheden", 72, summaryY, 20, 700, "#294b5e");
-    const summaryRows = wrap(
-      [
-        ...workLines.filter(line => line.key.startsWith("repair-")).map(line => `${line.description}${line.qty > 1 || line.unit.includes("meter") || line.unit === "m²" ? ` (${formatQty(line.qty)} ${line.unit})` : ""}`),
-        ...customLines.filter(line => line.description.trim()).map(line => `${line.description.trim()}${line.qty > 1 ? ` (${formatQty(line.qty)} ${line.unit})` : ""}`),
-      ].join(" · ") || invoiceDescriptionText(),
-      1260,
-      18,
-      400,
-    ).slice(0, 4);
-    summaryRows.forEach((row, index) => draw(row, 72, summaryY + 30 + index * 24, 18, 400, "#444444"));
-
     const bottomY = 1230;
     ctx.fillStyle = "#f5f5f5";
     ctx.fillRect(56, bottomY, 1388, 146);
