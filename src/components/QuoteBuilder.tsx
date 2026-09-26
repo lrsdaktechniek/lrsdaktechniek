@@ -114,6 +114,13 @@ const CATALOG: readonly CatalogItem[] = [
 const categories = Array.from(new Set(CATALOG.map(item => item.category)));
 const euro = (value: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(value || 0);
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const parseMoneyInput = (value: string) => {
+  const cleaned = value.trim().replace(/[^\d,.-]/g, "");
+  if (!cleaned) return 0;
+  const normalized = cleaned.includes(",") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 const roundToFive = (value: number) => Math.max(0, Math.round(value / 5) * 5);
 const formatQty = (value: number) => {
   if (Number.isInteger(value)) return String(value);
@@ -201,6 +208,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   const [minutes, setMinutes] = useState(0);
   const [difficult, setDifficult] = useState(false);
   const [difficultPct, setDifficultPct] = useState(DIFFICULT_DEFAULT);
+  const [manualTotalEnabled, setManualTotalEnabled] = useState(false);
+  const [manualTotalIncl, setManualTotalIncl] = useState("");
   const [copied, setCopied] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
   const [timerNow, setTimerNow] = useState(Date.now());
@@ -238,6 +247,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         setHours(Number(draft.hours ?? 0));
         setMinutes(Number(draft.minutes ?? 0));
         setDifficult(Boolean(draft.difficult));
+        setManualTotalEnabled(Boolean(draft.manualTotalEnabled));
+        setManualTotalIncl(draft.manualTotalIncl === undefined || draft.manualTotalIncl === null ? "" : String(draft.manualTotalIncl));
         setTimerStartedAt(typeof draft.timerStartedAt === "number" ? draft.timerStartedAt : null);
         setCustomerEmail(draft.customerEmail ?? "");
         setCustomerNumber(draft.customerNumber ?? "");
@@ -263,9 +274,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_DRAFT, JSON.stringify({
-      customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, timerStartedAt,
+      customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt,
     }));
-  }, [customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, timerStartedAt]);
+  }, [customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt]);
 
   useEffect(() => {
     if (timerStartedAt === null) return;
@@ -333,15 +344,24 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   // Bereikbaarheid wordt alleen over daadwerkelijk werk gerekend, niet over voorrij- of opdrachttoeslag.
   const difficultBase = roundMoney(repairSubtotal + customSubtotal);
   const difficultAmount = difficult ? roundMoney(difficultBase * difficultPct / 100) : 0;
-  const subtotal = roundMoney(baseSubtotal + difficultAmount);
-  const vatAmount = roundMoney(subtotal * vat / 100);
-  const total = roundMoney(subtotal + vatAmount);
+  const calculatedSubtotal = roundMoney(baseSubtotal + difficultAmount);
+  const calculatedVatAmount = roundMoney(calculatedSubtotal * vat / 100);
+  const calculatedTotal = roundMoney(calculatedSubtotal + calculatedVatAmount);
+
+  // Mondeling afgesproken prijs: voer exact het klantbedrag inclusief btw in.
+  // Deze override geldt alleen voor de huidige werkbon/factuur en verandert het prijsboek niet.
+  const manualTotal = roundMoney(Math.max(0, parseMoneyInput(manualTotalIncl)));
+  const manualOverrideActive = manualTotalEnabled && manualTotal > 0;
+  const subtotal = manualOverrideActive ? roundMoney(manualTotal / (1 + vat / 100)) : calculatedSubtotal;
+  const vatAmount = manualOverrideActive ? roundMoney(manualTotal - subtotal) : calculatedVatAmount;
+  const total = manualOverrideActive ? manualTotal : calculatedTotal;
 
   const unknownSelected = useMemo(() => {
+    if (manualOverrideActive) return [];
     const unknownCatalog = workLines.filter(line => !line.known).map(line => line.description);
     const unknownCustom = customLines.filter(line => (Number(line.priceEx) || 0) <= 0).map(line => line.description || "Eigen regel");
     return [...unknownCatalog, ...unknownCustom];
-  }, [workLines, customLines]);
+  }, [workLines, customLines, manualOverrideActive]);
 
   const filteredBookItems = useMemo(() => {
     const q = bookSearch.trim().toLowerCase();
@@ -428,6 +448,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     setHours(0);
     setMinutes(0);
     setDifficult(false);
+    setManualTotalEnabled(false);
+    setManualTotalIncl("");
     setTimerStartedAt(null);
     setTimerNow(Date.now());
     localStorage.removeItem(STORAGE_DRAFT);
@@ -502,7 +524,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     work: workLines.filter(line => line.key.startsWith("repair-")).map(line => [line.key, line.qty]),
     custom: customLines.map(line => [line.description, line.qty, line.unit]),
     difficult,
-  }), [customer, customerNumber, address, invoiceNumber, workDate, jobTitle, notes, invoiceSettings, subtotal, vat, vatAmount, total, workLines, customLines, difficult]);
+    manualTotalEnabled,
+    manualTotalIncl,
+  }), [customer, customerNumber, address, invoiceNumber, workDate, jobTitle, notes, invoiceSettings, subtotal, vat, vatAmount, total, workLines, customLines, difficult, manualTotalEnabled, manualTotalIncl]);
 
   function invoiceDescriptionText() {
     const customTitle = jobTitle.trim();
@@ -991,6 +1015,38 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
         <section className="tap-section tap-selected-section">
           <div className="tap-section-head"><span>03</span><div><small>CONTROLE</small><h2>Dit staat nu op de bon</h2></div></div>
+
+          <div style={{ marginBottom: 18, padding: 14, border: manualTotalEnabled ? "2px solid #070a0d" : "1px solid #cfd5d8", background: manualTotalEnabled ? "#eef3f5" : "#ffffff" }}>
+            <button
+              type="button"
+              className={`tap-toggle ${manualTotalEnabled ? "selected" : ""}`}
+              style={{ width: "100%" }}
+              onClick={() => setManualTotalEnabled(value => !value)}
+            >
+              <span className="tap-checkmark">{manualTotalEnabled ? "✓" : "+"}</span>
+              <span>
+                <strong>Mondeling afgesproken prijs</strong>
+                <small>Vaste klantprijs gebruiken in plaats van de automatische berekening</small>
+              </span>
+            </button>
+
+            {manualTotalEnabled && <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontWeight: 700 }}>Afgesproken totaal incl. btw</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={manualTotalIncl}
+                  onChange={event => setManualTotalIncl(event.target.value)}
+                  placeholder="Bijv. 405,35"
+                  style={{ fontSize: 22, fontWeight: 700, padding: "12px 14px", color: "#070a0d", background: "#ffffff" }}
+                />
+              </label>
+              <small>Automatische berekening: {euro(calculatedTotal)} incl. btw. De handmatige prijs verandert het prijsboek niet en geldt alleen voor deze bon/factuur.</small>
+              {manualOverrideActive && <strong>Factuurprijs wordt {euro(total)} incl. btw → {euro(subtotal)} excl. btw + {euro(vatAmount)} btw.</strong>}
+            </div>}
+          </div>
+
           {workLines.length === 0 && customLines.length === 0 ? <p className="tap-empty">Nog niets geselecteerd.</p> : <div className="tap-picked-list">
             {workLines.map(line => <div key={line.key}>
               <span>{line.number ? `${line.number}. ` : ""}{line.description}
@@ -1007,6 +1063,10 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             </div>)}
             {customLines.map(line => <div key={line.id}><span>{line.description || "Extra werkzaamheden"}<small>{line.qty} {line.unit} × {euro(line.priceEx)}</small></span><strong>{euro(line.qty * line.priceEx)}</strong></div>)}
             {difficultAmount > 0 && <div><span>Moeilijk bereikbaar<small>{difficultPct}% toeslag</small></span><strong>{euro(difficultAmount)}</strong></div>}
+          </div>}
+          {manualOverrideActive && <div style={{ marginTop: 12, padding: "12px 14px", background: "#070a0d", color: "#ffffff", display: "grid", gap: 4 }}>
+            <strong>MONDELING AFGESPROKEN TOTAAL ACTIEF</strong>
+            <span>De geselecteerde werkzaamheden blijven op de factuur staan; hun automatische regelprijzen worden voor deze factuur genegeerd.</span>
           </div>}
           <div className="tap-final-total">
             <p><span>Subtotaal excl. btw</span><strong>{euro(subtotal)}</strong></p>
