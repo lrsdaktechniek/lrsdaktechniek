@@ -284,3 +284,40 @@ test("Offertepreview, kopieertekst, factuurprint en factuur-PNG lekken geen werk
   assert.doesNotMatch(invoicePrint,/<th>Excl\. btw<\/th>/);
   assert.match(repair,/tap-add-custom-shortcut/);
 });
+
+test("Openstaande werkbon controleert deployments en kan een nieuwe versie laden", async () => {
+  const shell=fs.readFileSync("src/components/PrivateWorkOrders.tsx","utf8");
+  const page=fs.readFileSync("src/app/offerte/[token]/page.tsx","utf8");
+  const css=fs.readFileSync("src/components/roofQuote.css","utf8");
+  assert.match(shell,/fetch\("\/api\/werkbon-versie\?_="/);
+  assert.match(shell,/document\.visibilityState/);
+  assert.match(shell,/window\.location\.assign/);
+  assert.match(shell,/KLANTDOCUMENT: ALLEEN EINDTOTAAL/);
+  assert.match(shell,/Vernieuw versie/);
+  assert.match(page,/deployedVersion=\{process\.env\.VERCEL_GIT_COMMIT_SHA/);
+  assert.match(css,/\.roof-document thead th:nth-child\(n\+3\)/);
+
+  const endpoint=loadTs("src/app/api/werkbon-versie/route.ts");
+  const prev=process.env.VERCEL_GIT_COMMIT_SHA;
+  try {
+    process.env.VERCEL_GIT_COMMIT_SHA="test-sha-quote-total-only";
+    const response=endpoint.GET();
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get("cache-control"),"no-store, max-age=0");
+    assert.deepEqual(await response.json(),{version:"test-sha-quote-total-only"});
+  } finally {
+    if (prev===undefined) delete process.env.VERCEL_GIT_COMMIT_SHA;
+    else process.env.VERCEL_GIT_COMMIT_SHA=prev;
+  }
+});
+
+test("Offerte preview onderscheidt een totaalprijs van factuur btw-regels",()=>{
+  const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
+  assert.match(roof,/data-document-type=\{invoicePreview\?"factuur":"offerte"\}/);
+  assert.match(roof,/KLANTWEERGAVE/);
+  assert.match(roof,/Vaste totaalprijs incl\./);
+  const document=roof.slice(roof.indexOf('data-document-type={invoicePreview?'),roof.lastIndexOf('</article>'));
+  assert.ok(!document.includes("line.amountEx"));
+  assert.match(document,/<th>Aantal \/ meters<\/th>/);
+  assert.ok(!document.includes('<th>Bedrag excl. btw</th>'));
+});

@@ -179,3 +179,26 @@ Vóór het versturen van echte facturen moet het volledige
 factuuradres van Allround LEM en een eventueel geverifieerd
 e-mailadres als afzender nog worden ingesteld. Projecten en
 factuurnummers blijven lokaal opgeslagen (niet cloudbreed).
+
+## Oude iPhone-tab laat nog prijzen per werkregel zien
+
+Belangrijk: De oude JavaScript-versie blijft in een reeds geopend tabblad
+of bij terugnavigeren soms geladen. In de huidige klantweergave heeft
+een offerte maar twee kolommen (werkzaamheden en hoeveelheid), zonder
+bedragen per regel; alleen de totaalprijs inclusief btw staat eronder.
+Een factuur behoudt enkel in het slotblok een BTW-specificatie.
+
+Om een oude werkbon te vernieuwen: open de bestaande beveiligde
+Vercel-werkbonlink opnieuw met een extra query, bijvoorbeeld
+?werkbon-versie=nieuw. Vernieuw bij voorkeur via de knop
+"↻ Vernieuw versie" bovenaan de privéwerkbon. Hierdoor wordt een
+volledige navigatie uitgevoerd in plaats van een oude clientweergave
+uit het open tabblad te blijven gebruiken.
+
+Voortaan toont de privéwerkbon "KLANTDOCUMENT: ALLEEN EINDTOTAAL"
+als zichtbare versie-indicator. De ingebouwde versiecontrole vergelijkt
+de huidige deployments via /api/werkbon-versie (geen klantdata/tokens)
+bij het openen, bij terugkeer naar de tab en elke minuut. Als de
+JavaScript-build niet meer de actuele is, verschijnt een knop om de
+nieuwe versie bewust te laden, zodat lopende klussen niet onverwacht
+tijdens typen worden onderbroken.

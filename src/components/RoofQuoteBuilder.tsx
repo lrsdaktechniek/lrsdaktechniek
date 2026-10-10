@@ -608,11 +608,11 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           <div className="roof-section-head"><h2>Klantdocument bekijken</h2>
             <div className="roof-buttons"><button type="button" className="roof-btn secondary" onClick={()=>setPreview("quote")}>OFFERTESCHERM</button><button type="button" className="roof-btn secondary" disabled={!isAccepted&&!locked} onClick={()=>setPreview("invoice")}>FACTUURSCHERM</button></div>
           </div>
-          <p className="roof-hint">Onderstaande weergave bevat nooit de interne kosten voor het extra mannetje of interne notities.</p>
+          <p className="roof-hint"><strong>KLANTWEERGAVE:</strong> werkzaamheden en aantallen, zonder prijs per regel. Op de offerte staat alleen één vaste totaalprijs inclusief btw. Op een factuur staat onderaan de wettelijk benodigde btw-berekening.</p>
         </section>
       </main>
 
-      <article className={"roof-document"+(issuer==="allround-lem"?" allround-lem":"")} aria-label={invoicePreview?"Factuur voor klant":"Offerte voor klant"}>
+      <article className={"roof-document"+(issuer==="allround-lem"?" allround-lem":"")} data-document-type={invoicePreview?"factuur":"offerte"} aria-label={invoicePreview?"Factuur voor klant":"Offerte voor klant"}>
         <header>
           <div><small>{issuer==="allround-lem"?"ALLROUND LEM · DAKWERK EN ONDERHOUD":"DAKTECHNIEK · BREDA EN OMGEVING"}</small><h1>{company.name.toUpperCase()}</h1><span>{invoiceBill.businessAddress}</span>{(invoiceBill.phone||invoiceBill.contactEmail)&&<span>{[invoiceBill.phone,invoiceBill.contactEmail].filter(Boolean).join(" · ")}</span>}<span>KvK {company.kvk} · Btw-ID {invoiceBill.vatId}</span></div>
           <div className="roof-doc-title"><h2>{invoicePreview?"FACTUUR":"OFFERTE"}</h2><strong>{invoicePreview?invoiceNumber:quoteNumber}</strong></div>

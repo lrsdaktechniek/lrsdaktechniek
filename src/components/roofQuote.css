@@ -448,3 +448,68 @@
  .roof-document th:nth-child(1) {width:74%!important;}
  .roof-document th:nth-child(2) {width:26%!important;}
 }
+
+/* Prevent stale workorder tabs from continuing an old invoice layout. */
+.private-work-release-badge {
+  display:inline-flex;
+  align-items:center;
+  padding:8px 10px;
+  color:#113b30;
+  background:#ccecd8;
+  border:1px solid #74bd95;
+  border-radius:4px;
+  font:bold .68rem/1.3 Arial,sans-serif;
+  letter-spacing:.03em;
+}
+.private-work-nav .private-work-reload {
+  background:#e7f4fd;
+  border:1px solid #7dabca;
+  color:#143449;
+  font-size:.75rem;
+}
+.private-work-nav .private-work-reload:hover {background:#fff;}
+.private-work-update {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:9px 16px;
+  color:#1c3443;
+  background:#fff4d4;
+  border:2px solid #d8ac45;
+  padding:12px clamp(12px,4vw,48px);
+  font:.85rem/1.45 Arial,sans-serif;
+}
+.private-work-update strong {font-size:.88rem;}
+.private-work-update button {
+  cursor:pointer;
+  background:#133d55;
+  color:white;
+  font-weight:900;
+  letter-spacing:.03em;
+  padding:12px 14px;
+  border:0;
+  border-radius:4px;
+  min-height:45px;
+}
+.roof-document thead th:nth-child(n+3),
+.roof-document tbody td:nth-child(n+3) {display:none!important;}
+.roof-document[data-document-type="offerte"] .roof-doc-tax {display:none!important;}
+@media(max-width:750px) {
+  .private-work-release-badge {flex:1 0 auto;justify-content:center;}
+  .private-work-nav .private-work-reload {flex:1 0 100%;padding:10px;}
+  .private-work-update {display:grid;}
+  .private-work-update button {width:100%;}
+}
+@media print {
+  .private-work-release-badge,.private-work-update,.private-work-reload {display:none!important;}
+  .roof-document thead th:nth-child(n+3),
+  .roof-document tbody td:nth-child(n+3) {display:none!important;}
+}
+
+.private-work-nav > .private-work-release-badge {
+  color:#123d2d;
+  border-color:#74bd95;
+  background:#d6f5e4;
+  letter-spacing:.03em;
+  font-size:.7rem;
+}
