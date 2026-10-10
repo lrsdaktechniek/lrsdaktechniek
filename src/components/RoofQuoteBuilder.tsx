@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
-import { CATALOG, CATEGORIES, WorkLine, calculate, euro, formattedDay, localDay } from "@/lib/roofQuote";
+import { CATALOG, CATEGORIES, DEFAULT_PRICES, MIN_ROOF_JOB_EX, WorkLine, calculate, euro, formattedDay, localDay } from "@/lib/roofQuote";
 
 type Project = {
   id: string;
@@ -26,6 +26,7 @@ type Project = {
   acceptedAt: string;
   invoiceSentAt: string;
   invoiceNumber: string;
+  pricingMode?: "legacy" | "staffel-v2";
   invoiceDetails?: { issueDate: string; iban: string; paymentTermDays: number; businessAddress: string; vatId: string };
 };
 type InvoiceSettings = { businessAddress: string; vatId: string; iban: string; paymentTermDays: number };
@@ -69,7 +70,7 @@ function makeProject(): Project {
     customer:"",address:"",email:"",phone:"",title:"Dakwerkzaamheden",
     quoteDate:localDay(),workDate:localDay(),validityDays:30,
     publicNotes:"",privateNotes:"",items:[],extraPersonEx:0,chargeExtraPerson:true,vatRate:21,
-    sentSignature:"",acceptedSignature:"",acceptedAt:"",invoiceSentAt:"",invoiceNumber:"",
+    sentSignature:"",acceptedSignature:"",acceptedAt:"",invoiceSentAt:"",invoiceNumber:"",pricingMode:"staffel-v2",
   };
 }
 function nextInvoiceNumber() {
@@ -101,7 +102,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   const [projects,setProjects]=useState<Project[]>([]);
   const [activeId,setActiveId]=useState("");
   const [ready,setReady]=useState(false);
-  const [prices,setPrices]=useState<Record<string,number>>({});
+  const [prices,setPrices]=useState<Record<string,number>>({...DEFAULT_PRICES});
   const [settings,setSettings]=useState<InvoiceSettings>(DEFAULT_SETTINGS);
   const [category,setCategory]=useState(CATEGORIES[0]);
   const [search,setSearch]=useState("");
@@ -113,20 +114,35 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
 
   useEffect(()=>{
     try {
+      const rawPrices=JSON.parse(localStorage.getItem(PRICE_KEY) || "{}") as Record<string,number>;
+      const storedPrices=(rawPrices && typeof rawPrices==="object" && !Array.isArray(rawPrices)) ? rawPrices : {};
+      const validPrices=Object.fromEntries(Object.entries(storedPrices).filter(([,value])=>typeof value==="number" && Number.isFinite(value) && value>0));
+      const finalPrices={...DEFAULT_PRICES,...validPrices};
+      setPrices(finalPrices);
       const stored=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "null") as Archive | null;
       if (stored && Array.isArray(stored.projects) && stored.projects.length) {
         const good=stored.projects.filter(row=>row && typeof row.id==="string" && Array.isArray(row.items)).slice(0,200);
-        if (good.length) {
-          setProjects(good);
-          setActiveId(good.some(row=>row.id===stored.activeId)?stored.activeId:good[0].id);
+        // Bestaande verzonden offertes en facturen mogen NIET herberekend worden.
+        // Alleen concepten migreren naar het nieuwe prijsboek en staffels.
+        const migrated=good.map(row=>{
+          const protectedOffer=Boolean(row.sentSignature || row.acceptedSignature || row.invoiceSentAt);
+          return {
+            ...row,
+            pricingMode:row.pricingMode ?? (protectedOffer?"legacy" as const:"staffel-v2" as const),
+            items:protectedOffer?row.items:row.items.map(line=>({
+              ...line,priceEx:line.priceEx>0?line.priceEx:(finalPrices[line.id]??0),
+            }))
+          };
+        });
+        if (migrated.length) {
+          setProjects(migrated);
+          setActiveId(migrated.some(row=>row.id===stored.activeId)?stored.activeId:migrated[0].id);
         } else {
           const fresh=makeProject();setProjects([fresh]);setActiveId(fresh.id);
         }
       } else {
         const fresh=makeProject();setProjects([fresh]);setActiveId(fresh.id);
       }
-      const savedPrices=JSON.parse(localStorage.getItem(PRICE_KEY) || "{}");
-      if (savedPrices && typeof savedPrices==="object") setPrices(savedPrices);
       const savedSettings=JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) || "null") as Partial<InvoiceSettings> | null;
       if (savedSettings) setSettings({...DEFAULT_SETTINGS,...savedSettings});
     } catch {
@@ -160,7 +176,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
 
   const project=projects.find(row=>row.id===activeId);
   const pricing=useMemo(()=>project
-    ? calculate(project.items,project.extraPersonEx,project.chargeExtraPerson,project.vatRate)
+    ? calculate(project.items,project.extraPersonEx,project.chargeExtraPerson,project.vatRate,project.pricingMode??"legacy")
     : calculate([],0,false,21),[project]);
   // Dit object bevat uitsluitend klantgegevens. Interne kosten/notities verlaten de browser nooit.
   const quote=useMemo(()=>project?{
@@ -190,10 +206,23 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     edit({items:project.items.map(row=>row.id===id?{...row,...patch}:row)});
   }
   function addLine(id:string) {
-    if (!project || locked || busy || project.items.length>=50 || project.items.some(row=>row.id===id)) return;
+    if (!project || locked || busy) return;
+    const existing=project.items.some(row=>row.id===id);
+    if(existing) {
+      edit({items:project.items.filter(row=>row.id!==id)});
+      return;
+    }
+    if(project.items.length>=50)return;
     const item=CATALOG.find(row=>row.id===id);
-    if (!item) return;
-    edit({items:[...project.items,{id:item.id,description:item.description,qty:1,unit:item.unit,priceEx:Number(prices[id])||0}]});
+    if(!item)return;
+    // Eén hoofdtype per dak: voorkom dubbel tellen van beton/keramisch/compleet.
+    const withoutAlternative=item.pack
+      ? project.items.filter(row=>CATALOG.find(entry=>entry.id===row.id)?.pack!==item.pack)
+      : project.items;
+    edit({items:[...withoutAlternative,{
+      id:item.id,description:item.description,qty:1,unit:item.unit,
+      priceEx:Number(prices[id] ?? item.defaultPriceEx),
+    }]});
   }
   function newProject() {
     if (projects.length>=200) {setNotice("Maximaal 200 lokale projecten. Archiveer eerst je gegevens.");return;}
@@ -202,6 +231,9 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     setActiveId(fresh.id);
     setNotice("Nieuw project aangemaakt en automatisch lokaal opgeslagen.");
     setPreview("quote");
+    setSearch("");
+    setCategory(CATEGORIES[0]);
+    setShowBook(false);
   }
   function removeProject() {
     if (!project || !window.confirm("Project "+project.number+" verwijderen? Deze actie kan niet worden teruggedraaid.")) return;
@@ -230,7 +262,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     if (project.items.length>50) return "Maximaal 50 regels per offerte.";
     if (project.items.some(row=>!row.description.trim()||!row.unit.trim()||
       !Number.isFinite(row.qty)||row.qty<=0||!Number.isFinite(row.priceEx)||row.priceEx<=0)) {
-      return "Vul bij iedere geselecteerde regel omschrijving, aantal en verkoopprijs in (boven € 0).";
+      return "Vul bij iedere geselecteerde regel een geldige hoeveelheid en eenheidsprijs in. Gebruik eventueel PRIJSBOEK.";
     }
     if (pricing.total<=0 || pricing.total>100000000) return "Het totaalbedrag is ongeldig.";
     return "";
@@ -353,7 +385,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           <h1>Dakprojecten & offertes</h1>
           <p>Bitumen, pannendaken, zinkwerk en kleine onderdelen op één offerte.</p>
         </div>
-        <div className="roof-header-total"><span>KLANTTOTAAL INCL. BTW</span><strong>{euro(pricing.total)}</strong></div>
+<div className="roof-header-actions"><button type="button" className="roof-header-new" disabled={Boolean(busy)} onClick={newProject}>+ NIEUWE KLUS · LEEG BEGINNEN</button><div className="roof-header-total"><span>KLANTTOTAAL INCL. BTW</span><strong>{euro(pricing.total)}</strong></div></div>
       </header>
 
       <main className="roof-layout roof-no-print">
@@ -365,7 +397,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
                 {projects.map(row=><option key={row.id} value={row.id}>{row.number} · {row.customer || row.title}</option>)}
               </select>
             </label>
-            <button type="button" className="roof-btn primary" onClick={newProject}>+ NIEUW DAKPROJECT</button>
+<button type="button" className="roof-btn primary" disabled={Boolean(busy)} onClick={newProject}>+ NIEUWE KLUS</button>
             <button type="button" className="roof-btn secondary" onClick={removeProject} disabled={Boolean(busy)}>VERWIJDER</button>
           </div>
           <p className="roof-hint">Automatisch opgeslagen in deze browser, niet centraal. Maak voor belangrijke offertes ook een PDF-back-up. Offertenummers en factuurnummers zijn alleen lokaal gesynchroniseerd.</p>
@@ -392,44 +424,83 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
         </section>
 
         <section className="roof-card">
-          <div className="roof-section-head"><h2>2. Werkzaamheden toevoegen</h2><small>{project.items.length} regels</small></div>
+<div className="roof-section-head"><h2>2. Tik aan wat je gaat doen</h2><small>{project.items.length} werkzaamheden</small></div><p className="roof-hint roof-top-intro">Alle werkzaamheden hebben al een vaste prijs per m², meter of stuk. Je hoeft alleen aan te tikken en het aantal in te vullen. Prijzen zijn excl. btw.</p>
           <label className="roof-search"><span>Zoek werkzaamheden</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Bitumen, pannen slijpen, vogelschroten, zink..."/></label>
           {!search && <div className="roof-categories">{CATEGORIES.map(c=><button type="button" key={c} className={category===c?"active":""} onClick={()=>setCategory(c)}>{c}</button>)}</div>}
           <div className="roof-catalog">
             {listed.map(item=>{
-              const chosen=project.items.some(line=>line.id===item.id);
-              return <button key={item.id} type="button" disabled={chosen||locked||Boolean(busy)||project.items.length>=50} onClick={()=>addLine(item.id)}>
-                <b>{chosen?"✓":"+"}</b><span>{item.description}<small>per {item.unit} · {prices[item.id]>0 ? euro(prices[item.id])+" standaard excl. btw":"eigen tarief invullen"}</small></span>
-              </button>;
+              const picked=project.items.find(line=>line.id===item.id);
+              const step=picked&&["m²","m¹","meter","strekkende meter","uur"].includes(picked.unit)?0.5:1;
+              const minQty=step===0.5?0.1:1;
+              return <article className={picked?"roof-chosen":""} key={item.id}>
+                <button className="roof-catalog-toggle" type="button" disabled={locked||Boolean(busy)||(!picked&&project.items.length>=50)} onClick={()=>addLine(item.id)}>
+                  <b>{picked?"✓":"+"}</b><span>{item.description}<small>{euro(prices[item.id]??item.defaultPriceEx)} / {item.unit} excl. btw {picked?"· geselecteerd":""}</small></span>
+                </button>
+                {picked&&<div className="roof-catalog-inline-qty">
+                  <button type="button" aria-label={"Minder "+item.description} disabled={locked||Boolean(busy)} onClick={()=>updateLine(picked.id,{qty:Math.max(minQty,Math.round((picked.qty-step)*10)/10)})}>−</button>
+                  <label><span>Aantal {picked.unit}</span><input type="number" inputMode="decimal" aria-label={"Aantal "+item.description} min={minQty} max="100000" step={step===0.5?"0.1":"1"} disabled={locked||Boolean(busy)} value={picked.qty} onChange={event=>updateLine(picked.id,{qty:safeNum(event.target.value,100000)})}/></label>
+                  <button type="button" aria-label={"Meer "+item.description} disabled={locked||Boolean(busy)} onClick={()=>updateLine(picked.id,{qty:Math.min(100000,Math.round((picked.qty+step)*10)/10)})}>+</button>
+                </div>}
+              </article>;
             })}
             {listed.length===0&&<p>Geen werkzaamheden gevonden. Voeg hieronder een eigen regel toe.</p>}
           </div>
 
           <div className="roof-section-head roof-lines-title"><h3>Ingevulde werkzaamheden</h3><small>Alle bedragen excl. btw</small></div>
-          {!project.items.length&&<p className="roof-empty">Kies hierboven één of meer werkzaamheden. Vul daarna de hoeveelheid en verkoopprijs per eenheid in.</p>}
+<p className="roof-hint">Vul alleen de aantallen of meters in; de rest wordt automatisch berekend. Klein werk kent een minimumprojecttarief van {euro(MIN_ROOF_JOB_EX)} excl. btw.</p>
+          {!project.items.length&&<p className="roof-empty">Nog geen werkzaamheden geselecteerd. Tik hierboven aan wat je gaat doen.</p>}
           <div className="roof-rows">
-            {project.items.map(line=><div className="roof-work-row" key={line.id}>
-              <label className="name"><span>Omschrijving</span><input value={line.description} maxLength={180} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{description:e.target.value})}/></label>
-              <label><span>Aantal</span><input type="number" inputMode="decimal" min="0.01" max="100000" step="0.1" value={line.qty} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{qty:safeNum(e.target.value,100000)})}/></label>
-              <label><span>Eenheid</span><input value={line.unit} maxLength={30} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{unit:e.target.value})}/></label>
-              <label><span>Prijs / eenheid (€)</span><input type="number" inputMode="decimal" min="0" max="1000000" step="0.01" value={line.priceEx} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{priceEx:safeNum(e.target.value)})}/></label>
-              <div className="roof-line-total"><small>Regelbedrag</small><strong>{euro(line.qty*line.priceEx)}</strong></div>
-              <button type="button" className="roof-remove" aria-label={"Verwijder "+line.description} disabled={locked||Boolean(busy)} onClick={()=>edit({items:project.items.filter(row=>row.id!==line.id)})}>×</button>
-            </div>)}
+            {project.items.map(line=>{
+              const detail=pricing.internalLines.find(row=>row.id===line.id);
+              const step=["m²","m¹","meter","strekkende meter","uur"].includes(line.unit)?0.5:1;
+              const minQty=step===0.5?0.1:1;
+              const saving=(detail?.volumeDiscountEx??0)+(detail?.combineDiscountEx??0);
+              return <div className="roof-work-row" key={line.id}>
+                <div className="roof-row-main">
+                  <strong>{line.description||"Eigen werkregel"}</strong>
+                  <small>Vast tarief: <b>{euro(line.priceEx)}</b> / {line.unit} excl. btw</small>
+                  {saving>0&&<small className="roof-savings">Staffel-/meeneemvoordeel: −{euro(saving)}</small>}
+                </div>
+                <div className="roof-count-control">
+                  <button type="button" aria-label={"Minder "+line.description} disabled={locked||Boolean(busy)} onClick={()=>updateLine(line.id,{qty:Math.max(minQty,Math.round((line.qty-step)*10)/10)})}>−</button>
+                  <label><span>Hoeveel {line.unit}?</span>
+                    <input aria-label={"Aantal "+line.description} type="number" inputMode="decimal" min={minQty} max="100000" step={step===0.5?"0.1":"1"} value={line.qty} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{qty:safeNum(e.target.value,100000)})}/>
+                  </label>
+                  <button type="button" aria-label={"Meer "+line.description} disabled={locked||Boolean(busy)} onClick={()=>updateLine(line.id,{qty:Math.min(100000,Math.round((line.qty+step)*10)/10)})}>+</button>
+                </div>
+                <div className="roof-row-result"><small>Bedrag klant excl. btw</small><strong>{euro(detail?.customerEx??0)}</strong></div>
+                <button type="button" className="roof-remove" aria-label={"Verwijder "+line.description} disabled={locked||Boolean(busy)} onClick={()=>edit({items:project.items.filter(row=>row.id!==line.id)})}>×</button>
+                <details className="roof-row-advanced">
+                  <summary>Omschrijving of tarief voor deze klus aanpassen (optioneel)</summary>
+                  <div className="roof-row-advanced-fields">
+                    <label><span>Omschrijving</span><input value={line.description} maxLength={180} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{description:e.target.value})}/></label>
+                    <label><span>Eenheid</span><input value={line.unit} maxLength={30} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{unit:e.target.value})}/></label>
+                    <label><span>Prijs per eenheid excl. btw</span><input type="number" inputMode="decimal" min="0" max="1000000" step="0.01" value={line.priceEx} disabled={locked||Boolean(busy)} onChange={e=>updateLine(line.id,{priceEx:safeNum(e.target.value)})}/></label>
+                  </div>
+                </details>
+              </div>;
+            })}
           </div>
           <div className="roof-add-actions">
             <button className="roof-btn secondary" type="button" disabled={locked||Boolean(busy)||project.items.length>=50} onClick={()=>{
               const id="own-"+uuid();
               edit({items:[...project.items,{id,description:"",unit:"post",qty:1,priceEx:0}]});
             }}>+ EIGEN WERKREGEL</button>
-            <button className="roof-btn secondary" type="button" disabled={locked||Boolean(busy)||!project.items.length} onClick={saveAsStandardPrices}>BEWAAR DEZE TARIEVEN ALS STANDAARD</button>
+
             <button className="roof-btn secondary" type="button" onClick={()=>setShowBook(v=>!v)}>{showBook?"SLUIT PRIJSBOEK":"BEKIJK / WIJZIG PRIJSBOEK"}</button>
           </div>
           {showBook&&<div className="roof-pricebook">
-            <h3>Standaardprijzen voor nieuwe projecten</h3>
-            <p className="roof-hint">De prijzen beginnen op € 0 zodat er geen onbevestigde marktprijzen in klantoffertes terechtkomen. Stel hier je eigen tarieven in.</p>
+            <h3>Vaste eenheidsprijzen (alleen intern)</h3>
+            <p className="roof-hint">Deze standaardtarieven zijn ingevuld vanuit de bestaande LRS-prijsbanden voor grote daktypen en voorlopige interne tariefvoorstellen voor details. Controleer ze op materiaal, bereikbaarheid en je gewenste marge. Prijswijzigingen hier gelden ook voor het huidige niet-gefactureerde project.</p>
+            <button type="button" className="roof-btn secondary" disabled={!project.items.length||locked} onClick={saveAsStandardPrices}>TARIEVEN VAN DEZE KLUS ALS STANDAARD BEWAREN</button>
             {CATALOG.map(item=><label key={item.id}><span>{item.description} <small>per {item.unit}</small></span>
-              <input type="number" min="0" step="0.01" value={Number(prices[item.id])||0} onChange={e=>setPrices(current=>({...current,[item.id]:safeNum(e.target.value)}))}/>
+              <input type="number" min="0" step="0.01" disabled={locked||Boolean(busy)} value={Number(prices[item.id]??item.defaultPriceEx)} onChange={e=>{
+                const value=safeNum(e.target.value);
+                setPrices(current=>({...current,[item.id]:value}));
+                if(!locked) setProjects(rows=>rows.map(row=>row.id===project.id ? {
+                  ...row,items:row.items.map(line=>line.id===item.id?{...line,priceEx:value}:line)
+                } : row));
+              }}/>
             </label>)}
           </div>}
         </section>
@@ -444,9 +515,12 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
             <label className="wide"><span>Toelichting voor klant (wel zichtbaar)</span><textarea rows={2} value={project.publicNotes} maxLength={1600} disabled={locked||Boolean(busy)} onChange={e=>edit({publicNotes:e.target.value})} placeholder="Uitgangspunten, planning, bijzonderheden..."/></label>
           </div>
           <div className="roof-internal-math">
-            <span>Basis verkoopwerk</span><strong>{euro(pricing.baseTotal)}</strong>
-            <span>Verborgen in klantregels doorberekend</span><strong>{euro(pricing.surcharge)}</strong>
-            <span>Interne extra personeelskosten</span><strong>{euro(project.extraPersonEx)}</strong>
+            <span>Basis volgens vaste tarieven</span><strong>{euro(pricing.baseTotal)}</strong>
+            <span>Voordeel grotere aantallen</span><strong>−{euro(pricing.volumeDiscount)}</strong>
+            <span>Meeneemvoordeel extra werkzaamheden</span><strong>−{euro(pricing.combineDiscount)}</strong>
+            {pricing.minimumCharge>0&&<><span>Minimumbedrag voor kleine dakklus</span><strong>+{euro(pricing.minimumCharge)}</strong></>}
+            <span>Extra personeelskosten in klantprijs verwerkt</span><strong>+{euro(pricing.surcharge)}</strong>
+            <span>Interne personeelskosten</span><strong>{euro(project.extraPersonEx)}</strong>
           </div>
           {!project.chargeExtraPerson&&project.extraPersonEx>0&&<p className="roof-warning">Let op: de extra personeelskosten worden nu NIET bij de klantprijs opgeteld. Ze gaan dus van je marge af.</p>}
         </section>
