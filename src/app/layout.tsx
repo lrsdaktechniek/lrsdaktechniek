@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "@/components/roofQuote.css";
 import { site } from "@/lib/content";
 
 const archivo = Archivo({
