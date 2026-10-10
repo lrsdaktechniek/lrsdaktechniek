@@ -1,11 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { site } from "@/lib/content";
+import { INVOICE_ISSUERS, parseIssuer, type InvoiceIssuerId } from "@/lib/invoiceIssuer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Line = { description: string; qty: number; unit: string; amountEx: number };
 type Quote = {
+  issuer?: InvoiceIssuerId;
+  contactEmail?: string;
+  phone?: string;
   number: string;
   issueDate: string;
   validDays: number;
@@ -45,6 +49,7 @@ function moneyValid(x: unknown) {
   return typeof x === "number" && Number.isFinite(x) && x >= 0 && x <= 100000000;
 }
 function renderQuote(quote: Quote) {
+  const company = INVOICE_ISSUERS[quote.issuer || "lrs"];
   const validUntil = new Date(quote.issueDate + "T12:00:00Z");
   validUntil.setUTCDate(validUntil.getUTCDate() + quote.validDays);
   const until = validUntil.toLocaleDateString("nl-NL", {timeZone:"UTC"});
@@ -58,8 +63,8 @@ function renderQuote(quote: Quote) {
   ).join("");
   return '<!doctype html><html lang="nl"><body style="margin:0;background:#eff2f4;color:#0b141a;font:15px Arial,Helvetica,sans-serif">' +
     '<div style="max-width:760px;margin:auto;padding:24px 12px">' +
-      '<div style="background:#08151c;color:#fff;padding:26px">' +
-        '<div style="letter-spacing:2px;font-size:12px">LRS DAKTECHNIEK</div>' +
+      '<div style="background:' + (quote.issuer === "allround-lem" ? "#efb735" : "#08151c") + ';color:' + (quote.issuer === "allround-lem" ? "#111" : "#fff") + ';padding:26px">' +
+        '<div style="letter-spacing:2px;font-size:12px">' + esc(company.name.toUpperCase()) + '</div>' +
         '<h1 style="margin:12px 0 2px">Offerte ' + esc(quote.number) + '</h1>' +
         '<div>' + esc(quote.title) + '</div></div>' +
       '<div style="background:#fff;padding:26px">' +
@@ -67,8 +72,8 @@ function renderQuote(quote: Quote) {
         '<p>Hierbij ontvangt u onze offerte voor de dakwerkzaamheden op ' + esc(quote.customer.address) + '.</p>' +
         '<p><strong>Offertedatum:</strong> ' + dateNl(quote.issueDate) + '<br>' +
         '<strong>Geldig tot en met:</strong> ' + until + '<br>' +
-        '<strong>Van:</strong> ' + esc(site.name) + ' · ' + esc(quote.businessAddress) + '<br>' +
-        '<strong>KvK:</strong> ' + esc(site.kvk) + ' · <strong>Btw-ID:</strong> ' + esc(quote.vatId) + '</p>' +
+        '<strong>Van:</strong> ' + esc(company.name) + ' · ' + esc(quote.businessAddress) + '<br>' +
+        '<strong>KvK:</strong> ' + esc(company.kvk) + ' · <strong>Btw-ID:</strong> ' + esc(quote.vatId) + '</p>' +
         '<table style="width:100%;border-collapse:collapse;margin-top:28px">' +
           '<thead><tr><th style="text-align:left;padding:10px 8px;border-bottom:2px solid #08151c">Omschrijving</th>' +
           '<th style="text-align:right;padding:10px 8px;border-bottom:2px solid #08151c">Aantal</th>' +
@@ -81,7 +86,8 @@ function renderQuote(quote: Quote) {
         '</div>' +
         (quote.notes ? '<p><strong>Toelichting:</strong><br>' + esc(quote.notes).replaceAll("\n", "<br>") + '</p>' : '') +
         '<p>Wilt u akkoord geven? Antwoord dan op deze e-mail. Na uw bevestiging plannen we de werkzaamheden in overleg.</p>' +
-        '<p>Met vriendelijke groet,<br><strong>LRS Daktechniek</strong><br>' + esc(site.phoneDisplay) + '<br>' + esc(site.email) + '</p>' +
+        '<p>Met vriendelijke groet,<br><strong>' + esc(company.name) + '</strong><br>' +
+          (quote.issuer === "allround-lem" ? esc(quote.phone) + '<br>' + esc(quote.contactEmail) : esc(site.phoneDisplay) + '<br>' + esc(site.email)) + '</p>' +
       '</div></div></body></html>';
 }
 
@@ -101,9 +107,13 @@ export async function POST(request: Request) {
     return Response.json({error:"Offerte ontbreekt."},{status:400});
   }
   const raw = payload.quote as Record<string,unknown>;
+  const issuer = parseIssuer(raw.issuer);
+  if (!issuer) return Response.json({error:"Onbekend offertebedrijf."},{status:400});
+  const company = INVOICE_ISSUERS[issuer];
   const customer = (raw.customer && typeof raw.customer === "object") ? raw.customer as Record<string,unknown> : {};
   const linesRaw = Array.isArray(raw.lines) ? raw.lines : [];
   const quote: Quote = {
+    issuer, contactEmail:clean(raw.contactEmail,300), phone:clean(raw.phone,80),
     number:clean(raw.number,50), issueDate:clean(raw.issueDate,10),
     validDays:Number(raw.validDays), title:clean(raw.title,160),
     customer: {
@@ -125,7 +135,7 @@ export async function POST(request: Request) {
   if (!quote.number || !quote.title || !dateOkay(quote.issueDate) ||
       !Number.isInteger(quote.validDays) || quote.validDays < 1 || quote.validDays > 90 ||
       !quote.customer.name || !quote.customer.address || !emailOkay(quote.customer.email) ||
-      !quote.businessAddress || !quote.vatId) {
+      !quote.businessAddress || quote.vatId.replace(/\s+/g,"").toUpperCase() !== company.vatId) {
     return Response.json({error:"Vul offertedatum, klantgegevens en bedrijfsgegevens correct in."},{status:400});
   }
   if (linesRaw.length<1 || linesRaw.length>50 || ![0,9,21].includes(quote.vatRate) ||
@@ -141,18 +151,28 @@ export async function POST(request: Request) {
   }
 
   const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.OFFERTE_FROM_EMAIL || process.env.FACTUUR_FROM_EMAIL;
-  if (!resendKey || !from) {
-    return Response.json({error:"Stel RESEND_API_KEY en OFFERTE_FROM_EMAIL (of FACTUUR_FROM_EMAIL) in op Vercel."},{status:503});
+  const preferred = issuer === "allround-lem"
+    ? process.env.ALLROUND_LEM_FROM_EMAIL
+    : (process.env.OFFERTE_FROM_EMAIL || process.env.FACTUUR_FROM_EMAIL);
+  if (!resendKey || !preferred) {
+    return Response.json({
+      error: issuer === "allround-lem"
+        ? "Stel ALLROUND_LEM_FROM_EMAIL en RESEND_API_KEY op Vercel in om namens Allround LEM te e-mailen."
+        : "Stel OFFERTE_FROM_EMAIL (of FACTUUR_FROM_EMAIL) en RESEND_API_KEY op Vercel in."
+    },{status:503});
   }
+  const from = issuer === "allround-lem" && !preferred.includes("<") ? company.name + " <" + preferred + ">" : preferred;
+  const replyTo = issuer === "allround-lem"
+    ? (process.env.ALLROUND_LEM_REPLY_TO || (emailOkay(quote.contactEmail || "") ? quote.contactEmail : undefined))
+    : (process.env.FACTUUR_REPLY_TO || site.email);
   try {
     const response = await fetch("https://api.resend.com/emails",{
       method:"POST",
       headers:{Authorization:"Bearer "+resendKey,"Content-Type":"application/json"},
       body:JSON.stringify({
         from,to:[quote.customer.email],
-        reply_to:process.env.FACTUUR_REPLY_TO || site.email,
-        subject:"Offerte "+quote.number+" · LRS Daktechniek",
+        reply_to:replyTo,
+        subject:"Offerte "+quote.number+" · "+company.name,
         html:renderQuote(quote),
       }),
     });

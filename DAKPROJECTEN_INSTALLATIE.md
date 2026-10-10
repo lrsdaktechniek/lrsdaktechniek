@@ -81,3 +81,67 @@ PDF-bestanden maken.
 - De aparte kosten voor de extra medewerker verschijnen niet op klantdocumenten;
   ze kunnen standaard wel in de totale verkoopprijs worden verwerkt.
 - Na publicatie moet de Vercel-deployment nog gecontroleerd worden; de publieke domeinnaam www.lrsdaktechniek.nl verwijst niet per se naar deze Vercel-app. Test echte e-mailbezorging eerst met eigen adres.
+
+
+## Twee factuurafzenders (10 oktober 2026)
+
+Zowel bij REPARATIES als GROTE DAKWERKEN staan twee duidelijk zichtbare knoppen:
+**LRS Daktechniek** en **Allround LEM**. Het gekozen bedrijf bepaalt op
+offerte/factuur de juridische naam, KvK, btw-ID, ING-bankrekening, koptekst
+en de zelfstandige factuurnummerreeks.
+
+### LRS Daktechniek
+- KvK: 83217495
+- Btw-ID: NL003787454B48
+- IBAN: NL69 INGB 0112 7815 51
+- Factuurnummers: LRS-2026-0001, LRS-2026-0002, ...
+- Bedrijfsadres vooringevuld vanuit de bestaande LRS-werkbon.
+
+### Allround LEM
+- KvK: 81296061 (overgenomen van voorbeeldfactuur)
+- Btw-ID: NL003557596B51 (overgenomen van voorbeeldfactuur)
+- IBAN: NL46 INGB 0109 0156 49 (overgenomen van voorbeeldfactuur)
+- Factuurnummers: LEM-2026-0001, LEM-2026-0002, ...
+- **Volledig factuuradres ontbreekt op de voorbeeldfoto** en moet eenmalig
+  bij "Bedrijfsadres Allround LEM" worden ingevuld voordat een factuur/offerte
+  afgedrukt, gedeeld of e-mailverzonden kan worden.
+- Voeg desgewenst zakelijk contact-e-mailadres en telefoonnummer toe.
+- Controleer voordat echte facturen worden verstuurd of deze KvK- en
+  btw-gegevens nog actueel en juridisch juist zijn.
+
+### E-mail vanuit juiste onderneming
+
+Allround LEM krijgt NIET stilzwijgend de bestaande afzender van LRS.
+Voor automatische e-mails moet Vercel beschikken over:
+- RESEND_API_KEY
+- ALLROUND_LEM_FROM_EMAIL: een door Resend geverifieerd verzendadres van
+  Allround LEM, bijvoorbeeld een adres op een geverifieerd eigen domein.
+- ALLROUND_LEM_REPLY_TO: optioneel apart antwoordadres.
+
+Zonder ALLROUND_LEM_FROM_EMAIL geeft de applicatie een begrijpelijke fout
+en wordt geen Allround-mail via een LRS-afzender verstuurd. PNG, print/PDF
+en handmatig delen blijven wel mogelijk na het invullen van het volledige
+verzendende bedrijfsadres.
+
+Bestaande LRS-sender via FACTUUR_FROM_EMAIL en OFFERTE_FROM_EMAIL blijft
+ongewijzigd. De Allround-bankrekening wordt niet meer op een LRS-factuur
+toegestaan en andersom; de factuur-API controleert beide juridische IDs.
+
+### Projecthistorie en bewijs
+
+- Grote dakwerken bewaren de keuze per project; na een verzonden factuur
+  blijft het project vergrendeld.
+- Bestaande LRS-concepten en facturen zonder afzendercode blijven onder LRS
+  vallen, zodat oude bonnen niet plots naar Allround veranderen.
+- Een wijziging van factuurbedrijf aan een dakproject met akkoord maakt het
+  oude akkoord ongeldig voor de nieuwe bedrijfsnaam.
+- Bij de reparatiebon wordt na succesvol e-mailen dezelfde klus beschermd
+  tegen een tweede verzending onder een andere bedrijfsnaam.
+- Alleen lokale nummerreeksen per bedrijf: beide werkbonnen op één browser
+  delen dezelfde reeks per juridische entiteit. Voor meerdere apparaten
+  blijft een centrale boekhouding/factuurnummerdatabase aanbevolen.
+- De print/PDF-knop in het factuurpaneel bij reparaties print nu specifiek
+  de factuur van de geselecteerde onderneming, niet de LRS-werkbon.
+
+Deze aanpassing is met unit- en mocke-mailtests gecontroleerd. Er worden
+geen echte facturen naar klanten verstuurd tijdens tests.
