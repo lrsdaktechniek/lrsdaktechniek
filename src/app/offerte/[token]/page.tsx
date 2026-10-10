@@ -25,7 +25,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
 
   return (
     <main className="compact-private-shell">
-      <PrivateWorkOrders accessToken={token} />
+      <PrivateWorkOrders accessToken={token} deployedVersion={process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_URL || process.env.DEPLOYMENT_VERSION || "local-development"} />
     </main>
   );
 }
