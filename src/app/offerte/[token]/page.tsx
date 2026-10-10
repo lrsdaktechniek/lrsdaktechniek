@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { timingSafeEqual } from "node:crypto";
 import { notFound } from "next/navigation";
-import { QuoteBuilder } from "@/components/QuoteBuilder";
+import { PrivateWorkOrders } from "@/components/PrivateWorkOrders";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -25,7 +25,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
 
   return (
     <main className="compact-private-shell">
-      <QuoteBuilder accessToken={token} />
+      <PrivateWorkOrders accessToken={token} />
     </main>
   );
 }
