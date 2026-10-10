@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
 import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
+import { InvoiceBankPicker } from "@/components/InvoiceBankPicker";
 import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 import { CATALOG, CATEGORIES, DEFAULT_PRICES, MIN_ROOF_JOB_EX, WorkLine, calculate, euro, formattedDay, localDay } from "@/lib/roofQuote";
 
@@ -369,7 +370,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           business:{
             name:company.name,address:settings.businessAddress.trim(),
             email:settings.contactEmail.trim(),phone:settings.phone.trim(),kvk:company.kvk,
-            vatId:company.vatId,iban:company.iban,
+            vatId:company.vatId,iban:settings.iban,
           },
           invoice:{
             number:invoiceNumber,issueDate:issuedOn,serviceDate:project.workDate,
@@ -386,7 +387,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       markInvoiceUsed(issuer,invoiceNumber);
       setProjects(rows=>rows.map(row=>row.id===project.id?{
         ...row,invoiceNumber,invoiceSentAt:new Date().toISOString(),
-        invoiceDetails:{issueDate:issuedOn,iban:company.iban,paymentTermDays:settings.paymentTermDays,businessAddress:settings.businessAddress.trim(),vatId:company.vatId,contactEmail:settings.contactEmail,phone:settings.phone}
+        invoiceDetails:{issueDate:issuedOn,iban:settings.iban,paymentTermDays:settings.paymentTermDays,businessAddress:settings.businessAddress.trim(),vatId:company.vatId,contactEmail:settings.contactEmail,phone:settings.phone}
       }:row));
       setNotice("Factuur "+invoiceNumber+" is verstuurd naar "+project.email+". Het project is nu vergrendeld.");
     } catch(error) {
@@ -416,6 +417,11 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
 
       <div className="issuer-quick-switch roof-no-print">
         <InvoiceIssuerPicker compact value={issuer} onChange={changeIssuer} disabled={locked||Boolean(busy)}/>
+        {issuer==="lrs" && <InvoiceBankPicker
+          compact issuer="lrs" value={settings.iban}
+          disabled={locked||Boolean(busy)}
+          onChange={iban=>updateSettings(s=>({...s,iban}))}
+        />}
       </div>
       <main className="roof-layout roof-no-print">
         <section className="roof-card roof-archive">
@@ -588,7 +594,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
               <div className="roof-fields">
                 <label><span>Bedrijfsadres {company.name} *</span><input value={settings.businessAddress} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,businessAddress:e.target.value}))} placeholder="Straat, huisnummer, postcode en plaats"/></label>
                 <label><span>KvK / btw-ID (vast per bedrijf)</span><input readOnly value={company.kvk+" · "+company.vatId}/></label>
-                <label><span>Bankrekening van {company.name}</span><input readOnly value={company.iban}/></label>
+                <div className="roof-bank-picker-wide"><InvoiceBankPicker issuer={issuer} value={settings.iban} disabled={locked||Boolean(busy)} onChange={iban=>updateSettings(s=>({...s,iban}))}/></div>
                 <label><span>Betaaltermijn (dagen)</span><input type="number" min="0" max="365" disabled={locked||Boolean(busy)} value={settings.paymentTermDays} onChange={e=>updateSettings(s=>({...s,paymentTermDays:safeNum(e.target.value,365)}))}/></label>
                 <label><span>Zakelijk contact-e-mailadres (optioneel)</span><input type="email" value={settings.contactEmail} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,contactEmail:e.target.value}))} placeholder="contact@bedrijf.nl"/></label>
                 <label><span>Telefoon bedrijf (optioneel)</span><input value={settings.phone} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,phone:e.target.value}))} placeholder="06..."/></label>

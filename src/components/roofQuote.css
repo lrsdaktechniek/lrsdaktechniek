@@ -513,3 +513,124 @@
   letter-spacing:.03em;
   font-size:.7rem;
 }
+
+/* Twee ING-rekeningen kiezen voor facturen namens LRS.
+   Alleen de toegestane IBANs uit de gedeelde factuurconfiguratie. */
+.invoice-bank-switch {
+  min-width: 0;
+  margin: 15px 0;
+  padding: 16px;
+  border: 2px solid #b6cfde;
+  background: #f2f8fc;
+  border-radius: 6px;
+  color: #183849;
+}
+.invoice-bank-switch legend {
+  padding: 0 8px;
+  font: 800 .82rem/1.4 Arial,sans-serif;
+  color: #143b50;
+  letter-spacing: .035em;
+}
+.invoice-bank-switch p {font-size: .8rem;line-height:1.5;margin:3px 0 12px;color:#496878;}
+.invoice-bank-switch-options {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+}
+.invoice-bank-switch-button {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  border:2px solid #c4d4df;
+  border-radius:5px;
+  background:#fff;
+  color:#1b3948;
+  min-height:71px;
+  padding:12px;
+  cursor:pointer;
+  font:inherit;
+  text-align:left;
+}
+.invoice-bank-switch-button > span:last-child {display:grid;min-width:0;gap:4px;}
+.invoice-bank-switch-button strong {font-size:.92rem;}
+.invoice-bank-switch-button small {font-size:.77rem;overflow-wrap:anywhere;letter-spacing:.018em;}
+.invoice-bank-switch-button.selected {
+  background:#dff1ff;
+  border-color:#1273aa;
+}
+.invoice-bank-switch-button.selected .invoice-bank-switch-mark {background:#1273aa;color:#fff;border-color:#1273aa;}
+.invoice-bank-switch-mark {
+  display:grid;place-items:center;flex:0 0 25px;height:25px;
+  border:2px solid #94aeba;border-radius:50%;font-weight:900;
+}
+.invoice-bank-switch-button:focus-visible {outline:3px solid #2785b8;outline-offset:2px;}
+.invoice-bank-switch-button:disabled,.invoice-bank-switch:disabled {opacity:.65;cursor:not-allowed;}
+.invoice-bank-switch .invoice-bank-switch-note {
+  display:block;
+  margin-top:13px;
+  font-size:.74rem;
+  line-height:1.5;
+  color:#586a73;
+}
+.invoice-bank-switch-current {
+  display:block;
+  color:#154160;
+  margin-top:12px;
+  font-size:.88rem;
+}
+.roof-bank-picker-wide {grid-column:1/-1;min-width:0;}
+.roof-bank-picker-wide > .invoice-bank-switch {margin:5px 0;}
+@media(max-width:650px){
+  .invoice-bank-switch {padding:10px;}
+  .invoice-bank-switch-options {grid-template-columns:1fr;}
+  .invoice-bank-switch-button {min-height:65px;}
+  .invoice-bank-switch-button small {font-size:.73rem;}
+}
+@media print { .invoice-bank-switch {display:none!important;} }
+
+/* Snelbankkeuze direct onder de altijd zichtbare bedrijfskeuze. */
+.issuer-quick-switch .invoice-bank-switch.compact {
+  width:min(100%,1180px);
+  margin:5px auto 0;
+  padding:0;
+  background:transparent;
+  border:0;
+  min-width:0;
+}
+.issuer-quick-switch .invoice-bank-switch.compact legend {
+  font-size:.67rem;
+  font-weight:900;
+  color:#173e55;
+  margin:0 0 3px;
+  letter-spacing:.05em;
+  padding:0;
+}
+.issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-options {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button {
+  min-height:42px;
+  padding:5px 10px;
+  gap:8px;
+}
+.issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-mark {
+  flex:0 0 19px;
+  height:19px;
+  font-size:.75rem;
+}
+.issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button strong {
+  font-size:.79rem;
+  line-height:1.15;
+}
+.issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button small {
+  font-size:.67rem;
+  line-height:1.15;
+}
+@media(max-width:650px){
+  .issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-options {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button {min-height:44px;padding:6px;gap:5px;}
+  .issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button strong {font-size:.72rem;}
+  .issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button small {font-size:.6rem;letter-spacing:0;}
+}

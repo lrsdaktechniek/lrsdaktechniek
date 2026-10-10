@@ -186,7 +186,7 @@ test("Reparatiefactuur kan als factuur voor beide entiteiten worden afgedrukt",(
   assert.match(repair,/FACTUUR PRINT \/ PDF/);
   assert.match(repair,/printInvoiceMode\s*\?/);
   assert.match(repair,/invoiceBrand\.kvk/);
-  assert.match(repair,/invoiceBrand\.iban/);
+  assert.match(repair,/invoiceSettings\.iban/);
   assert.match(repair,/invoiceSentFor/);
 });
 
@@ -320,4 +320,99 @@ test("Offerte preview onderscheidt een totaalprijs van factuur btw-regels",()=>{
   assert.ok(!document.includes("line.amountEx"));
   assert.match(document,/<th>Aantal \/ meters<\/th>/);
   assert.ok(!document.includes('<th>Bedrag excl. btw</th>'));
+});
+
+
+test("LRS kan tussen twee toegestane ING-rekeningen wisselen",()=>{
+  const banks=issuers.INVOICE_BANK_ACCOUNTS.lrs;
+  assert.equal(banks.length,2);
+  assert.equal(banks[0].iban,"NL69 INGB 0112 7815 51");
+  assert.equal(banks[1].iban,"NL46 INGB 0109 0156 49");
+  assert.equal(issuers.INVOICE_BANK_ACCOUNTS["allround-lem"].length,1);
+  assert.equal(issuers.canonicalInvoiceIban("lrs","nl46ingb0109015649"),banks[1].iban);
+  assert.equal(issuers.normalizeIssuerSettings("lrs",{iban:banks[1].iban}).iban,banks[1].iban);
+  assert.equal(issuers.normalizeIssuerSettings("lrs",{iban:banks[0].iban}).iban,banks[0].iban);
+  assert.equal(issuers.normalizeIssuerSettings("lrs",{iban:"NL00 XXXX 0000 0000 00"}).iban,banks[0].iban);
+  assert.equal(issuers.normalizeIssuerSettings("allround-lem",{iban:banks[0].iban}).iban,banks[1].iban);
+});
+
+test("LRS factuurmail accepteert rekening 1 én rekening 2 met de juiste gegevens",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const bank of issuers.INVOICE_BANK_ACCOUNTS.lrs) {
+      const p=makeInvoice("lrs");
+      p.business.iban=bank.iban;
+      const response=await post("https://example.test/api/factuur",p,invoiceApi);
+      assert.equal(response.status,200,await response.text());
+    }
+    assert.equal(outgoing.length,2);
+    assert.match(outgoing[0].html,/NL69 INGB 0112 7815 51/);
+    assert.doesNotMatch(outgoing[0].html,/NL46 INGB 0109 0156 49/);
+    assert.match(outgoing[1].html,/NL46 INGB 0109 0156 49/);
+    assert.doesNotMatch(outgoing[1].html,/NL69 INGB 0112 7815 51/);
+    for(const email of outgoing) {
+      assert.match(email.subject,/LRS Daktechniek/);
+      assert.match(email.html,/83217495/);
+      assert.doesNotMatch(email.html,/81296061/);
+    }
+  });
+});
+
+test("De factuur-API weigert onbekende banknummers en LRS-rekening 1 voor Allround LEM",async()=>{
+  await withFakeResend(async outgoing=>{
+    const invalid=makeInvoice("lrs");
+    invalid.business.iban="NL00 TEST 0000 0000 00";
+    const result=await post("https://example.test/api/factuur",invalid,invoiceApi);
+    assert.equal(result.status,400);
+    const wrong=makeInvoice("allround-lem");
+    wrong.business.iban=issuers.INVOICE_BANK_ACCOUNTS.lrs[0].iban;
+    const result2=await post("https://example.test/api/factuur",wrong,invoiceApi);
+    assert.equal(result2.status,400);
+    assert.equal(outgoing.length,0);
+  });
+});
+
+test("Bankkeuze staat in beide werkbonnen en verschijnt op PNG, PDF en factuurmail",()=>{
+  const picker=fs.readFileSync("src/components/InvoiceBankPicker.tsx","utf8");
+  const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
+  const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
+  const css=fs.readFileSync("src/components/roofQuote.css","utf8");
+  assert.match(picker,/INVOICE_BANK_ACCOUNTS\[issuer\]/);
+  assert.match(picker,/KIES BANKREKENING VOOR DEZE LRS-FACTUUR/);
+  assert.match(picker,/aria-pressed=\{active\}/);
+  assert.match(css,/invoice-bank-switch-options/);
+  assert.match(repair,/<InvoiceBankPicker/);
+  assert.match(repair,/issuer=\{invoiceIssuer\}/);
+  assert.match(repair,/saveInvoiceSettings\(\{\.\.\.invoiceSettings,iban\}\)/);
+  assert.match(repair,/iban: invoiceSettings\.iban/);
+  assert.match(repair,/draw\(invoiceSettings\.iban,/);
+  assert.match(repair,/invoiceSettings\.iban\} t\.n\.v\./);
+  assert.doesNotMatch(repair,/iban: invoiceBrand\.iban/);
+  assert.match(roof,/<InvoiceBankPicker/);
+  assert.match(roof,/issuer=\{issuer\}/);
+  assert.match(roof,/iban:settings\.iban/);
+  assert.match(roof,/invoiceDetails:\{issueDate:issuedOn,iban:settings\.iban/);
+  assert.match(roof,/invoiceBill\.iban/);
+});
+
+test("Andere bank kiezen wijzigt de fingerprint van een bestaande reparatiefactuur",()=>{
+  const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
+  const fingerprint=repair.slice(repair.indexOf("const invoiceFingerprint ="),repair.indexOf("function invoiceDescriptionText()"));
+  assert.match(fingerprint,/iban: invoiceSettings\.iban/);
+  const guard=repair.slice(repair.indexOf("async function shareInvoiceImage()"),repair.indexOf("async function sendInvoice()"));
+  assert.match(guard,/invoiceImageFingerprint !== invoiceFingerprint/);
+});
+
+
+test("LRS bankkeuze is direct zichtbaar onder de bedrijfskeuze op mobiel",()=>{
+  const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
+  const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
+  const picker=fs.readFileSync("src/components/InvoiceBankPicker.tsx","utf8");
+  const css=fs.readFileSync("src/components/roofQuote.css","utf8");
+  assert.match(repair,/invoiceIssuer==="lrs" && <InvoiceBankPicker/);
+  assert.match(roof,/issuer==="lrs" && <InvoiceBankPicker/);
+  assert.match(repair,/compact issuer="lrs" value={invoiceSettings\.iban}/);
+  assert.match(roof,/compact issuer="lrs" value={settings\.iban}/);
+  assert.match(picker,/compact = false/);
+  assert.match(css,/\.issuer-quick-switch \.invoice-bank-switch\.compact/);
+  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 });

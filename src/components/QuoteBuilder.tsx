@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
 import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
+import { InvoiceBankPicker } from "@/components/InvoiceBankPicker";
 import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, parseIssuer, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 
 type CatalogItem = {
@@ -509,7 +510,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     customer, customerNumber, address, invoiceNumber, invoiceIssuer, invoiceSentFor, workDate, jobTitle, notes,
     businessAddress: invoiceSettings.businessAddress,
     vatId: invoiceBrand.vatId,
-    iban: invoiceBrand.iban,
+    iban: invoiceSettings.iban,
     kvk: invoiceBrand.kvk,
     phone: invoiceSettings.phone,
     contactEmail: invoiceSettings.contactEmail,
@@ -911,7 +912,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             phone: invoiceSettings.phone.trim(),
             kvk: invoiceBrand.kvk,
             vatId: invoiceBrand.vatId,
-            iban: invoiceBrand.iban,
+            iban: invoiceSettings.iban,
           },
           invoice: {
             number: invoiceNumber.trim(),
@@ -959,6 +960,11 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
       <div className="issuer-quick-switch no-print">
         <InvoiceIssuerPicker compact value={invoiceIssuer} onChange={selectInvoiceIssuer} disabled={invoiceBusy || Boolean(invoiceSentFor)}/>
+        {invoiceIssuer==="lrs" && <InvoiceBankPicker
+          compact issuer="lrs" value={invoiceSettings.iban}
+          disabled={invoiceBusy || Boolean(invoiceSentFor)}
+          onChange={iban=>saveInvoiceSettings({...invoiceSettings,iban})}
+        />}
       </div>
 
       <main className="tap-shell no-print">
@@ -1139,10 +1145,12 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 <label><span>Telefoon bedrijf (optioneel)</span><input disabled={Boolean(invoiceSentFor)} value={invoiceSettings.phone} onChange={event=>saveInvoiceSettings({...invoiceSettings,phone:event.target.value})} placeholder="06..."/></label>
               </div>
 
-              <div className="invoice-bank-choice">
-                <div className="invoice-bank-head"><span>Bankrekening van {invoiceBrand.name}</span><strong>{invoiceBrand.iban}</strong></div>
-                <p className="invoice-help">KvK, btw-ID en bankrekening worden aan het gekozen bedrijf gekoppeld. Zo komt geen LRS-betaalrekening op een Allround LEM-factuur.</p>
-              </div>
+              <InvoiceBankPicker
+                issuer={invoiceIssuer}
+                value={invoiceSettings.iban}
+                disabled={invoiceBusy||Boolean(invoiceSentFor)}
+                onChange={iban=>saveInvoiceSettings({...invoiceSettings,iban})}
+              />
               {invoiceIssuer==="allround-lem"&&<p className="invoice-help"><strong>Allround LEM:</strong> vul het factuuradres hierboven in. Voor rechtstreeks e-mailen is een geverifieerde afzender in Vercel nodig via ALLROUND_LEM_FROM_EMAIL. Printen, PNG maken en handmatig delen werkt zonder die e-mailkoppeling.</p>}
 
               <div className="invoice-copy-message">
@@ -1207,7 +1215,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         {printInvoiceMode ? <div className={"issuer-paper-invoice"+(invoiceIssuer==="allround-lem"?" allround-paper":"")}>
           <header>
             <div><strong>{invoiceBrand.name.toUpperCase()}</strong><span>{invoiceSettings.businessAddress}</span><span>KvK {invoiceBrand.kvk} · BTW-ID {invoiceBrand.vatId}</span></div>
-            <div><span>{invoiceSettings.phone}</span><span>{invoiceSettings.contactEmail}</span><span>IBAN {invoiceBrand.iban}</span></div>
+            <div><span>{invoiceSettings.phone}</span><span>{invoiceSettings.contactEmail}</span><span>IBAN {invoiceSettings.iban}</span></div>
           </header>
           <div className="print-title"><small>FACTUUR VAN {invoiceBrand.name.toUpperCase()}</small><h1>Factuur {invoiceNumber}</h1></div>
           <dl className="print-customer">
@@ -1226,7 +1234,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
           </div>
           <div className="print-notes">
             <strong>Betalingsgegevens</strong>
-            <p>{invoiceBrand.iban} t.n.v. {invoiceBrand.name}<br/>Onder vermelding van factuur {invoiceNumber}. Betaaltermijn {invoiceSettings.paymentTermDays} dagen.</p>
+            <p>{invoiceSettings.iban} t.n.v. {invoiceBrand.name}<br/>Onder vermelding van factuur {invoiceNumber}. Betaaltermijn {invoiceSettings.paymentTermDays} dagen.</p>
           </div>
           {notes && <div className="print-notes"><strong>Opmerkingen</strong><p>{notes}</p></div>}
         </div> : <>
