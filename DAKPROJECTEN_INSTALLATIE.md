@@ -240,3 +240,47 @@ ook direct **bovenaan het werkbonformulier onder de bedrijfskeuze**.
 Deze kleine keuze blijft net als de bedrijfskeuze zichtbaar bij
 scrollen. De uitgebreide keuze staat eveneens bij Factuur.
 Beide schakelaars werken met dezelfde opgeslagen LRS-rekening.
+
+## Offerte- en factuurafbeeldingen (PNG) voor beide werkbonnen
+
+Toegevoegd:
+- Grote dakwerken: bij 'Klantdocument bekijken' kiezen tussen OFFERTE / PNG
+  en FACTUUR / PNG. Daarna staan er drie knoppen: AFBEELDING MAKEN,
+  OPSLAAN PNG en DELEN / FOTO'S. Ook bij stap Offerte en stap Factuur
+  een directe snelknop om naar die bediening te springen.
+- Reparatiebon: direct vanaf het totaal naar 'OFFERTE ALS AFBEELDING'
+  springen; bij de klantgegevens staan dezelfde knop om de afbeelding
+  te maken, op te slaan en te delen. De bestaande factuur-PNG blijft
+  beschikbaar, met duidelijke OPSLAAN PNG en DELEN / OPSLAAN IN FOTO'S.
+- Afbeeldingen zijn vaste, hoogwaardige portret-PNG's, onafhankelijk
+  van de breedte van een telefoon of de browserprint-opmaak.
+- Afbeeldingen ondersteunen beide ondernemingen en respecteren hun
+  eigen KvK/btw-ID; bij facturen wordt het werkelijk gekozen IBAN gebruikt.
+- Offerte: werkzaamheden + aantallen, één totaalprijs incl. btw,
+  zonder eenheidsprijzen/verborgen kosten/staffels/marge.
+- Factuur: werkzaamheden + aantallen, btw-grondslag, btw-bedrag,
+  totaal en betaalgegevens onderaan; geen losse prijzen per regel.
+- Bestandsnamen worden automatisch LRS-OFFERTE-2026-0001.png,
+  LRS-FACTUUR-2026-0001.png, LEM-OFFERTE-2026-0001.png enz.
+- Native deelblad op iPhone: op DELEN / FOTO'S tikken en indien
+  beschikbaar 'Bewaar afbeelding' of de WhatsApp-/Mail-optie kiezen.
+  Bij ontbreken van bestandendelen wordt de PNG gedownload. Er is ook
+  een volledige voorbeeldafbeelding om lang ingedrukt te bewaren.
+- Wanneer klantgegevens, prijs of IBAN veranderen, kunnen oude
+  afbeeldingen niet per ongeluk vanuit de exportknoppen worden gedeeld:
+  eerst opnieuw maken. Reeds gedownloade bestanden blijven in
+  de eigen Foto's/Bestanden van de gebruiker.
+- Factuurafbeelding van grote dakwerken is pas mogelijk na het
+  vastleggen van klantakkoord. Het opslaan of delen reserveert lokaal
+  het factuurnummer, met de betaalgegevens van die factuur. Als de
+  betaalgegevens daarna wijzigen, moet de PNG eerst opnieuw worden
+  opgeslagen voordat dezelfde factuur vanuit de website wordt gemaild.
+- Geen extra externe afhankelijkheden of klantdocumenten op de server:
+  PNG's worden alleen in de browser opgebouwd. De privacyroute blijft
+  beveiligd met dezelfde secret.
+
+Beperkingen:
+- Op meerdere apparaten is nog geen centrale nummerdatabase aanwezig:
+  controleer unieke factuurnummers in de administratie.
+- Echte e-mailaflevering en het Allround LEM-afzenderdomein zijn aparte
+  onderwerpen en niet gewijzigd door de afbeeldingsfunctie.

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
 import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
 import { InvoiceBankPicker } from "@/components/InvoiceBankPicker";
+import { CustomerImageActions } from "@/components/CustomerImageActions";
+import type { CustomerImageInput } from "@/lib/customerDocumentImage";
 import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 import { CATALOG, CATEGORIES, DEFAULT_PRICES, MIN_ROOF_JOB_EX, WorkLine, calculate, euro, formattedDay, localDay } from "@/lib/roofQuote";
 
@@ -356,9 +358,20 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     if (!settings.businessAddress.trim()) {
       setNotice("Vul eerst het volledige factuuradres van "+company.name+" in.");return;
     }
+    const savedInvoice=project.invoiceDetails;
+    if(savedInvoice && (
+      savedInvoice.iban!==settings.iban ||
+      savedInvoice.businessAddress!==settings.businessAddress.trim() ||
+      savedInvoice.paymentTermDays!==settings.paymentTermDays ||
+      savedInvoice.vatId!==company.vatId
+    )) {
+      setNotice("Je hebt factuurgegevens veranderd nadat je de PNG hebt opgeslagen. Maak en bewaar eerst de bijgewerkte factuurafbeelding, zodat de e-mail dezelfde gegevens bevat.");
+      setPreview("invoice");
+      return;
+    }
     if (!window.confirm("Factuur voor "+euro(pricing.total)+" aan "+project.email+" versturen?")) return;
     const invoiceNumber=project.invoiceNumber || nextInvoiceNumber(issuer);
-    const issuedOn=localDay();
+    const issuedOn=project.invoiceDetails?.issueDate || localDay();
     setBusy("invoice");setNotice("");
     try {
       const response=await fetch("/api/factuur",{
@@ -368,14 +381,15 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           issuer,
           customer:{name:project.customer.trim(),address:project.address.trim(),email:project.email.trim()},
           business:{
-            name:company.name,address:settings.businessAddress.trim(),
-            email:settings.contactEmail.trim(),phone:settings.phone.trim(),kvk:company.kvk,
-            vatId:company.vatId,iban:settings.iban,
+            name:company.name,address:savedInvoice?.businessAddress||settings.businessAddress.trim(),
+            email:savedInvoice?.contactEmail??settings.contactEmail.trim(),
+            phone:savedInvoice?.phone??settings.phone.trim(),kvk:company.kvk,
+            vatId:company.vatId,iban:savedInvoice?.iban||settings.iban,
           },
           invoice:{
             number:invoiceNumber,issueDate:issuedOn,serviceDate:project.workDate,
             title:project.title.trim(),
-            paymentTermDays:Math.max(0,Math.min(365,settings.paymentTermDays)),
+            paymentTermDays:Math.max(0,Math.min(365,savedInvoice?.paymentTermDays??settings.paymentTermDays)),
             notes:project.publicNotes.trim(),
           },
           lines:pricing.publicLines,
@@ -401,8 +415,65 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   const status=locked?"GEFACTUREERD":isAccepted?"KLANT AKKOORD":isSent?"OFFERTE VERSTUURD":"CONCEPT";
   const invoiceNumber=project.invoiceNumber || nextInvoiceNumber(issuer);
   const invoicePreview=preview==="invoice" && (isAccepted||locked);
-  const invoiceBill=invoicePreview && project.invoiceDetails ? {...issuerDefaults(issuer),...project.invoiceDetails} : settings;
+  const invoiceBill=invoicePreview && locked && project.invoiceDetails ? {...issuerDefaults(issuer),...project.invoiceDetails} : settings;
   const invoiceIssueDate=project.invoiceDetails?.issueDate || localDay();
+  // Afbeeldingen worden uitsluitend opgebouwd uit klantvelden.
+  // Interne prijzen, toeslagen, marge en extra personeel worden niet doorgegeven.
+  const imageCommon={
+    issuer,
+    customer:{
+      name:project.customer.trim(),address:project.address.trim(),
+      email:project.email.trim(),
+    },
+    title:project.title.trim(),
+    lines:pricing.publicLines.map(({description,qty,unit})=>({description,qty,unit})),
+    subtotal:pricing.subtotal,
+    vatRate:project.vatRate,
+    vatAmount:pricing.vat,
+    total:pricing.total,
+    notes:project.publicNotes.trim(),
+  } as const;
+  const quoteImage:CustomerImageInput={
+    ...imageCommon,kind:"offerte",number:quoteNumber,
+    company:{
+      name:company.name,address:settings.businessAddress.trim(),
+      kvk:company.kvk,vatId:company.vatId,phone:settings.phone,
+      email:settings.contactEmail,
+    },
+    issueDate:formattedDay(project.quoteDate),
+    validUntil:dateAdd(project.quoteDate,project.validityDays),
+  };
+  const invoiceImage:CustomerImageInput={
+    ...imageCommon,kind:"factuur",number:invoiceNumber,
+    company:{
+      name:company.name,address:invoiceBill.businessAddress.trim(),
+      kvk:company.kvk,vatId:company.vatId,
+      phone:invoiceBill.phone,email:invoiceBill.contactEmail,
+      iban:invoiceBill.iban,
+    },
+    issueDate:formattedDay(invoiceIssueDate),
+    serviceDate:formattedDay(project.workDate),
+    dueDate:dateAdd(invoiceIssueDate,invoiceBill.paymentTermDays),
+    paymentTermDays:invoiceBill.paymentTermDays,
+  };
+
+  // Een handmatig gedownloade factuur reserveert hetzelfde nummer als de
+  // latere e-mail; zo kunnen reparatiebonnen geen nummer tussendoor gebruiken.
+  function reserveExportedInvoice() {
+    if(!project || project.invoiceSentAt) return;
+    const projectId=project.id;
+    if(!project.invoiceNumber) markInvoiceUsed(issuer,invoiceNumber);
+    setProjects(rows=>rows.map(row=>row.id===projectId ? {
+      ...row,invoiceNumber,
+      invoiceDetails:{
+        issueDate:invoiceIssueDate,
+        iban:invoiceBill.iban,paymentTermDays:invoiceBill.paymentTermDays,
+        businessAddress:invoiceBill.businessAddress,
+        vatId:company.vatId,contactEmail:invoiceBill.contactEmail,
+        phone:invoiceBill.phone,
+      }
+    } : row));
+  }
 
   return (
     <div className="roof-engine">
@@ -584,6 +655,10 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
                 <button type="button" className="roof-btn primary" disabled={Boolean(busy)||locked} onClick={sendQuote}>{busy==="quote"?"VERSTUREN...":isSent?"OFFERTE OPNIEUW E-MAILEN":"OFFERTE E-MAILEN"}</button>
                 <button type="button" className="roof-btn secondary" onClick={()=>print("quote")}>PRINT / PDF</button>
                 <button type="button" className="roof-btn secondary" onClick={copyQuote}>KOPIEER TEKST</button>
+                <button type="button" className="roof-btn secondary roof-image-shortcut" onClick={()=>{
+                  setPreview("quote");
+                  window.setTimeout(()=>document.getElementById("roof-save-document-image")?.scrollIntoView({behavior:"smooth",block:"center"}),100);
+                }}>📷 OFFERTE ALS AFBEELDING</button>
               </div>
             </div>
             <div><strong>02 · Klant akkoord</strong><p>Heeft de klant schriftelijk of mondeling bevestigd? Leg het akkoord hier handmatig vast. Bewaar bewijs van het akkoord zelf.</p>
@@ -604,6 +679,10 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
               <div className="roof-buttons">
                 <button type="button" className="roof-btn primary" disabled={Boolean(busy)||!isAccepted||locked} onClick={sendInvoice}>{locked?"✓ FACTUUR VERSTUURD":busy==="invoice"?"VERSTUREN...":"FACTUUR E-MAILEN"}</button>
                 <button type="button" className="roof-btn secondary" disabled={!isAccepted&&!locked} onClick={()=>print("invoice")}>FACTUUR PRINT / PDF</button>
+                <button type="button" className="roof-btn secondary roof-image-shortcut" disabled={!isAccepted&&!locked} onClick={()=>{
+                  setPreview("invoice");
+                  window.setTimeout(()=>document.getElementById("roof-save-document-image")?.scrollIntoView({behavior:"smooth",block:"center"}),100);
+                }}>📷 FACTUUR ALS AFBEELDING</button>
               </div>
             </div>
           </div>
@@ -612,9 +691,21 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
 
         <section className="roof-card roof-preview-wrap">
           <div className="roof-section-head"><h2>Klantdocument bekijken</h2>
-            <div className="roof-buttons"><button type="button" className="roof-btn secondary" onClick={()=>setPreview("quote")}>OFFERTESCHERM</button><button type="button" className="roof-btn secondary" disabled={!isAccepted&&!locked} onClick={()=>setPreview("invoice")}>FACTUURSCHERM</button></div>
+            <div className="roof-buttons"><button type="button" className={"roof-btn "+(!invoicePreview?"primary":"secondary")} onClick={()=>setPreview("quote")}>OFFERTE / PNG</button><button type="button" className={"roof-btn "+(invoicePreview?"primary":"secondary")} disabled={!isAccepted&&!locked} onClick={()=>setPreview("invoice")}>FACTUUR / PNG</button></div>
           </div>
           <p className="roof-hint"><strong>KLANTWEERGAVE:</strong> werkzaamheden en aantallen, zonder prijs per regel. Op de offerte staat alleen één vaste totaalprijs inclusief btw. Op een factuur staat onderaan de wettelijk benodigde btw-berekening.</p>
+          <div id="roof-save-document-image">
+            <CustomerImageActions
+              data={invoicePreview ? invoiceImage : quoteImage}
+              validate={()=>{
+                const error=checkQuote(false);
+                if(error)return error;
+                if(invoicePreview && !isAccepted && !locked)return "Leg eerst het akkoord van de klant vast voordat je de factuur maakt.";
+                return null;
+              }}
+              onExport={invoicePreview ? reserveExportedInvoice : undefined}
+            />
+          </div>
         </section>
       </main>
 

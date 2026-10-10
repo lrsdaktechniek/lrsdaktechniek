@@ -634,3 +634,90 @@
   .issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button strong {font-size:.72rem;}
   .issuer-quick-switch .invoice-bank-switch.compact .invoice-bank-switch-button small {font-size:.6rem;letter-spacing:0;}
 }
+
+/* PNG-offertes en PNG-facturen, bruikbaar vanaf iPhone en desktop */
+.customer-png-panel {
+  margin-top: 16px;
+  padding: clamp(14px, 2.5vw, 22px);
+  background: #f1f7fb;
+  border: 2px solid #c5d9e5;
+  border-radius: 7px;
+  color: #173447;
+  text-align: left;
+}
+.customer-png-heading {margin-bottom: 12px;}
+.customer-png-heading strong {
+  display:block;font-size: .88rem;font-weight:900;
+  letter-spacing:.04em;color:#163d53;
+}
+.customer-png-heading p {font-size:.81rem!important;line-height:1.5;margin:4px 0 0!important;color:#526b79!important;}
+.customer-png-buttons {display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px;}
+.customer-png-buttons button {
+  font:800 .74rem/1.4 Arial,Helvetica,sans-serif!important;
+  letter-spacing:.02em!important;
+  display:block;
+  min-height:49px;
+  border-radius:5px;
+  border:2px solid #184459;
+  padding:10px 12px;
+  color:#15384b;
+  background:#fff;
+  cursor:pointer;
+  text-align:center;
+}
+.customer-png-buttons .customer-png-generate {background:#173f55;color:#fff;}
+.customer-png-buttons .customer-png-share {background:#e8f7eb;border-color:#2c7950;color:#165d39;}
+.customer-png-buttons button:disabled {opacity:.43;cursor:not-allowed;}
+.customer-png-buttons button:focus-visible {outline:3px solid #2e93c2;outline-offset:2px;}
+.customer-png-status {
+  padding:10px 12px;
+  background:#e4f4ea;
+  color:#245036!important;
+  border-left:4px solid #31835a;
+  margin:13px 0 0!important;
+  font-size:.82rem!important;
+  font-weight:700;
+}
+.customer-png-warning {
+  background:#fff1d7;
+  border-left:4px solid #c18d29;
+  padding:11px;
+  margin:12px 0 0!important;
+  color:#604010!important;
+  font-size:.79rem!important;
+}
+.customer-png-preview {margin-top:17px;display:grid;gap:9px;}
+.customer-png-preview a {
+  display:grid;gap:10px;text-decoration:none;
+  color:#173d52;font-weight:800;min-width:0;
+}
+.customer-png-preview img {
+  display:block;
+  width:min(100%,560px);
+  height:auto;
+  max-height:620px;
+  object-fit:contain;
+  object-position:top center;
+  background:#fff;
+  border:1px solid #c0d2da;
+  border-radius:3px;
+  box-shadow:0 5px 15px rgba(8,33,46,.12);
+}
+.customer-png-preview a>span {
+  display:inline-block;
+  width:max-content;
+  max-width:100%;
+  text-decoration:underline;
+  font-size:.8rem;
+  padding:4px 0;
+}
+.customer-png-preview small {color:#5b6f7a;font-size:.75rem;line-height:1.6;}
+.invoice-send-panel .customer-png-panel {margin:10px 0 20px;}
+@media(max-width:800px) {
+  .customer-png-buttons {grid-template-columns:1fr;}
+  .customer-png-buttons button {min-height:52px;font-size:.85rem!important;}
+  .customer-png-preview img {max-height:440px;}
+}
+@media print {
+  .customer-png-panel,.customer-png-heading,.customer-png-preview {display:none!important;}
+}
