@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
 import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
 import { InvoiceBankPicker } from "@/components/InvoiceBankPicker";
+import { CustomerImageActions } from "@/components/CustomerImageActions";
+import type { CustomerImageInput } from "@/lib/customerDocumentImage";
 import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, parseIssuer, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 
 type CatalogItem = {
@@ -606,6 +608,12 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     return ()=>window.removeEventListener("afterprint",finish);
   },[printInvoiceMode]);
 
+  function invoiceImageFilename() {
+    const reference=invoiceNumber.replace(/^(?:LRS|LEM)-/i,"")
+      .replace(/[^A-Za-z0-9_-]/g,"-");
+    return invoiceBrand.invoicePrefix+"-FACTUUR-"+reference+".png";
+  }
+
   function invoiceMoney(value: number) {
     return new Intl.NumberFormat("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
   }
@@ -814,7 +822,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     const url = URL.createObjectURL(invoiceImageBlob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `Factuur-${invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "-")}.png`;
+    anchor.download = invoiceImageFilename();
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -828,7 +836,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       setInvoiceStatus("Maak de factuurafbeelding eerst opnieuw zodat alle gegevens actueel zijn.");
       return;
     }
-    const file = new File([invoiceImageBlob], `Factuur-${invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "-")}.png`, { type: "image/png" });
+    const file = new File([invoiceImageBlob], invoiceImageFilename(), { type: "image/png" });
     try {
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
         await navigator.share({
@@ -941,6 +949,39 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       setInvoiceBusy(false);
     }
   }
+
+  // Offerteafbeelding is een klantdocument: alleen werkzaamheden/aantallen
+  // en één definitieve totaalprijs, nooit onze interne regelsommen.
+  const repairOfferLines=[
+    ...workLines.filter(line=>line.key.startsWith("repair-")).map(line=>({
+      description:line.description,qty:line.qty,unit:line.unit,
+    })),
+    ...customLines.filter(line=>line.description.trim() && line.qty>0).map(line=>({
+      description:line.description.trim(),qty:line.qty,unit:line.unit,
+    })),
+  ];
+  const today=new Date();
+  const offerValidUntil=new Date(today.getTime());
+  offerValidUntil.setDate(today.getDate()+30);
+  const offerRef=invoiceNumber.replace(/^(?:LRS|LEM)-/i,"");
+  const offerNumber=invoiceBrand.invoicePrefix+"-OFF-"+offerRef;
+  const repairOfferImage:CustomerImageInput={
+    kind:"offerte",issuer:invoiceIssuer,
+    company:{
+      name:invoiceBrand.name,address:invoiceSettings.businessAddress.trim(),
+      kvk:invoiceBrand.kvk,vatId:invoiceBrand.vatId,
+      phone:invoiceSettings.phone,email:invoiceSettings.contactEmail,
+    },
+    customer:{
+      name:customer.trim(),address:address.trim(),
+      email:customerEmail.trim(),number:customerNumber.trim(),
+    },
+    number:offerNumber,title:jobTitle.trim() || "Dakreparatie",
+    issueDate:today.toLocaleDateString("nl-NL"),
+    validUntil:offerValidUntil.toLocaleDateString("nl-NL"),
+    lines:repairOfferLines.length ? repairOfferLines : [{description:"Dakservice volgens afspraak",qty:1,unit:"opdracht"}],
+    subtotal,vatRate:vat,vatAmount,total,notes:notes.trim(),
+  };
 
   return (
     <div className="internal-price-engine tap-engine">
@@ -1089,6 +1130,10 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             <p><span>BTW {vat}%</span><strong>{euro(vatAmount)}</strong></p>
             <p className="grand"><span>Totaal incl. btw</span><strong>{euro(total)}</strong></p>
           </div>
+          <button className="tap-add-custom-shortcut" type="button" onClick={()=>{
+            setShowDetails(true);
+            window.setTimeout(()=>document.getElementById("repair-quote-image")?.scrollIntoView({behavior:"smooth",block:"center"}),140);
+          }}>📷 OFFERTE ALS AFBEELDING OPSLAAN ↓</button>
         </section>
 
         <section className="tap-section tap-details-section">
@@ -1129,6 +1174,25 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             <label className="internal-notes"><span>Opmerking</span><textarea rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Bijzonderheden..."/></label>
 
 
+            <section id="repair-quote-image" className="invoice-send-panel invoice-image-panel">
+              <div className="invoice-send-head">
+                <div><span className="internal-kicker">OFFERTES · AFBEELDINGEN</span><h3>Offerte als afbeelding maken</h3></div>
+                <strong>{offerNumber}</strong>
+              </div>
+              <p className="invoice-help">De klant ziet alleen het eindtotaal incl. btw en de werkzaamheden, zonder prijzen per regel. Je kunt de afbeelding op je iPhone opslaan of via WhatsApp delen.</p>
+              <CustomerImageActions
+                data={repairOfferImage}
+                validate={()=>{
+                  if(unknownSelected.length)return "Er staat nog een reparatie zonder geldige prijs.";
+                  if(!invoiceNumber.trim())return "Wacht tot het documentnummer is geladen.";
+                  if(!customer.trim()||!address.trim())return "Vul eerst klantnaam en volledig werkadres in.";
+                  if(!invoiceSettings.businessAddress.trim())return "Vul het volledige bedrijfsadres in bij de factuurinstellingen.";
+                  if(total<=0)return "Er zijn nog geen werkzaamheden of bedrag ingevuld.";
+                  return null;
+                }}
+              />
+            </section>
+
             <section className="invoice-send-panel invoice-image-panel">
               <div className="invoice-send-head">
                 <div><span className="internal-kicker">FACTUUR VAN {invoiceBrand.name.toUpperCase()}</span><h3>Factuur als afbeelding</h3></div>
@@ -1166,8 +1230,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 <button className="internal-btn invoice-build-button" type="button" onClick={createInvoiceImage} disabled={invoiceImageBusy || total <= 0}>
                   {invoiceImageBusy ? "AFBEELDING WORDT GEMAAKT..." : invoiceImageBlob ? "FACTUURAFBEELDING VERNIEUWEN" : "FACTUURAFBEELDING MAKEN"}
                 </button>
-                <button className="internal-btn" type="button" onClick={shareInvoiceImage} disabled={!invoiceImageBlob || invoiceImageFingerprint !== invoiceFingerprint}>DELEN → WHATSAPP / MAIL</button>
-                <button className="internal-btn ghost" type="button" onClick={downloadInvoiceImage} disabled={!invoiceImageBlob || invoiceImageFingerprint !== invoiceFingerprint}>DOWNLOAD PNG</button>
+                <button className="internal-btn" type="button" onClick={shareInvoiceImage} disabled={!invoiceImageBlob || invoiceImageFingerprint !== invoiceFingerprint}>DELEN / OPSLAAN IN FOTO'S</button>
+                <button className="internal-btn ghost" type="button" onClick={downloadInvoiceImage} disabled={!invoiceImageBlob || invoiceImageFingerprint !== invoiceFingerprint}>OPSLAAN PNG</button>
                 <button className="internal-btn ghost" type="button" onClick={printCustomerInvoice}>FACTUUR PRINT / PDF</button>
               </div>
 
