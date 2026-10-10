@@ -124,8 +124,11 @@ en handmatig delen blijven wel mogelijk na het invullen van het volledige
 verzendende bedrijfsadres.
 
 Bestaande LRS-sender via FACTUUR_FROM_EMAIL en OFFERTE_FROM_EMAIL blijft
-ongewijzigd. De Allround-bankrekening wordt niet meer op een LRS-factuur
-toegestaan en andersom; de factuur-API controleert beide juridische IDs.
+ongewijzigd. LRS kan op verzoek kiezen uit de twee bestaande ING-rekeningen.
+Allround LEM blijft gekoppeld aan één eigen bankrekening. De factuur-API
+controleert per bedrijf de toegestane IBANs en de juridische gegevens.
+Rekening 2 van LRS staat ook op de voorbeeldfactuur van Allround LEM:
+controleer dat deze rekening gebruikt mag worden voor betalingen aan LRS.
 
 ### Projecthistorie en bewijs
 
@@ -202,3 +205,38 @@ bij het openen, bij terugkeer naar de tab en elke minuut. Als de
 JavaScript-build niet meer de actuele is, verschijnt een knop om de
 nieuwe versie bewust te laden, zodat lopende klussen niet onverwacht
 tijdens typen worden onderbroken.
+
+## LRS: wisselen tussen twee bankrekeningen (10 oktober 2026)
+
+Zowel de reparatiebon als de grote-dakwerkenbon biedt nu bij Factuur
+een duidelijke keuze met twee knoppen voor LRS Daktechniek:
+
+1. ING rekening 1 — NL69 INGB 0112 7815 51 (standaard).
+2. ING rekening 2 — NL46 INGB 0109 0156 49.
+
+De selectie wordt voor LRS bewaard in dezelfde browser en is direct
+zichtbaar bij de factuurinstellingen. Het gekozen IBAN gaat mee naar:
+- De PNG-factuur en betaalgegevens bij de reparatiebon;
+- De print/PDF van reparaties;
+- De factuur-PDF en de betalingsgegevens bij grotere dakprojecten;
+- De factuurmail van de API en de gekopieerde betaaltekst.
+
+Een na bankwissel gemaakte reparatie-PNG krijgt een nieuwe fingerprint,
+zodat een verouderde factuurafbeelding met de vorige rekening niet zomaar
+gedeeld kan worden. Verzonden dakprojecten bewaren de exacte bankrekening
+in hun factuursnapshot. Na facturering is de keuze geblokkeerd.
+
+Allround LEM behoudt uitsluitend NL46 INGB 0109 0156 49.
+De server accepteert voor LRS alleen de twee goedgekeurde waarden, en
+voor Allround LEM alleen de eigen vaste bankrekening.
+
+Belangrijk: ING rekening 2 staat tevens op een aangeleverde Allround LEM
+factuur. Controleer vóór factureren of die rekening daadwerkelijk mag
+worden gebruikt voor facturen die juridisch van LRS Daktechniek zijn.
+De software kan bankrekeningbezit niet zelfstandig vaststellen.
+
+Voor extra bedieningsgemak staat de LRS-keuze voor ING-rekening 1 / 2
+ook direct **bovenaan het werkbonformulier onder de bedrijfskeuze**.
+Deze kleine keuze blijft net als de bedrijfskeuze zichtbaar bij
+scrollen. De uitgebreide keuze staat eveneens bij Factuur.
+Beide schakelaars werken met dezelfde opgeslagen LRS-rekening.

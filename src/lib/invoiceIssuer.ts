@@ -49,6 +49,27 @@ export const INVOICE_ISSUERS = {
   },
 } as const;
 
+/**
+ * Bankrekening 1 en 2 komen uit de oorspronkelijke LRS-werkbon.
+ * Rekening 2 komt ook voor in het Allround LEM-voorbeeld. Bevestig daarom
+ * altijd dat deze rekening gebruikt mag worden voor betalingen aan LRS.
+ * Niet automatisch een rekening van een andere juridische entiteit gebruiken.
+ */
+export const INVOICE_BANK_ACCOUNTS = {
+  lrs: [
+    { id: "ing-1", label: "ING rekening 1", iban: "NL69 INGB 0112 7815 51" },
+    { id: "ing-2", label: "ING rekening 2", iban: "NL46 INGB 0109 0156 49" },
+  ],
+  "allround-lem": [
+    { id: "ing-lem", label: "ING Allround LEM", iban: "NL46 INGB 0109 0156 49" },
+  ],
+} as const;
+
+export function canonicalInvoiceIban(issuer: InvoiceIssuerId, iban: unknown): string | null {
+  if (typeof iban !== "string") return null;
+  const compact = iban.replace(/\s+/g, "").toUpperCase();
+  return INVOICE_BANK_ACCOUNTS[issuer].find(bank => bank.iban.replace(/\s+/g, "") === compact)?.iban ?? null;
+}
 export const INVOICE_ISSUER_IDS: readonly InvoiceIssuerId[] = ["lrs", "allround-lem"];
 export function parseIssuer(value: unknown): InvoiceIssuerId | null {
   if (value === undefined || value === null || value === "") return "lrs";
@@ -74,10 +95,10 @@ export function normalizeIssuerSettings(
   return {
     businessAddress: typeof saved?.businessAddress === "string" && saved.businessAddress.trim()
       ? saved.businessAddress : base.businessAddress,
-    // Legal identity and banking always follow the selected company; the old
-    // repair tool allowed selecting the Allround account on an LRS invoice.
+    // Btw-ID blijft vast per onderneming. LRS kan kiezen uit twee bestaande
+    // ING-rekeningen; Allround LEM blijft beperkt tot haar eigen IBAN.
     vatId: base.vatId,
-    iban: base.iban,
+    iban: canonicalInvoiceIban(issuer, saved?.iban) ?? base.iban,
     paymentTermDays: Number.isFinite(saved?.paymentTermDays) && (saved?.paymentTermDays ?? -1) >= 0
       ? Math.min(365, Math.floor(saved!.paymentTermDays!)) : 14,
     contactEmail: typeof saved?.contactEmail === "string" ? saved.contactEmail : base.contactEmail,
@@ -112,5 +133,5 @@ export function validateIssuerBusiness(
   const compact = (s: string | undefined) => (s ?? "").replace(/\s+/g, "").toUpperCase();
   return business.name === info.name && compact(business.kvk) === compact(info.kvk)
     && compact(business.vatId) === compact(info.vatId)
-    && compact(business.iban) === compact(info.iban);
+    && canonicalInvoiceIban(issuer, business.iban) !== null;
 }
