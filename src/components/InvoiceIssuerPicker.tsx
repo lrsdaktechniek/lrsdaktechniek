@@ -12,8 +12,8 @@ export function InvoiceIssuerPicker({
 }) {
   return <section className={"invoice-issuer-picker"+(compact?" compact":"")} aria-label="Kies het bedrijf op de offerte of factuur">
     <div className="issuer-picker-heading">
-      <strong>Factuur versturen namens</strong>
-      <span>Kies het juiste bedrijf — btw, KvK en bankrekening wisselen automatisch.</span>
+      <strong>{compact ? "FACTUUR / OFFERTE VAN" : "Factuur versturen namens"}</strong>
+      {!compact && <span>Kies het juiste bedrijf — btw, KvK en bankrekening wisselen automatisch.</span>}
     </div>
     <div className="issuer-picker-options">
       {INVOICE_ISSUER_IDS.map(id => {
@@ -30,12 +30,12 @@ export function InvoiceIssuerPicker({
           <span className="issuer-radio" aria-hidden="true">{selected ? "✓" : ""}</span>
           <span className="issuer-picker-content">
             <strong>{company.name}</strong>
-            <small>KvK {company.kvk} · IBAN {company.iban}</small>
+            {!compact && <small>KvK {company.kvk} · IBAN {company.iban}</small>}
           </span>
         </button>;
       })}
     </div>
-    {value === "allround-lem" && <p className="issuer-picker-note">
+    {!compact && value === "allround-lem" && <p className="issuer-picker-note">
       Gegevens uit je voorbeeldfactuur: controleer het KvK-/btw-nummer en vul het adres van Allround LEM eenmalig in.
     </p>}
   </section>;

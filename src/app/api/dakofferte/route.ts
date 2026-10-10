@@ -57,9 +57,7 @@ function renderQuote(quote: Quote) {
     '<tr><td style="padding:12px 8px;border-bottom:1px solid #dbe1e4">' +
       esc(line.description) + '</td>' +
     '<td style="padding:12px 8px;text-align:right;border-bottom:1px solid #dbe1e4">' +
-      esc(line.qty) + ' ' + esc(line.unit) + '</td>' +
-    '<td style="padding:12px 8px;text-align:right;border-bottom:1px solid #dbe1e4">' +
-      euro(line.amountEx) + '</td></tr>'
+      esc(line.qty) + ' ' + esc(line.unit) + '</td></tr>'
   ).join("");
   return '<!doctype html><html lang="nl"><body style="margin:0;background:#eff2f4;color:#0b141a;font:15px Arial,Helvetica,sans-serif">' +
     '<div style="max-width:760px;margin:auto;padding:24px 12px">' +
@@ -76,13 +74,10 @@ function renderQuote(quote: Quote) {
         '<strong>KvK:</strong> ' + esc(company.kvk) + ' · <strong>Btw-ID:</strong> ' + esc(quote.vatId) + '</p>' +
         '<table style="width:100%;border-collapse:collapse;margin-top:28px">' +
           '<thead><tr><th style="text-align:left;padding:10px 8px;border-bottom:2px solid #08151c">Omschrijving</th>' +
-          '<th style="text-align:right;padding:10px 8px;border-bottom:2px solid #08151c">Aantal</th>' +
-          '<th style="text-align:right;padding:10px 8px;border-bottom:2px solid #08151c">Bedrag excl. btw</th></tr></thead>' +
+          '<th style="text-align:right;padding:10px 8px;border-bottom:2px solid #08151c">Aantal / meters</th></tr></thead>' +
           '<tbody>' + rows + '</tbody></table>' +
         '<div style="max-width:340px;margin:22px 0 28px auto">' +
-          '<p style="display:flex;justify-content:space-between"><span>Excl. btw</span><b>' + euro(quote.subtotal) + '</b></p>' +
-          '<p style="display:flex;justify-content:space-between"><span>Btw ' + quote.vatRate + '%</span><b>' + euro(quote.vatAmount) + '</b></p>' +
-          '<p style="display:flex;justify-content:space-between;border-top:2px solid #08151c;padding-top:12px;font-size:19px"><b>Totaal incl. btw</b><b>' + euro(quote.total) + '</b></p>' +
+          '<p style="display:flex;justify-content:space-between;border-top:2px solid #08151c;padding-top:12px;font-size:19px;gap:12px"><b>Vaste totaalprijs incl. ' + quote.vatRate + '% btw</b><b>' + euro(quote.total) + '</b></p>' +
         '</div>' +
         (quote.notes ? '<p><strong>Toelichting:</strong><br>' + esc(quote.notes).replaceAll("\n", "<br>") + '</p>' : '') +
         '<p>Wilt u akkoord geven? Antwoord dan op deze e-mail. Na uw bevestiging plannen we de werkzaamheden in overleg.</p>' +

@@ -743,15 +743,11 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     ctx.fillStyle = "#f3f3f3";
     ctx.fillRect(56, tableY, 1388, 42);
     draw("Omschrijving", 72, tableY + 8, 20, 700);
-    draw("Aantal", 1018, tableY + 8, 20, 700, "#111111", "right");
-    draw("Prijs", 1218, tableY + 8, 20, 700, "#111111", "right");
-    draw("Totaal", 1382, tableY + 8, 20, 700, "#111111", "right");
+    draw("Aantal / meters", 1382, tableY + 8, 20, 700, "#111111", "right");
 
     const descriptionRows = wrap(invoiceDescriptionText(), 860, 22, 400).slice(0, 3);
     descriptionRows.forEach((row, index) => draw(row, 72, tableY + 56 + index * 30, 22, 400));
-    draw("1,00", 1018, tableY + 56, 22, 400, "#111111", "right");
-    draw(invoiceMoney(subtotal), 1218, tableY + 56, 22, 400, "#111111", "right");
-    draw(invoiceMoney(subtotal), 1382, tableY + 56, 22, 400, "#111111", "right");
+    draw("1 opdracht", 1382, tableY + 56, 22, 400, "#111111", "right");
 
     let cursorY = tableY + 56 + descriptionRows.length * 30 + 32;
     if (notes.trim()) {
@@ -961,8 +957,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         <div className="tap-total-mini"><span>Excl.</span><b>{euro(subtotal)}</b><span>BTW</span><b>{euro(vatAmount)}</b></div>
       </div>
 
-      <div className="tap-issuer-region no-print">
-        <InvoiceIssuerPicker value={invoiceIssuer} onChange={selectInvoiceIssuer} disabled={invoiceBusy || Boolean(invoiceSentFor)}/>
+      <div className="issuer-quick-switch no-print">
+        <InvoiceIssuerPicker compact value={invoiceIssuer} onChange={selectInvoiceIssuer} disabled={invoiceBusy || Boolean(invoiceSentFor)}/>
       </div>
 
       <main className="tap-shell no-print">
@@ -991,6 +987,11 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
         <section className="tap-section">
           <div className="tap-section-head"><span>02</span><div><small>WERKZAAMHEDEN</small><h2>Vink aan wat je hebt gedaan</h2></div></div>
+          <button className="tap-add-custom-shortcut" type="button" onClick={()=>{
+            addCustomLine();
+            setShowDetails(true);
+            window.setTimeout(()=>document.getElementById("repair-own-lines")?.scrollIntoView({behavior:"smooth",block:"center"}),130);
+          }}>+ EIGEN WERK INVOEREN MET PRIJS →</button>
 
           <div className="tap-search-wrap">
             <input value={workSearch} onChange={event => setWorkSearch(event.target.value)} placeholder="Zoek: dakpan, kit, lood, bitumen..." />
@@ -1108,7 +1109,10 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
               </div>
             </div>
 
-            <button className="internal-add" type="button" onClick={addCustomLine}>+ EIGEN REGEL TOEVOEGEN</button>
+            <div id="repair-own-lines">
+              <button className="internal-add" type="button" onClick={addCustomLine}>+ EIGEN REGEL TOEVOEGEN</button>
+              <p className="repair-own-hint">Vul zelf de omschrijving, hoeveelheid, eenheid en verkoopprijs excl. btw in. De klant ziet geen losse bedragen, alleen het totaaltarief.</p>
+            </div>
             {customLines.map(line => <div className="custom-line" key={line.id}>
               <input className="custom-desc" value={line.description} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, description: event.target.value } : item))} placeholder="Extra werkzaamheden"/>
               <input type="number" min="0" step="0.1" value={line.qty} onChange={event => setCustomLines(current => current.map(item => item.id === line.id ? { ...item, qty: Number(event.target.value) } : item))}/>
@@ -1212,8 +1216,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             <div><dt>Factuurdatum</dt><dd>{new Date().toLocaleDateString("nl-NL")}</dd></div>
             <div><dt>Werkdatum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div>
           </dl>
-          <table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Excl. btw</th></tr></thead>
-            <tbody><tr><td>{invoiceDescriptionText()}</td><td>1 opdracht</td><td>{euro(subtotal)}</td></tr></tbody>
+          <table><thead><tr><th>Omschrijving</th><th>Aantal</th></tr></thead>
+            <tbody><tr><td>{invoiceDescriptionText()}</td><td>1 opdracht</td></tr></tbody>
           </table>
           <div className="print-totals">
             <p><span>Subtotaal excl. btw</span><strong>{euro(subtotal)}</strong></p>

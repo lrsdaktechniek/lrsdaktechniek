@@ -94,6 +94,10 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   const [notice,setNotice]=useState("");
   const [preview,setPreview]=useState<"quote"|"invoice">("quote");
   const [printQueued,setPrintQueued]=useState(false);
+  const [ownDescription,setOwnDescription]=useState("");
+  const [ownQty,setOwnQty]=useState("1");
+  const [ownUnit,setOwnUnit]=useState("post");
+  const [ownPrice,setOwnPrice]=useState("");
 
   useEffect(()=>{
     try {
@@ -167,6 +171,8 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   const project=projects.find(row=>row.id===activeId);
   const issuer:InvoiceIssuerId=project?.issuer??"lrs";
   const company=INVOICE_ISSUERS[issuer];
+  const quoteNumber = issuer === "allround-lem" && project?.number.startsWith("LRS-OFF-")
+    ? project.number.replace("LRS-OFF-", "LEM-OFF-") : (project?.number ?? "");
   const settings=billingSettings[issuer];
   function updateSettings(change:(prev:IssuerSettings)=>IssuerSettings) {
     setBillingSettings(current=>({...current,[issuer]:normalizeIssuerSettings(issuer,change(current[issuer]))}));
@@ -182,14 +188,14 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     : calculate([],0,false,21),[project]);
   // Dit object bevat uitsluitend klantgegevens. Interne kosten/notities verlaten de browser nooit.
   const quote=useMemo(()=>project?{
-    number:project.number,title:project.title.trim(),issueDate:project.quoteDate,
+    number:quoteNumber,title:project.title.trim(),issueDate:project.quoteDate,
     validDays:project.validityDays,
     customer:{name:project.customer.trim(),address:project.address.trim(),email:project.email.trim(),phone:project.phone.trim()},
     businessAddress:settings.businessAddress.trim(),vatId:settings.vatId.trim(),
     lines:pricing.publicLines,subtotal:pricing.subtotal,vatRate:project.vatRate,
     vatAmount:pricing.vat,total:pricing.total,notes:project.publicNotes.trim(),
     ...(issuer==="allround-lem" ? {issuer,contactEmail:settings.contactEmail.trim(),phone:settings.phone.trim()} : {}),
-  }:null,[project,settings.businessAddress,settings.vatId,settings.contactEmail,settings.phone,pricing,issuer]);
+  }:null,[project,settings.businessAddress,settings.vatId,settings.contactEmail,settings.phone,pricing,issuer,quoteNumber]);
   const signature=quote?JSON.stringify(quote):"";
   const isAccepted=Boolean(project?.acceptedSignature && project.acceptedSignature===signature);
   const isSent=Boolean(project?.sentSignature && project.sentSignature===signature);
@@ -237,6 +243,24 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     setSearch("");
     setCategory(CATEGORIES[0]);
     setShowBook(false);
+    setOwnDescription("");
+    setOwnQty("1");
+    setOwnUnit("post");
+    setOwnPrice("");
+  }
+  function addOwnWork() {
+    if (!project || locked || busy) return;
+    if (project.items.length >= 50) {setNotice("Maximaal 50 werkzaamheden per offerte.");return;}
+    const desc=ownDescription.trim();
+    const qty=safeNum(ownQty,100000);
+    const price=safeNum(ownPrice);
+    if (!desc || !(qty>0) || !(price>0)) {
+      setNotice("Vul een omschrijving, hoeveelheid en verkoopprijs boven € 0 in voor je eigen werk.");
+      return;
+    }
+    edit({items:[...project.items, {id:"own-"+uuid(),description:desc,qty,unit:ownUnit,priceEx:price}]});
+    setOwnDescription("");setOwnQty("1");setOwnUnit("post");setOwnPrice("");
+    setNotice("Eigen werkzaamheid toegevoegd aan de calculatie. De klant ziet alleen het eindtotaal.");
   }
   function removeProject() {
     if (!project || !window.confirm("Project "+project.number+" verwijderen? Deze actie kan niet worden teruggedraaid.")) return;
@@ -283,15 +307,13 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     const error=checkQuote(false);
     if (error) {setNotice(error);return;}
     const text=[
-      company.name+" · Offerte "+project.number,
+      company.name+" · Offerte "+quoteNumber,
       project.title, "Klant: "+project.customer,
       "Adres: "+project.address,
       "",
-      ...pricing.publicLines.map(line=>"- "+line.description+" ("+line.qty+" "+line.unit+"): "+euro(line.amountEx)),
+      ...pricing.publicLines.map(line=>"- "+line.description+" ("+line.qty+" "+line.unit+")"),
       "",
-      "Subtotaal excl. btw: "+euro(pricing.subtotal),
-      "Btw "+project.vatRate+"%: "+euro(pricing.vat),
-      "Totaal incl. btw: "+euro(pricing.total),
+      "Vaste totaalprijs incl. "+project.vatRate+"% btw: "+euro(pricing.total),
       "Geldig tot: "+dateAdd(project.quoteDate,project.validityDays),
       project.publicNotes,
     ].filter(Boolean).join("\n");
@@ -312,7 +334,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       const result=await response.json().catch(()=>({}));
       if (!response.ok) throw new Error(result.error || "Offerte versturen is mislukt.");
       setProjects(rows=>rows.map(row=>row.id===project.id?{...row,sentSignature:signature}:row));
-      setNotice("Offerte "+project.number+" verstuurd naar "+project.email+". Een klant kan per e-mail akkoord geven.");
+      setNotice("Offerte "+quoteNumber+" verstuurd naar "+project.email+". Een klant kan per e-mail akkoord geven.");
     } catch(error) {
       setNotice(error instanceof Error?error.message:"Offerte verzenden is mislukt.");
     } finally {setBusy("");}
@@ -392,24 +414,27 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
 <div className="roof-header-actions"><button type="button" className="roof-header-new" disabled={Boolean(busy)} onClick={newProject}>+ NIEUWE KLUS · LEEG BEGINNEN</button><div className="roof-header-total"><span>KLANTTOTAAL INCL. BTW</span><strong>{euro(pricing.total)}</strong></div></div>
       </header>
 
+      <div className="issuer-quick-switch roof-no-print">
+        <InvoiceIssuerPicker compact value={issuer} onChange={changeIssuer} disabled={locked||Boolean(busy)}/>
+      </div>
       <main className="roof-layout roof-no-print">
         <section className="roof-card roof-archive">
           <div className="roof-section-head"><h2>Project kiezen</h2><span className="roof-badge">{status}</span></div>
           <div className="roof-project-picker">
             <label><span>Opgeslagen dakprojecten</span>
               <select value={activeId} onChange={event=>{setActiveId(event.target.value);setNotice("");setPreview("quote");}}>
-                {projects.map(row=><option key={row.id} value={row.id}>{row.number} · {row.customer || row.title}</option>)}
+                {projects.map(row=><option key={row.id} value={row.id}>{row.issuer==="allround-lem"?row.number.replace("LRS-OFF-","LEM-OFF-"):row.number} · {row.customer || row.title}</option>)}
               </select>
             </label>
 <button type="button" className="roof-btn primary" disabled={Boolean(busy)} onClick={newProject}>+ NIEUWE KLUS</button>
             <button type="button" className="roof-btn secondary" onClick={removeProject} disabled={Boolean(busy)}>VERWIJDER</button>
           </div>
           <p className="roof-hint">Automatisch opgeslagen in deze browser, niet centraal. Maak voor belangrijke offertes ook een PDF-back-up. Offertenummers en factuurnummers zijn alleen lokaal gesynchroniseerd.</p>
-          <InvoiceIssuerPicker value={issuer} onChange={changeIssuer} disabled={locked||Boolean(busy)}/>
+
         </section>
 
         <section className="roof-card">
-          <div className="roof-section-head"><h2>1. Klant & dak</h2><small>{project.number}</small></div>
+          <div className="roof-section-head"><h2>1. Klant & dak</h2><small>{quoteNumber}</small></div>
           <div className="roof-fields">
             <label><span>Klantnaam *</span><input value={project.customer} maxLength={180} disabled={locked||Boolean(busy)} onChange={e=>edit({customer:e.target.value})} placeholder="Naam klant"/></label>
             <label><span>E-mailadres klant</span><input type="email" value={project.email} maxLength={300} disabled={locked||Boolean(busy)} onChange={e=>edit({email:e.target.value})} placeholder="naam@email.nl"/></label>
@@ -451,7 +476,18 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
             {listed.length===0&&<p>Geen werkzaamheden gevonden. Voeg hieronder een eigen regel toe.</p>}
           </div>
 
-          <div className="roof-section-head roof-lines-title"><h3>Ingevulde werkzaamheden</h3><small>Alle bedragen excl. btw</small></div>
+          <section className="roof-own-work" id="roof-own-work">
+            <h3>+ Eigen werkzaamheden met prijs toevoegen</h3>
+            <p>Staat een klus niet in de lijst? Vul hem hier handmatig in. De prijs telt intern mee, maar wordt niet apart op de offerte of factuur getoond.</p>
+            <div className="roof-own-grid">
+              <label className="roof-own-description"><span>Wat ga je doen?</span><input type="text" value={ownDescription} maxLength={180} disabled={locked||Boolean(busy)} onChange={e=>setOwnDescription(e.target.value)} placeholder="Bijv. Steiger plaatsen of speciale dakreparatie"/></label>
+              <label><span>Aantal</span><input type="number" min="0.1" step="0.1" inputMode="decimal" value={ownQty} disabled={locked||Boolean(busy)} onChange={e=>setOwnQty(e.target.value)}/></label>
+              <label><span>Eenheid</span><select value={ownUnit} disabled={locked||Boolean(busy)} onChange={e=>setOwnUnit(e.target.value)}><option value="post">post</option><option value="m²">m²</option><option value="m¹">meter</option><option value="stuk">stuk</option><option value="uur">uur</option></select></label>
+              <label><span>Prijs per eenheid excl. btw</span><input type="number" min="0.01" step="0.01" inputMode="decimal" value={ownPrice} disabled={locked||Boolean(busy)} onChange={e=>setOwnPrice(e.target.value)} placeholder="€ 0,00"/></label>
+              <button className="roof-btn primary roof-own-submit" type="button" onClick={addOwnWork} disabled={locked||Boolean(busy)}>+ VOEG WERK TOE</button>
+            </div>
+          </section>
+          <div className="roof-section-head roof-lines-title"><h3>Ingevulde werkzaamheden</h3><small>Alle bedragen intern · klant ziet één totaal</small></div>
 <p className="roof-hint">Vul alleen de aantallen of meters in; de rest wordt automatisch berekend. Klein werk kent een minimumprojecttarief van {euro(MIN_ROOF_JOB_EX)} excl. btw.</p>
           {!project.items.length&&<p className="roof-empty">Nog geen werkzaamheden geselecteerd. Tik hierboven aan wat je gaat doen.</p>}
           <div className="roof-rows">
@@ -487,10 +523,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
             })}
           </div>
           <div className="roof-add-actions">
-            <button className="roof-btn secondary" type="button" disabled={locked||Boolean(busy)||project.items.length>=50} onClick={()=>{
-              const id="own-"+uuid();
-              edit({items:[...project.items,{id,description:"",unit:"post",qty:1,priceEx:0}]});
-            }}>+ EIGEN WERKREGEL</button>
+
 
             <button className="roof-btn secondary" type="button" onClick={()=>setShowBook(v=>!v)}>{showBook?"SLUIT PRIJSBOEK":"BEKIJK / WIJZIG PRIJSBOEK"}</button>
           </div>
@@ -582,7 +615,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       <article className={"roof-document"+(issuer==="allround-lem"?" allround-lem":"")} aria-label={invoicePreview?"Factuur voor klant":"Offerte voor klant"}>
         <header>
           <div><small>{issuer==="allround-lem"?"ALLROUND LEM · DAKWERK EN ONDERHOUD":"DAKTECHNIEK · BREDA EN OMGEVING"}</small><h1>{company.name.toUpperCase()}</h1><span>{invoiceBill.businessAddress}</span>{(invoiceBill.phone||invoiceBill.contactEmail)&&<span>{[invoiceBill.phone,invoiceBill.contactEmail].filter(Boolean).join(" · ")}</span>}<span>KvK {company.kvk} · Btw-ID {invoiceBill.vatId}</span></div>
-          <div className="roof-doc-title"><h2>{invoicePreview?"FACTUUR":"OFFERTE"}</h2><strong>{invoicePreview?invoiceNumber:project.number}</strong></div>
+          <div className="roof-doc-title"><h2>{invoicePreview?"FACTUUR":"OFFERTE"}</h2><strong>{invoicePreview?invoiceNumber:quoteNumber}</strong></div>
         </header>
         <div className="roof-doc-client">
           <div><b>Aan</b><strong>{project.customer||"—"}</strong><span>{project.address||"—"}</span>{project.email&&<span>{project.email}</span>}</div>
@@ -593,10 +626,14 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
         </div>
         <h3>{project.title||"Dakwerkzaamheden"}</h3>
         <table>
-          <thead><tr><th>Werkzaamheden</th><th>Aantal</th><th>Bedrag excl. btw</th></tr></thead>
-          <tbody>{pricing.publicLines.map((line,index)=><tr key={index}><td>{line.description}</td><td>{line.qty.toLocaleString("nl-NL")} {line.unit}</td><td>{euro(line.amountEx)}</td></tr>)}</tbody>
+          <thead><tr><th>Werkzaamheden</th><th>Aantal / meters</th></tr></thead>
+          <tbody>{pricing.publicLines.map((line,index)=><tr key={index}><td>{line.description}</td><td>{line.qty.toLocaleString("nl-NL")} {line.unit}</td></tr>)}</tbody>
         </table>
-        <div className="roof-doc-totals"><div><span>Subtotaal excl. btw</span><b>{euro(pricing.subtotal)}</b></div><div><span>Btw {project.vatRate}%</span><b>{euro(pricing.vat)}</b></div><div className="grand"><strong>Totaal incl. btw</strong><strong>{euro(pricing.total)}</strong></div></div>
+        <div className="roof-doc-totals">
+          {invoicePreview && <div className="roof-doc-tax"><span>Subtotaal excl. btw</span><b>{euro(pricing.subtotal)}</b></div>}
+          {invoicePreview && <div className="roof-doc-tax"><span>Btw {project.vatRate}%</span><b>{euro(pricing.vat)}</b></div>}
+          <div className="grand"><strong>{invoicePreview?"Totaal te betalen incl. btw":"Vaste totaalprijs incl. "+project.vatRate+"% btw"}</strong><strong>{euro(pricing.total)}</strong></div>
+        </div>
         {project.publicNotes.trim()&&<div className="roof-doc-notes"><b>Toelichting</b><p>{project.publicNotes}</p></div>}
         {invoicePreview?<div className="roof-doc-footer"><strong>Betalingsgegevens</strong><p>Betaling binnen {invoiceBill.paymentTermDays} dagen op {invoiceBill.iban} t.n.v. {company.name}.<br/>Onder vermelding van factuur {invoiceNumber}.</p></div>:
           <div className="roof-doc-footer"><strong>Akkoord op deze offerte?</strong><p>Reageer op deze offerte {settings.contactEmail?"via "+settings.contactEmail:"bij "+company.name} of neem telefonisch contact met ons op. De werkzaamheden worden in overleg ingepland.</p></div>}

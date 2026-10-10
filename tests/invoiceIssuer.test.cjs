@@ -198,3 +198,89 @@ test("Per afzender kiezen bewaart separate factuurinstellingen",()=>{
   assert.match(roof,/invoiceDetails:\{issueDate/);
   assert.match(roof,/const isAccepted=Boolean\(project\?\.acceptedSignature/);
 });
+
+test("Offertemail toont werkzaamheden en hoeveelheden maar GEEN bedragen per regel", async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const issuer of ["lrs","allround-lem"]){
+      const payload=makeQuote(issuer);
+      payload.quote.lines=[
+        {description:"Steiger plaatsen",unit:"post",qty:1,amountEx:500},
+        {description:"Bitumen vernieuwen",unit:"m²",qty:10,amountEx:500}
+      ];
+      const res=await post("https://example.test/api/dakofferte",payload,quoteApi);
+      assert.equal(res.status,200);
+    }
+    assert.equal(outgoing.length,2);
+    for(const message of outgoing){
+      const body=message.html;
+      const rows=body.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1];
+      assert.ok(rows,"Tabel met werkzaamheden moet blijven bestaan");
+      assert.match(rows,/Steiger plaatsen/);
+      assert.match(rows,/Bitumen vernieuwen/);
+      assert.ok(!rows.includes("€"),"Geen prijzen in werkzaamheden");
+      assert.doesNotMatch(body,/Bedrag excl. btw/);
+      assert.doesNotMatch(body,/>Excl\. btw</);
+      assert.match(body,/Vaste totaalprijs incl. 21% btw/);
+      assert.match(body,/€[\u00a0\s]*1\.210,00/);
+    }
+  });
+});
+
+test("Factuurmail toont werkzaamheden zonder regelprijzen, behoudt verplicht BTW-overzicht",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const issuer of ["lrs","allround-lem"]){
+      const payload=makeInvoice(issuer);
+      payload.lines=[
+        {description:"Steiger plaatsen",unit:"post",qty:1,amountEx:500},
+        {description:"Bitumen vernieuwen",unit:"m²",qty:10,amountEx:500},
+      ];
+      const res=await post("https://example.test/api/factuur",payload,invoiceApi);
+      assert.equal(res.status,200);
+    }
+    assert.equal(outgoing.length,2);
+    for(const email of outgoing){
+      const rows=email.html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1];
+      assert.match(rows,/Steiger plaatsen/);
+      assert.match(rows,/Bitumen vernieuwen/);
+      assert.ok(!rows.includes("€"),"Geen regelprijzen");
+      assert.doesNotMatch(email.html,/<th[^>]*>Excl\. btw<\/th>/);
+      assert.match(email.html,/Subtotaal excl\. btw/);
+      assert.match(email.html,/BTW 21%/);
+      assert.match(email.html,/Totaal incl\. btw/);
+    }
+  });
+});
+
+test("Mobiele bedrijfskeuze staat boven de formulieren en blijft sticky",()=>{
+  const css=fs.readFileSync("src/components/roofQuote.css","utf8");
+  assert.match(css,/\.issuer-quick-switch\s*\{\s*position:\s*sticky;/);
+  assert.match(css,/\.issuer-quick-switch \.issuer-picker-options\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/);
+  const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
+  const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
+  for(const html of [roof,repair]){
+    assert.match(html,/className="issuer-quick-switch/);
+    assert.match(html,/<InvoiceIssuerPicker compact/);
+  }
+  assert.ok(roof.indexOf('className="issuer-quick-switch')<roof.indexOf('className="roof-layout'));
+  assert.ok(repair.indexOf('className="issuer-quick-switch')<repair.indexOf('className="tap-shell'));
+});
+
+test("Offertepreview, kopieertekst, factuurprint en factuur-PNG lekken geen werkregelbedragen",()=>{
+  const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
+  const doc=roof.slice(roof.indexOf('className={"roof-document"'),roof.lastIndexOf('</article>'));
+  assert.match(doc,/<th>Aantal \/ meters<\/th>/);
+  assert.doesNotMatch(doc,/line\.amountEx/);
+  assert.doesNotMatch(doc,/Bedrag excl\. btw/);
+  const copy=roof.slice(roof.indexOf('async function copyQuote()'),roof.indexOf('async function sendQuote()'));
+  assert.doesNotMatch(copy,/line\.amountEx/);
+  assert.doesNotMatch(copy,/Subtotaal excl\. btw/);
+  assert.match(roof,/onClick=\{addOwnWork\}/);
+  assert.match(roof,/setOwnPrice/);
+  const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
+  const png=repair.slice(repair.indexOf('async function buildInvoiceImageBlob()'),repair.indexOf('async function createInvoiceImage()'));
+  assert.doesNotMatch(png,/draw\("Prijs"/);
+  assert.doesNotMatch(png,/draw\(invoiceMoney\(subtotal\), 1218/);
+  const invoicePrint=repair.slice(repair.indexOf('printInvoiceMode ? <div'),repair.indexOf('} : <>',repair.indexOf('printInvoiceMode ? <div')));
+  assert.doesNotMatch(invoicePrint,/<th>Excl\. btw<\/th>/);
+  assert.match(repair,/tap-add-custom-shortcut/);
+});
