@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { INVOICE_ISSUERS, parseIssuer, validateIssuerBusiness, type InvoiceIssuerId } from "@/lib/invoiceIssuer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ type InvoiceLine = {
 
 type InvoicePayload = {
   accessToken?: string;
+  issuer?: InvoiceIssuerId;
   customer?: { name?: string; address?: string; email?: string };
   business?: { name?: string; address?: string; email?: string; phone?: string; kvk?: string; vatId?: string; iban?: string };
   invoice?: { number?: string; issueDate?: string; serviceDate?: string; title?: string; paymentTermDays?: number; notes?: string };
@@ -48,15 +50,9 @@ function isEmail(value: string) {
 
 export async function POST(request: Request) {
   const secret = process.env.OFFERTE_SECRET;
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.FACTUUR_FROM_EMAIL;
-  const replyTo = process.env.FACTUUR_REPLY_TO || "info@lrsdaktechniek.nl";
-
   if (!secret) return Response.json({ error: "OFFERTE_SECRET ontbreekt in Vercel." }, { status: 500 });
-  if (!resendKey || !from) {
-    return Response.json({
-      error: "E-mail is nog niet ingesteld. Voeg RESEND_API_KEY en FACTUUR_FROM_EMAIL toe in Vercel."
-    }, { status: 503 });
+  if (Number(request.headers.get("content-length") || 0) > 100000) {
+    return Response.json({ error: "Factuuraanvraag te groot." }, { status: 413 });
   }
 
   let body: InvoicePayload;
@@ -70,6 +66,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Geen toegang." }, { status: 403 });
   }
 
+  const issuer = parseIssuer(body.issuer);
+  if (!issuer) return Response.json({ error: "Onbekend factuurbedrijf." }, { status: 400 });
+  const company = INVOICE_ISSUERS[issuer];
   const customer = body.customer ?? {};
   const business = body.business ?? {};
   const invoice = body.invoice ?? {};
@@ -79,15 +78,40 @@ export async function POST(request: Request) {
   if (!customer.name || !customer.address || !isEmail(customerEmail)) {
     return Response.json({ error: "Klantnaam, volledig adres en geldig e-mailadres zijn verplicht." }, { status: 400 });
   }
-  if (!business.name || !business.address || !business.kvk || !business.vatId) {
-    return Response.json({ error: "Bedrijfsnaam, bedrijfsadres, KVK en btw-id zijn verplicht." }, { status: 400 });
+  if (!business.address?.trim() || !validateIssuerBusiness(issuer, business)) {
+    return Response.json({ error: "Factuurbedrijf, KvK, btw-ID of IBAN komen niet overeen met de gekozen afzender. Vul ook het volledige bedrijfsadres in." }, { status: 400 });
   }
   if (!invoice.number || !invoice.issueDate || !invoice.serviceDate) {
     return Response.json({ error: "Factuurnummer, factuurdatum en leverdatum zijn verplicht." }, { status: 400 });
   }
-  if (lines.length === 0 || Number(body.total) <= 0) {
-    return Response.json({ error: "De factuur bevat geen werkzaamheden of bedrag." }, { status: 400 });
+  if (lines.length === 0 || lines.length > 50 || Number(body.total) <= 0) {
+    return Response.json({ error: "De factuur bevat geen geldige werkzaamheden of bedrag." }, { status: 400 });
   }
+  const money = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100000000;
+  const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+  if (!lines.every(line => !!line && !!line.description?.trim() && !!line.unit?.trim() &&
+      Number.isFinite(line.qty) && line.qty > 0 && money(line.amountEx) && line.amountEx > 0) ||
+      ![0,9,21].includes(Number(body.vatRate)) ||
+      !money(body.subtotal) || !money(body.vatAmount) || !money(body.total) ||
+      Math.abs(round(lines.reduce((sum, line) => sum + line.amountEx, 0)) - Number(body.subtotal)) > 0.01 ||
+      Math.abs(round(Number(body.subtotal) * Number(body.vatRate) / 100) - Number(body.vatAmount)) > 0.01 ||
+      Math.abs(round(Number(body.subtotal) + Number(body.vatAmount)) - Number(body.total)) > 0.01) {
+    return Response.json({ error: "Factuurregels, btw of totaalbedragen komen niet overeen." }, { status: 400 });
+  }
+  const resendKey = process.env.RESEND_API_KEY;
+  const preferredSender = issuer === "allround-lem" ? process.env.ALLROUND_LEM_FROM_EMAIL : process.env.FACTUUR_FROM_EMAIL;
+  if (!resendKey || !preferredSender) {
+    return Response.json({
+      error: issuer === "allround-lem"
+        ? "Allround LEM is nog niet gekoppeld aan een geverifieerde e-mailafzender. Stel ALLROUND_LEM_FROM_EMAIL en RESEND_API_KEY in op Vercel."
+        : "E-mail is nog niet ingesteld. Stel FACTUUR_FROM_EMAIL en RESEND_API_KEY in op Vercel."
+    }, { status: 503 });
+  }
+  const from = issuer === "allround-lem" && !preferredSender.includes("<")
+    ? company.name + " <" + preferredSender + ">" : preferredSender;
+  const replyTo = issuer === "allround-lem"
+    ? (process.env.ALLROUND_LEM_REPLY_TO || (isEmail(String(business.email ?? "")) ? business.email : undefined))
+    : (process.env.FACTUUR_REPLY_TO || "info@lrsdaktechniek.nl");
 
   const rows = lines.map((line) => `
     <tr>
@@ -105,8 +129,8 @@ export async function POST(request: Request) {
 <html lang="nl">
 <body style="margin:0;background:#eef3f5;font-family:Arial,Helvetica,sans-serif;color:#070a0d">
   <div style="max-width:760px;margin:0 auto;padding:28px 16px">
-    <div style="background:#070a0d;color:#fff;padding:28px">
-      <div style="font-size:12px;letter-spacing:2px">LRS DAKTECHNIEK</div>
+    <div style="background:${issuer === "allround-lem" ? "#efb735" : "#070a0d"};color:${issuer === "allround-lem" ? "#111" : "#fff"};padding:28px">
+      <div style="font-size:12px;letter-spacing:2px">${esc(company.name.toUpperCase())}</div>
       <h1 style="margin:10px 0 0;font-size:32px">Factuur ${esc(invoice.number)}</h1>
     </div>
     <div style="background:#fff;padding:28px">
@@ -156,7 +180,7 @@ export async function POST(request: Request) {
 
       ${business.iban ? `<p style="margin-top:28px"><strong>Betaling:</strong> ${esc(business.iban)} o.v.v. ${esc(invoice.number)}</p>` : ""}
       ${invoice.notes ? `<p style="margin-top:20px"><strong>Opmerking:</strong><br>${esc(invoice.notes).replaceAll("\n","<br>")}</p>` : ""}
-      <p style="margin-top:32px;color:#60707a;font-size:13px">LRS Daktechniek · Breda & omgeving</p>
+      <p style="margin-top:32px;color:#60707a;font-size:13px">${esc(company.name)}</p>
     </div>
   </div>
 </body>
@@ -172,7 +196,7 @@ export async function POST(request: Request) {
       from,
       to: [customerEmail],
       reply_to: replyTo,
-      subject: `Factuur ${invoice.number} · LRS Daktechniek`,
+      subject: `Factuur ${invoice.number} · ${company.name}`,
       html,
     }),
   });

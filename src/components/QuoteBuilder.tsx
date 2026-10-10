@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
+import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
+import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, parseIssuer, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 
 type CatalogItem = {
   id: string;
@@ -18,31 +20,13 @@ type CatalogItem = {
 type SelectedLine = { id: string; qty: number };
 type CustomLine = { id: string; description: string; qty: number; unit: string; priceEx: number };
 type PriceBook = Record<string, number>;
-type InvoiceSettings = {
-  businessAddress: string;
-  vatId: string;
-  iban: string;
-  paymentTermDays: number;
-};
+type InvoiceSettings = IssuerSettings;
 
 const VAT_DEFAULT = 21;
 const DIFFICULT_DEFAULT = 10;
 const STORAGE_BOOK = "lrs-internal-pricebook-v4-50repair";
 const STORAGE_DRAFT = "lrs-internal-workorder-v5-smartstaffel";
-const STORAGE_INVOICE_SETTINGS = "lrs-invoice-settings-v1";
-const STORAGE_INVOICE_SEQUENCE = "lrs-invoice-sequence-v1";
-const STORAGE_INVOICE_ISSUED_PREFIX = "lrs-invoice-issued-v1:";
-const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
-  businessAddress: "Pietersberg 21, 4822 TS Breda",
-  vatId: "NL003787454B48",
-  iban: "NL69 INGB 0112 7815 51",
-  paymentTermDays: 14,
-};
-
-const INVOICE_BANK_ACCOUNTS = [
-  { id: "ing-1", label: "ING rekening 1", iban: "NL69 INGB 0112 7815 51" },
-  { id: "ing-2", label: "ING rekening 2", iban: "NL46 INGB 0109 0156 49" },
-] as const;
+const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = issuerDefaults("lrs");
 
 const CATALOG: readonly CatalogItem[] = [
   { id: "travel", category: "Voorrijden", label: "Voorrijkosten", unit: "post", defaultPriceEx: 75, defaultQty: 1, note: "Vast LRS-tarief. Reparatietarieven hieronder zijn exclusief voorrijkosten." },
@@ -215,8 +199,12 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   const [timerNow, setTimerNow] = useState(Date.now());
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
+  const [invoiceIssuer, setInvoiceIssuer] = useState<InvoiceIssuerId>("lrs");
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(DEFAULT_INVOICE_SETTINGS);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceSentFor, setInvoiceSentFor] = useState("");
+  const [printInvoiceMode, setPrintInvoiceMode] = useState(false);
+  const invoiceBrand = INVOICE_ISSUERS[invoiceIssuer];
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [invoiceStatus, setInvoiceStatus] = useState("");
   const [invoiceImageUrl, setInvoiceImageUrl] = useState("");
@@ -252,21 +240,16 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         setTimerStartedAt(typeof draft.timerStartedAt === "number" ? draft.timerStartedAt : null);
         setCustomerEmail(draft.customerEmail ?? "");
         setCustomerNumber(draft.customerNumber ?? "");
+        setInvoiceSentFor(draft.invoiceSentFor ?? "");
       }
-      const storedInvoiceSettings = localStorage.getItem(STORAGE_INVOICE_SETTINGS);
-      if (storedInvoiceSettings) {
-        const parsed = JSON.parse(storedInvoiceSettings) as Partial<InvoiceSettings>;
-        setInvoiceSettings({
-          businessAddress: parsed.businessAddress?.trim() ? parsed.businessAddress : DEFAULT_INVOICE_SETTINGS.businessAddress,
-          vatId: parsed.vatId?.trim() ? parsed.vatId : DEFAULT_INVOICE_SETTINGS.vatId,
-          iban: parsed.iban?.trim() ? parsed.iban : DEFAULT_INVOICE_SETTINGS.iban,
-          paymentTermDays: Number(parsed.paymentTermDays ?? DEFAULT_INVOICE_SETTINGS.paymentTermDays),
-        });
-      } else {
-        setInvoiceSettings(DEFAULT_INVOICE_SETTINGS);
-      }
-      const seq = Math.max(1, Number(localStorage.getItem(STORAGE_INVOICE_SEQUENCE) ?? "1") || 1);
-      setInvoiceNumber(`LRS-${new Date().getFullYear()}-${String(seq).padStart(4,"0")}`);
+      const stored = storedDraft ? JSON.parse(storedDraft) : null;
+      const chosen = parseIssuer(stored?.invoiceIssuer) ?? "lrs";
+      setInvoiceIssuer(chosen);
+      const saved = JSON.parse(localStorage.getItem(INVOICE_ISSUERS[chosen].settingsKey) || "null") as Partial<IssuerSettings> | null;
+      setInvoiceSettings(normalizeIssuerSettings(chosen,saved));
+      setInvoiceNumber(stored?.invoiceSentFor
+        ? (String(stored.issuedInvoiceNumber||"") || String(stored.invoiceSentFor).split(":").slice(1).join(":"))
+        : pendingInvoiceNumber(chosen,localStorage));
     } catch {
       // Beschadigde lokale opslag mag de interne tool niet blokkeren.
     }
@@ -274,9 +257,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_DRAFT, JSON.stringify({
-      customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt,
+      customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt, invoiceIssuer, invoiceSentFor, issuedInvoiceNumber:invoiceSentFor?invoiceNumber:"",
     }));
-  }, [customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt]);
+  }, [customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt, invoiceIssuer, invoiceSentFor, invoiceNumber]);
 
   useEffect(() => {
     if (timerStartedAt === null) return;
@@ -440,6 +423,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     });
     setInvoiceImageBlob(null);
     setInvoiceImageFingerprint("");
+    setInvoiceSentFor("");
     setJobTitle("Werkbon dakreparatie");
     setWorkDate(new Date().toISOString().slice(0, 10));
     setNotes("");
@@ -491,34 +475,44 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
 
   function saveInvoiceSettings(next: InvoiceSettings) {
-    setInvoiceSettings(next);
-    localStorage.setItem(STORAGE_INVOICE_SETTINGS, JSON.stringify(next));
+    const normalized=normalizeIssuerSettings(invoiceIssuer,next);
+    setInvoiceSettings(normalized);
+    localStorage.setItem(invoiceBrand.settingsKey,JSON.stringify(normalized));
+  }
+  function selectInvoiceIssuer(next: InvoiceIssuerId) {
+    if (invoiceIssuer===next || invoiceBusy) return;
+    if (invoiceSentFor) {
+      setInvoiceStatus("Deze klus is al gefactureerd. Kies eerst NIEUWE KLUS voor een ander factuurbedrijf.");
+      return;
+    }
+    setInvoiceIssuer(next);
+    let incoming:Partial<IssuerSettings>|null=null;
+    try { incoming=JSON.parse(localStorage.getItem(INVOICE_ISSUERS[next].settingsKey)||"null"); } catch {}
+    setInvoiceSettings(normalizeIssuerSettings(next,incoming));
+    setInvoiceNumber(pendingInvoiceNumber(next,localStorage));
+    setInvoiceStatus("Factuurbedrijf gekozen: "+INVOICE_ISSUERS[next].name+". Controleer het bedrijfsadres voordat je verzendt.");
+    setInvoiceImageBlob(null);
+    setInvoiceImageFingerprint("");
+    setPrintInvoiceMode(false);
+    setInvoiceImageUrl(url=>{ if(url)URL.revokeObjectURL(url); return ""; });
   }
 
   function markInvoiceNumberIssued() {
     const number = invoiceNumber.trim();
-    if (!number) return;
-    const issuedKey = `${STORAGE_INVOICE_ISSUED_PREFIX}${number}`;
-    if (localStorage.getItem(issuedKey)) return;
-    localStorage.setItem(issuedKey, new Date().toISOString());
-
-    const seq = Math.max(1, Number(localStorage.getItem(STORAGE_INVOICE_SEQUENCE) ?? "1") || 1);
-    const expected = `LRS-${new Date().getFullYear()}-${String(seq).padStart(4,"0")}`;
-    if (number === expected) {
-      localStorage.setItem(STORAGE_INVOICE_SEQUENCE, String(seq + 1));
-    }
+    if (number) registerInvoiceUsed(invoiceIssuer,number,localStorage);
   }
-
   function loadNextInvoiceNumber() {
-    const seq = Math.max(1, Number(localStorage.getItem(STORAGE_INVOICE_SEQUENCE) ?? "1") || 1);
-    setInvoiceNumber(`LRS-${new Date().getFullYear()}-${String(seq).padStart(4,"0")}`);
+    setInvoiceNumber(pendingInvoiceNumber(invoiceIssuer,localStorage));
   }
 
   const invoiceFingerprint = useMemo(() => JSON.stringify({
-    customer, customerNumber, address, invoiceNumber, workDate, jobTitle, notes,
+    customer, customerNumber, address, invoiceNumber, invoiceIssuer, invoiceSentFor, workDate, jobTitle, notes,
     businessAddress: invoiceSettings.businessAddress,
-    vatId: invoiceSettings.vatId,
-    iban: invoiceSettings.iban,
+    vatId: invoiceBrand.vatId,
+    iban: invoiceBrand.iban,
+    kvk: invoiceBrand.kvk,
+    phone: invoiceSettings.phone,
+    contactEmail: invoiceSettings.contactEmail,
     paymentTermDays: invoiceSettings.paymentTermDays,
     subtotal, vat, vatAmount, total,
     work: workLines.filter(line => line.key.startsWith("repair-")).map(line => [line.key, line.qty]),
@@ -526,7 +520,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     difficult,
     manualTotalEnabled,
     manualTotalIncl,
-  }), [customer, customerNumber, address, invoiceNumber, workDate, jobTitle, notes, invoiceSettings, subtotal, vat, vatAmount, total, workLines, customLines, difficult, manualTotalEnabled, manualTotalIncl]);
+  }), [customer, customerNumber, address, invoiceNumber, invoiceIssuer, invoiceSentFor, workDate, jobTitle, notes, invoiceSettings, subtotal, vat, vatAmount, total, workLines, customLines, difficult, manualTotalEnabled, manualTotalIncl]);
 
   function invoiceDescriptionText() {
     const customTitle = jobTitle.trim();
@@ -565,18 +559,18 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       "",
       "Betaling:",
       `IBAN: ${invoiceSettings.iban}`,
-      "Ten name van: LRS Daktechniek",
+      `Ten name van: ${invoiceBrand.name}`,
       `Onder vermelding van: Factuur ${invoiceNumber || "—"}`,
       term === 0 ? "Betaaltermijn: graag direct." : `Betaaltermijn: ${term} dagen.`,
       "",
       "De factuur stuur ik als afbeelding mee met dit bericht.",
       "",
       "Met vriendelijke groet,",
-      "LRS Daktechniek",
-      site.phoneDisplay,
-      site.email,
+      invoiceBrand.name,
+      invoiceSettings.phone,
+      invoiceSettings.contactEmail,
     ].join("\n");
-  }, [customer, address, workLines, customLines, invoiceNumber, total, invoiceSettings.iban, invoiceSettings.paymentTermDays]);
+  }, [customer, address, workLines, customLines, invoiceNumber, total, invoiceSettings.iban, invoiceSettings.paymentTermDays, invoiceBrand.name, invoiceSettings.phone, invoiceSettings.contactEmail]);
 
   async function copyInvoiceMessageText() {
     try {
@@ -596,6 +590,20 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     if (total <= 0) return "Er staat nog geen bedrag op de factuur.";
     return "";
   }
+
+  function printCustomerInvoice() {
+    const error = validateInvoiceImage();
+    if (error) { setInvoiceStatus(error); return; }
+    markInvoiceNumberIssued();
+    setPrintInvoiceMode(true);
+    window.setTimeout(()=>window.print(),100);
+  }
+  useEffect(()=>{
+    if (!printInvoiceMode) return;
+    const finish=()=>setPrintInvoiceMode(false);
+    window.addEventListener("afterprint",finish);
+    return ()=>window.removeEventListener("afterprint",finish);
+  },[printInvoiceMode]);
 
   function invoiceMoney(value: number) {
     return new Intl.NumberFormat("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
@@ -674,16 +682,21 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     const customerAddressLines = wrap(address.trim(), 560, 24, 400);
     customerAddressLines.slice(0, 3).forEach((row, index) => draw(row, leftX, 220 + index * 34, 24, 400));
 
-    draw("LRS Daktechniek", rightX, 74, 28, 700);
+    const lem = invoiceIssuer === "allround-lem";
+    if (lem) {
+      ctx.fillStyle = "#101114"; ctx.fillRect(56, 55, 1388, 70);
+      ctx.fillStyle = "#f1bb40"; ctx.fillRect(56, 55, 700, 70);
+      draw("ALLROUND LEM", 85, 70, 34, 700, "#111111");
+    } else {
+      draw(invoiceBrand.name, rightX, 74, 28, 700);
+    }
     const businessAddressParts = invoiceSettings.businessAddress.split(",").map(part => part.trim()).filter(Boolean);
-    businessAddressParts.slice(0, 3).forEach((row, index) => draw(row, rightX, 116 + index * 30, 22, 400));
-    const businessDataY = 116 + Math.max(2, businessAddressParts.length) * 30 + 8;
-    draw("t", rightX, businessDataY, 22, 700);
-    draw(site.phoneHref, rightX + 30, businessDataY, 22, 400);
-    draw("e", rightX, businessDataY + 34, 22, 700);
-    draw(site.email, rightX + 30, businessDataY + 34, 22, 400);
-    draw("i", rightX, businessDataY + 68, 22, 700);
-    draw("www.lrsdaktechniek.nl", rightX + 30, businessDataY + 68, 22, 400);
+    const addressTop = lem ? 146 : 116;
+    businessAddressParts.slice(0, 3).forEach((row, index) => draw(row, rightX, addressTop + index * 30, 22, 400));
+    const businessDataY = addressTop + Math.max(2, businessAddressParts.length) * 30 + 8;
+    if (invoiceSettings.phone.trim()) { draw("t", rightX, businessDataY, 22, 700); draw(invoiceSettings.phone, rightX + 30, businessDataY, 22, 400); }
+    if (invoiceSettings.contactEmail.trim()) { draw("e", rightX, businessDataY + 34, 22, 700); draw(invoiceSettings.contactEmail, rightX + 30, businessDataY + 34, 22, 400); }
+    if (!lem) { draw("i", rightX, businessDataY + 68, 22, 700); draw("www.lrsdaktechniek.nl", rightX + 30, businessDataY + 68, 22, 400); }
 
     const bankY = businessDataY + 130;
     draw("IBAN", rightX, bankY, 22, 700);
@@ -691,7 +704,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     draw("Btw-nr", rightX, bankY + 34, 22, 700);
     draw(invoiceSettings.vatId, rightX + 118, bankY + 34, 22, 400);
     draw("KvK", rightX, bankY + 68, 22, 700);
-    draw(site.kvk, rightX + 118, bankY + 68, 22, 400);
+    draw(invoiceBrand.kvk, rightX + 118, bankY + 68, 22, 400);
 
     const payX = 78, payY = 380, payW = 620, payH = 208;
     ctx.fillStyle = "#f4f4f4";
@@ -711,7 +724,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     draw("Naar IBAN", payLabelX, payY + 76, 21, 700);
     draw(invoiceSettings.iban, payValueX, payY + 76, 21, 700);
     draw("Op naam van", payLabelX, payY + 118, 21, 400);
-    draw("LRS Daktechniek", payValueX, payY + 118, 21, 700);
+    draw(invoiceBrand.name, payValueX, payY + 118, 21, 700);
     draw("Omschrijving", payLabelX, payY + 160, 21, 400);
     draw(`Factuur ${invoiceNumber}`, payValueX, payY + 160, 21, 700);
 
@@ -822,8 +835,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     try {
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
         await navigator.share({
-          title: `Factuur ${invoiceNumber} · LRS Daktechniek`,
-          text: `Factuur ${invoiceNumber} van LRS Daktechniek.`,
+          title: `Factuur ${invoiceNumber} · ${invoiceBrand.name}`,
+          text: `Factuur ${invoiceNumber} van ${invoiceBrand.name}.`,
           files: [file],
         });
         markInvoiceNumberIssued();
@@ -854,12 +867,16 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       setInvoiceStatus("Vul klantnaam, volledig adres en e-mailadres in.");
       return;
     }
-    if (!invoiceSettings.businessAddress.trim() || !invoiceSettings.vatId.trim()) {
-      setInvoiceStatus("Vul eerst jouw bedrijfsadres en btw-id in bij Factuurinstellingen.");
+    if (!invoiceSettings.businessAddress.trim()) {
+      setInvoiceStatus("Vul eerst het volledige factuuradres van "+invoiceBrand.name+" in.");
       return;
     }
     if (!invoiceNumber.trim()) {
       setInvoiceStatus("Factuurnummer ontbreekt.");
+      return;
+    }
+    if (invoiceSentFor) {
+      setInvoiceStatus("Deze klus is al gefactureerd. Start eerst een NIEUWE KLUS.");
       return;
     }
 
@@ -889,15 +906,16 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accessToken,
+          issuer: invoiceIssuer,
           customer: { name: customer.trim(), address: address.trim(), email: customerEmail.trim() },
           business: {
-            name: site.name,
+            name: invoiceBrand.name,
             address: invoiceSettings.businessAddress.trim(),
-            email: site.email,
-            phone: site.phoneDisplay,
-            kvk: site.kvk,
-            vatId: invoiceSettings.vatId.trim(),
-            iban: invoiceSettings.iban.trim(),
+            email: invoiceSettings.contactEmail.trim(),
+            phone: invoiceSettings.phone.trim(),
+            kvk: invoiceBrand.kvk,
+            vatId: invoiceBrand.vatId,
+            iban: invoiceBrand.iban,
           },
           invoice: {
             number: invoiceNumber.trim(),
@@ -918,7 +936,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       if (!response.ok) throw new Error(data?.error || "Factuur kon niet worden verstuurd.");
 
       markInvoiceNumberIssued();
-      setInvoiceStatus(`Factuur ${data.invoiceNumber || invoiceNumber} is verstuurd naar ${customerEmail}. Start daarna NIEUW voor het volgende factuurnummer.`);
+      setInvoiceSentFor(invoiceIssuer+":"+invoiceNumber);
+      setInvoiceStatus(`Factuur ${data.invoiceNumber || invoiceNumber} namens ${invoiceBrand.name} verstuurd naar ${customerEmail}. Start daarna NIEUWE KLUS.`);
     } catch (error) {
       setInvoiceStatus(error instanceof Error ? error.message : "Factuur kon niet worden verstuurd.");
     } finally {
@@ -940,6 +959,10 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       <div className="tap-totalbar no-print">
         <div><span>TOTAAL KLANT INCL. BTW</span><strong>{euro(total)}</strong></div>
         <div className="tap-total-mini"><span>Excl.</span><b>{euro(subtotal)}</b><span>BTW</span><b>{euro(vatAmount)}</b></div>
+      </div>
+
+      <div className="tap-issuer-region no-print">
+        <InvoiceIssuerPicker value={invoiceIssuer} onChange={selectInvoiceIssuer} disabled={invoiceBusy || Boolean(invoiceSentFor)}/>
       </div>
 
       <main className="tap-shell no-print">
@@ -1098,32 +1121,25 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
             <section className="invoice-send-panel invoice-image-panel">
               <div className="invoice-send-head">
-                <div><span className="internal-kicker">FACTUUR</span><h3>Factuur als afbeelding</h3></div>
+                <div><span className="internal-kicker">FACTUUR VAN {invoiceBrand.name.toUpperCase()}</span><h3>Factuur als afbeelding</h3></div>
                 <strong>{invoiceNumber || "—"}</strong>
               </div>
               <p className="invoice-help">Maak hieronder één nette klantfactuur. De factuur laat alleen een duidelijke omschrijving, totaalbedrag, betaalgegevens en factuurgegevens zien. Interne staffels of partnerafspraken worden niet apart aan de klant getoond. Na het maken kun je de afbeelding direct delen via WhatsApp, Mail of openen in een nieuw scherm.</p>
 
               <div className="invoice-settings-grid">
-                <label><span>Factuurnummer</span><input value={invoiceNumber} onChange={event=>setInvoiceNumber(event.target.value)} placeholder="LRS-2026-0001"/></label>
-                <label><span>Bedrijfsadres LRS</span><input value={invoiceSettings.businessAddress} onChange={event=>saveInvoiceSettings({...invoiceSettings,businessAddress:event.target.value})} placeholder="Pietersberg 21, 4822 TS Breda"/></label>
-                <label><span>BTW-ID</span><input value={invoiceSettings.vatId} onChange={event=>saveInvoiceSettings({...invoiceSettings,vatId:event.target.value})} placeholder="NL003787454B48"/></label>
-                <label><span>Betaaltermijn dagen</span><input type="number" min="0" value={invoiceSettings.paymentTermDays} onChange={event=>saveInvoiceSettings({...invoiceSettings,paymentTermDays:Number(event.target.value)})}/></label>
+                <label><span>Factuurnummer {invoiceBrand.name}</span><input disabled={Boolean(invoiceSentFor)} value={invoiceNumber} onChange={event=>setInvoiceNumber(event.target.value)} placeholder={invoiceBrand.invoicePrefix+"-2026-0001"}/></label>
+                <label><span>Bedrijfsadres {invoiceBrand.name} *</span><input disabled={Boolean(invoiceSentFor)} value={invoiceSettings.businessAddress} onChange={event=>saveInvoiceSettings({...invoiceSettings,businessAddress:event.target.value})} placeholder="Straat, huisnummer, postcode, plaats"/></label>
+                <label><span>KvK en btw-ID (automatisch per bedrijf)</span><input readOnly value={invoiceBrand.kvk+" · "+invoiceBrand.vatId}/></label>
+                <label><span>Betaaltermijn dagen</span><input type="number" min="0" max="365" disabled={Boolean(invoiceSentFor)} value={invoiceSettings.paymentTermDays} onChange={event=>saveInvoiceSettings({...invoiceSettings,paymentTermDays:Number(event.target.value)})}/></label>
+                <label><span>Zakelijk contact-e-mailadres (optioneel)</span><input type="email" disabled={Boolean(invoiceSentFor)} value={invoiceSettings.contactEmail} onChange={event=>saveInvoiceSettings({...invoiceSettings,contactEmail:event.target.value})} placeholder="contact@bedrijf.nl"/></label>
+                <label><span>Telefoon bedrijf (optioneel)</span><input disabled={Boolean(invoiceSentFor)} value={invoiceSettings.phone} onChange={event=>saveInvoiceSettings({...invoiceSettings,phone:event.target.value})} placeholder="06..."/></label>
               </div>
 
               <div className="invoice-bank-choice">
-                <div className="invoice-bank-head"><span>Bankrekening op deze factuur</span><strong>{invoiceSettings.iban}</strong></div>
-                <div className="invoice-bank-grid">
-                  {INVOICE_BANK_ACCOUNTS.map(account => <button
-                    key={account.id}
-                    type="button"
-                    className={invoiceSettings.iban === account.iban ? "selected" : ""}
-                    onClick={() => saveInvoiceSettings({ ...invoiceSettings, iban: account.iban })}
-                  >
-                    <span>{invoiceSettings.iban === account.iban ? "✓" : "+"}</span>
-                    <div><strong>{account.label}</strong><small>{account.iban}</small></div>
-                  </button>)}
-                </div>
+                <div className="invoice-bank-head"><span>Bankrekening van {invoiceBrand.name}</span><strong>{invoiceBrand.iban}</strong></div>
+                <p className="invoice-help">KvK, btw-ID en bankrekening worden aan het gekozen bedrijf gekoppeld. Zo komt geen LRS-betaalrekening op een Allround LEM-factuur.</p>
               </div>
+              {invoiceIssuer==="allround-lem"&&<p className="invoice-help"><strong>Allround LEM:</strong> vul het factuuradres hierboven in. Voor rechtstreeks e-mailen is een geverifieerde afzender in Vercel nodig via ALLROUND_LEM_FROM_EMAIL. Printen, PNG maken en handmatig delen werkt zonder die e-mailkoppeling.</p>}
 
               <div className="invoice-copy-message">
                 <div className="invoice-copy-message-head">
@@ -1140,7 +1156,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 </button>
                 <button className="internal-btn" type="button" onClick={shareInvoiceImage} disabled={!invoiceImageBlob || invoiceImageFingerprint !== invoiceFingerprint}>DELEN → WHATSAPP / MAIL</button>
                 <button className="internal-btn ghost" type="button" onClick={downloadInvoiceImage} disabled={!invoiceImageBlob || invoiceImageFingerprint !== invoiceFingerprint}>DOWNLOAD PNG</button>
-                <button className="internal-btn ghost" type="button" onClick={() => window.print()}>PRINT / PDF</button>
+                <button className="internal-btn ghost" type="button" onClick={printCustomerInvoice}>FACTUUR PRINT / PDF</button>
               </div>
 
               {invoiceImageUrl && invoiceImageFingerprint === invoiceFingerprint && <div className="invoice-image-preview-wrap">
@@ -1151,14 +1167,14 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                   </div>
                   <a className="invoice-image-open-link" href={invoiceImageUrl} target="_blank" rel="noreferrer">OPEN VOLLEDIGE AFBEELDING →</a>
                 </div>
-                <img className="invoice-image-preview" src={invoiceImageUrl} alt={`Factuur ${invoiceNumber} van LRS Daktechniek`} />
+                <img className="invoice-image-preview" src={invoiceImageUrl} alt={`Factuur ${invoiceNumber} van ${invoiceBrand.name}`} />
                 <small>Tip: op iPhone kun je de afbeelding ook eerst volledig openen en daarna via het deelmenu versturen naar WhatsApp of Mail.</small>
               </div>}
 
               <details className="invoice-email-optional">
                 <summary>E-MAIL AUTOMATISCH VANUIT DE SITE (OPTIONEEL)</summary>
-                <p className="invoice-help">Deze knop gebruikt de bestaande e-mailkoppeling. Voor zelf delen via WhatsApp of Mail heb je alleen de factuurafbeelding hierboven nodig.</p>
-                <button className="internal-btn invoice-send-button" type="button" onClick={sendInvoice} disabled={invoiceBusy || total <= 0}>
+                <p className="invoice-help">De factuur wordt namens <strong>{invoiceBrand.name}</strong> verzonden. Voor Allround LEM is een aparte, geverifieerde e-mailafzender vereist. Je kunt de afbeelding ook handmatig delen.</p>
+                <button className="internal-btn invoice-send-button" type="button" onClick={sendInvoice} disabled={invoiceBusy || total <= 0 || Boolean(invoiceSentFor)}>
                   {invoiceBusy ? "FACTUUR WORDT VERSTUURD..." : "FACTUUR DIRECT E-MAILEN"}
                 </button>
               </details>
@@ -1184,6 +1200,32 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       </section>}
 
       <section className="internal-print-document">
+        {printInvoiceMode ? <div className={"issuer-paper-invoice"+(invoiceIssuer==="allround-lem"?" allround-paper":"")}>
+          <header>
+            <div><strong>{invoiceBrand.name.toUpperCase()}</strong><span>{invoiceSettings.businessAddress}</span><span>KvK {invoiceBrand.kvk} · BTW-ID {invoiceBrand.vatId}</span></div>
+            <div><span>{invoiceSettings.phone}</span><span>{invoiceSettings.contactEmail}</span><span>IBAN {invoiceBrand.iban}</span></div>
+          </header>
+          <div className="print-title"><small>FACTUUR VAN {invoiceBrand.name.toUpperCase()}</small><h1>Factuur {invoiceNumber}</h1></div>
+          <dl className="print-customer">
+            <div><dt>Klant</dt><dd>{customer||"—"}</dd></div>
+            <div><dt>Adres</dt><dd>{address||"—"}</dd></div>
+            <div><dt>Factuurdatum</dt><dd>{new Date().toLocaleDateString("nl-NL")}</dd></div>
+            <div><dt>Werkdatum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div>
+          </dl>
+          <table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Excl. btw</th></tr></thead>
+            <tbody><tr><td>{invoiceDescriptionText()}</td><td>1 opdracht</td><td>{euro(subtotal)}</td></tr></tbody>
+          </table>
+          <div className="print-totals">
+            <p><span>Subtotaal excl. btw</span><strong>{euro(subtotal)}</strong></p>
+            <p><span>BTW {vat}%</span><strong>{euro(vatAmount)}</strong></p>
+            <p><span>Totaal incl. btw</span><strong>{euro(total)}</strong></p>
+          </div>
+          <div className="print-notes">
+            <strong>Betalingsgegevens</strong>
+            <p>{invoiceBrand.iban} t.n.v. {invoiceBrand.name}<br/>Onder vermelding van factuur {invoiceNumber}. Betaaltermijn {invoiceSettings.paymentTermDays} dagen.</p>
+          </div>
+          {notes && <div className="print-notes"><strong>Opmerkingen</strong><p>{notes}</p></div>}
+        </div> : <>
         <header><div><strong>LRS DAKTECHNIEK</strong><span>Breda & omgeving</span></div><div><span>{site.phoneDisplay}</span><span>{site.email}</span><span>KVK {site.kvk}</span></div></header>
         <div className="print-title"><small>WERKBON / PRIJSOVERZICHT</small><h1>{jobTitle}</h1></div>
         <dl className="print-customer"><div><dt>Klant</dt><dd>{customer || "—"}</dd></div><div><dt>Adres</dt><dd>{address || "—"}</dd></div><div><dt>Datum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div><div><dt>Tijd op locatie</dt><dd>{durationHours > 0 ? `${Math.floor(durationHours)} uur ${Math.round((durationHours % 1) * 60)} min` : "—"}</dd></div></dl>
@@ -1195,6 +1237,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         </tbody></table>
         <div className="print-totals"><p><span>Subtotaal excl. btw</span><strong>{euro(subtotal)}</strong></p><p><span>BTW {vat}%</span><strong>{euro(vatAmount)}</strong></p><p><span>Totaal incl. btw</span><strong>{euro(total)}</strong></p></div>
         {notes && <div className="print-notes"><strong>Opmerking</strong><p>{notes}</p></div>}
+        </>}
       </section>
     </div>
   );

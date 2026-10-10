@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { site } from "@/lib/content";
+import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
+import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 import { CATALOG, CATEGORIES, DEFAULT_PRICES, MIN_ROOF_JOB_EX, WorkLine, calculate, euro, formattedDay, localDay } from "@/lib/roofQuote";
 
 type Project = {
@@ -26,28 +28,16 @@ type Project = {
   acceptedAt: string;
   invoiceSentAt: string;
   invoiceNumber: string;
+  issuer?: InvoiceIssuerId;
   pricingMode?: "legacy" | "staffel-v2";
-  invoiceDetails?: { issueDate: string; iban: string; paymentTermDays: number; businessAddress: string; vatId: string };
+  invoiceDetails?: { issueDate: string; iban: string; paymentTermDays: number; businessAddress: string; vatId: string; contactEmail?: string; phone?: string };
 };
-type InvoiceSettings = { businessAddress: string; vatId: string; iban: string; paymentTermDays: number };
 type Archive = { activeId: string; projects: Project[] };
 
 const PROJECTS_KEY = "lrs-roof-projects-v1";
 const PRICE_KEY = "lrs-roof-unitprices-v1";
 const QUOTE_SEQ = "lrs-roof-quote-sequence-v1";
-const INVOICE_SETTINGS_KEY = "lrs-invoice-settings-v1";
-const INVOICE_SEQ = "lrs-invoice-sequence-v1";
-const INVOICE_USED = "lrs-invoice-issued-v1:";
-const DEFAULT_SETTINGS: InvoiceSettings = {
-  businessAddress: "Pietersberg 21, 4822 TS Breda",
-  vatId: "NL003787454B48",
-  iban: "NL69 INGB 0112 7815 51",
-  paymentTermDays: 14,
-};
-const BANKS = [
-  "NL69 INGB 0112 7815 51",
-  "NL46 INGB 0109 0156 49",
-];
+
 
 function uuid() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random().toString(36).slice(2,10);
@@ -70,23 +60,16 @@ function makeProject(): Project {
     customer:"",address:"",email:"",phone:"",title:"Dakwerkzaamheden",
     quoteDate:localDay(),workDate:localDay(),validityDays:30,
     publicNotes:"",privateNotes:"",items:[],extraPersonEx:0,chargeExtraPerson:true,vatRate:21,
-    sentSignature:"",acceptedSignature:"",acceptedAt:"",invoiceSentAt:"",invoiceNumber:"",pricingMode:"staffel-v2",
+    sentSignature:"",acceptedSignature:"",acceptedAt:"",invoiceSentAt:"",invoiceNumber:"",issuer:"lrs",pricingMode:"staffel-v2",
   };
 }
-function nextInvoiceNumber() {
-  let seq=1;
-  try { seq = Math.max(1, Number(localStorage.getItem(INVOICE_SEQ)) || 1); } catch {}
-  return "LRS-" + new Date().getFullYear() + "-" + String(seq).padStart(4,"0");
+function nextInvoiceNumber(issuer: InvoiceIssuerId) {
+  try { return pendingInvoiceNumber(issuer,localStorage); }
+  catch { return INVOICE_ISSUERS[issuer].invoicePrefix + "-" + new Date().getFullYear() + "-0001"; }
 }
-function markInvoiceUsed(number:string) {
-  try {
-    if (localStorage.getItem(INVOICE_USED + number)) return;
-    localStorage.setItem(INVOICE_USED + number,new Date().toISOString());
-    const seq=Math.max(1,Number(localStorage.getItem(INVOICE_SEQ)) || 1);
-    if (number === "LRS-" + new Date().getFullYear() + "-" + String(seq).padStart(4,"0")) {
-      localStorage.setItem(INVOICE_SEQ,String(seq + 1));
-    }
-  } catch { /* nummer blijft in project opgeslagen */ }
+function markInvoiceUsed(issuer:InvoiceIssuerId,number:string) {
+  try { registerInvoiceUsed(issuer,number,localStorage); }
+  catch { /* nummers blijven lokaal: controleer ze in de boekhouding */ }
 }
 function validEmail(email:string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -103,7 +86,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   const [activeId,setActiveId]=useState("");
   const [ready,setReady]=useState(false);
   const [prices,setPrices]=useState<Record<string,number>>({...DEFAULT_PRICES});
-  const [settings,setSettings]=useState<InvoiceSettings>(DEFAULT_SETTINGS);
+  const [billingSettings,setBillingSettings]=useState<Record<InvoiceIssuerId,IssuerSettings>>({lrs:issuerDefaults("lrs"),"allround-lem":issuerDefaults("allround-lem")});
   const [category,setCategory]=useState(CATEGORIES[0]);
   const [search,setSearch]=useState("");
   const [showBook,setShowBook]=useState(false);
@@ -143,8 +126,12 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       } else {
         const fresh=makeProject();setProjects([fresh]);setActiveId(fresh.id);
       }
-      const savedSettings=JSON.parse(localStorage.getItem(INVOICE_SETTINGS_KEY) || "null") as Partial<InvoiceSettings> | null;
-      if (savedSettings) setSettings({...DEFAULT_SETTINGS,...savedSettings});
+      const storedLrs=JSON.parse(localStorage.getItem(INVOICE_ISSUERS.lrs.settingsKey) || "null") as Partial<IssuerSettings> | null;
+      const storedLem=JSON.parse(localStorage.getItem(INVOICE_ISSUERS["allround-lem"].settingsKey) || "null") as Partial<IssuerSettings> | null;
+      setBillingSettings({
+        lrs:normalizeIssuerSettings("lrs",storedLrs),
+        "allround-lem":normalizeIssuerSettings("allround-lem",storedLem),
+      });
     } catch {
       const fresh=makeProject();setProjects([fresh]);setActiveId(fresh.id);
     }
@@ -163,9 +150,12 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   },[prices,ready]);
   useEffect(()=>{
     if (!ready) return;
-    try {localStorage.setItem(INVOICE_SETTINGS_KEY,JSON.stringify(settings));}
-    catch {}
-  },[settings,ready]);
+    try {
+      for (const id of ["lrs","allround-lem"] as const) {
+        localStorage.setItem(INVOICE_ISSUERS[id].settingsKey,JSON.stringify(billingSettings[id]));
+      }
+    } catch {}
+  },[billingSettings,ready]);
   useEffect(()=>{
     if (!printQueued) return;
     const timer=window.setTimeout(()=>window.print(),100);
@@ -175,6 +165,18 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   },[printQueued,preview]);
 
   const project=projects.find(row=>row.id===activeId);
+  const issuer:InvoiceIssuerId=project?.issuer??"lrs";
+  const company=INVOICE_ISSUERS[issuer];
+  const settings=billingSettings[issuer];
+  function updateSettings(change:(prev:IssuerSettings)=>IssuerSettings) {
+    setBillingSettings(current=>({...current,[issuer]:normalizeIssuerSettings(issuer,change(current[issuer]))}));
+  }
+  function changeIssuer(next:InvoiceIssuerId) {
+    if (next===issuer || !project || project.invoiceSentAt || busy) return;
+    edit({issuer:next});
+    setPreview("quote");
+    setNotice("De offerte en factuur worden nu op naam van "+INVOICE_ISSUERS[next].name+" opgesteld. Controleer het bedrijfsadres.");
+  }
   const pricing=useMemo(()=>project
     ? calculate(project.items,project.extraPersonEx,project.chargeExtraPerson,project.vatRate,project.pricingMode??"legacy")
     : calculate([],0,false,21),[project]);
@@ -186,7 +188,8 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     businessAddress:settings.businessAddress.trim(),vatId:settings.vatId.trim(),
     lines:pricing.publicLines,subtotal:pricing.subtotal,vatRate:project.vatRate,
     vatAmount:pricing.vat,total:pricing.total,notes:project.publicNotes.trim(),
-  }:null,[project,settings.businessAddress,settings.vatId,pricing]);
+    ...(issuer==="allround-lem" ? {issuer,contactEmail:settings.contactEmail.trim(),phone:settings.phone.trim()} : {}),
+  }:null,[project,settings.businessAddress,settings.vatId,settings.contactEmail,settings.phone,pricing,issuer]);
   const signature=quote?JSON.stringify(quote):"";
   const isAccepted=Boolean(project?.acceptedSignature && project.acceptedSignature===signature);
   const isSent=Boolean(project?.sentSignature && project.sentSignature===signature);
@@ -255,7 +258,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     if (!project.customer.trim() || !project.address.trim()) return "Vul klantnaam en volledig adres in.";
     if (withEmail && !validEmail(project.email)) return "Vul een geldig e-mailadres van de klant in.";
     if (!project.title.trim()) return "Vul een projectomschrijving in.";
-    if (!settings.businessAddress.trim() || !settings.vatId.trim()) return "Vul je bedrijfsgegevens in.";
+    if (!settings.businessAddress.trim()) return "Vul het volledige factuuradres van "+company.name+" in bij de factuurinstellingen.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(project.quoteDate) || !/^\d{4}-\d{2}-\d{2}$/.test(project.workDate)) return "Vul de datums in.";
     if (!Number.isInteger(project.validityDays) || project.validityDays<1 || project.validityDays>90) return "Geldigheid moet tussen 1 en 90 dagen liggen.";
     if (!project.items.length) return "Selecteer minimaal één dakwerkzaamheid.";
@@ -280,7 +283,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     const error=checkQuote(false);
     if (error) {setNotice(error);return;}
     const text=[
-      "LRS Daktechniek · Offerte "+project.number,
+      company.name+" · Offerte "+project.number,
       project.title, "Klant: "+project.customer,
       "Adres: "+project.address,
       "",
@@ -327,11 +330,11 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     const error=checkQuote(true);
     if (error) {setNotice(error);return;}
     if (!isAccepted) {setNotice("Leg eerst het akkoord vast. Na wijzigingen is een nieuw akkoord nodig.");return;}
-    if (!settings.iban.trim() || !settings.businessAddress.trim() || !settings.vatId.trim()) {
-      setNotice("Vul factuuradres, btw-ID en IBAN in.");return;
+    if (!settings.businessAddress.trim()) {
+      setNotice("Vul eerst het volledige factuuradres van "+company.name+" in.");return;
     }
     if (!window.confirm("Factuur voor "+euro(pricing.total)+" aan "+project.email+" versturen?")) return;
-    const invoiceNumber=project.invoiceNumber || nextInvoiceNumber();
+    const invoiceNumber=project.invoiceNumber || nextInvoiceNumber(issuer);
     const issuedOn=localDay();
     setBusy("invoice");setNotice("");
     try {
@@ -339,11 +342,12 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           accessToken,
+          issuer,
           customer:{name:project.customer.trim(),address:project.address.trim(),email:project.email.trim()},
           business:{
-            name:site.name,address:settings.businessAddress.trim(),
-            email:site.email,phone:site.phoneDisplay,kvk:site.kvk,
-            vatId:settings.vatId.trim(),iban:settings.iban.trim(),
+            name:company.name,address:settings.businessAddress.trim(),
+            email:settings.contactEmail.trim(),phone:settings.phone.trim(),kvk:company.kvk,
+            vatId:company.vatId,iban:company.iban,
           },
           invoice:{
             number:invoiceNumber,issueDate:issuedOn,serviceDate:project.workDate,
@@ -357,10 +361,10 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       });
       const result=await response.json().catch(()=>({}));
       if (!response.ok) throw new Error(result.error || "Factuur versturen is mislukt.");
-      markInvoiceUsed(invoiceNumber);
+      markInvoiceUsed(issuer,invoiceNumber);
       setProjects(rows=>rows.map(row=>row.id===project.id?{
         ...row,invoiceNumber,invoiceSentAt:new Date().toISOString(),
-        invoiceDetails:{issueDate:issuedOn,iban:settings.iban.trim(),paymentTermDays:settings.paymentTermDays,businessAddress:settings.businessAddress.trim(),vatId:settings.vatId.trim()}
+        invoiceDetails:{issueDate:issuedOn,iban:company.iban,paymentTermDays:settings.paymentTermDays,businessAddress:settings.businessAddress.trim(),vatId:company.vatId,contactEmail:settings.contactEmail,phone:settings.phone}
       }:row));
       setNotice("Factuur "+invoiceNumber+" is verstuurd naar "+project.email+". Het project is nu vergrendeld.");
     } catch(error) {
@@ -372,9 +376,9 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     return <div className="roof-engine"><p className="roof-loading">Dakprojecten worden geopend...</p></div>;
   }
   const status=locked?"GEFACTUREERD":isAccepted?"KLANT AKKOORD":isSent?"OFFERTE VERSTUURD":"CONCEPT";
-  const invoiceNumber=project.invoiceNumber || nextInvoiceNumber();
+  const invoiceNumber=project.invoiceNumber || nextInvoiceNumber(issuer);
   const invoicePreview=preview==="invoice" && (isAccepted||locked);
-  const invoiceBill=invoicePreview && project.invoiceDetails ? project.invoiceDetails : settings;
+  const invoiceBill=invoicePreview && project.invoiceDetails ? {...issuerDefaults(issuer),...project.invoiceDetails} : settings;
   const invoiceIssueDate=project.invoiceDetails?.issueDate || localDay();
 
   return (
@@ -401,6 +405,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
             <button type="button" className="roof-btn secondary" onClick={removeProject} disabled={Boolean(busy)}>VERWIJDER</button>
           </div>
           <p className="roof-hint">Automatisch opgeslagen in deze browser, niet centraal. Maak voor belangrijke offertes ook een PDF-back-up. Offertenummers en factuurnummers zijn alleen lokaal gesynchroniseerd.</p>
+          <InvoiceIssuerPicker value={issuer} onChange={changeIssuer} disabled={locked||Boolean(busy)}/>
         </section>
 
         <section className="roof-card">
@@ -546,18 +551,17 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
               <button type="button" className="roof-btn secondary" disabled={Boolean(busy)||locked||isAccepted} onClick={markAccepted}>{isAccepted?"✓ AKKOORD VASTGELEGD":"KLANT AKKOORD VASTLEGGEN"}</button>
               {project.acceptedAt&&isAccepted&&<small>Vastgelegd: {new Date(project.acceptedAt).toLocaleString("nl-NL")}</small>}
             </div>
-            <div><strong>03 · Factuur</strong><p>Pas na akkoord kun je de factuur naar het klantadres e-mailen. De prijzen blijven gelijk aan de goedgekeurde offerte.</p>
+            <div><strong>03 · Factuur van {company.name}</strong><p>Pas na akkoord kun je de factuur naar het klantadres e-mailen. De prijzen blijven gelijk aan de goedgekeurde offerte.</p>
               <div className="roof-fields">
-                <label><span>Bedrijfsadres op offerte/factuur</span><input value={settings.businessAddress} onChange={e=>setSettings(s=>({...s,businessAddress:e.target.value}))}/></label>
-                <label><span>Btw-ID</span><input value={settings.vatId} onChange={e=>setSettings(s=>({...s,vatId:e.target.value}))}/></label>
-                <label><span>Bankrekening voor factuur</span>
-                  <select value={settings.iban} onChange={e=>setSettings(s=>({...s,iban:e.target.value}))}>
-                    {BANKS.map(iban=><option key={iban} value={iban}>{iban}</option>)}
-                  </select>
-                </label>
-                <label><span>Betaaltermijn (dagen)</span><input type="number" min="0" max="365" value={settings.paymentTermDays} onChange={e=>setSettings(s=>({...s,paymentTermDays:safeNum(e.target.value,365)}))}/></label>
+                <label><span>Bedrijfsadres {company.name} *</span><input value={settings.businessAddress} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,businessAddress:e.target.value}))} placeholder="Straat, huisnummer, postcode en plaats"/></label>
+                <label><span>KvK / btw-ID (vast per bedrijf)</span><input readOnly value={company.kvk+" · "+company.vatId}/></label>
+                <label><span>Bankrekening van {company.name}</span><input readOnly value={company.iban}/></label>
+                <label><span>Betaaltermijn (dagen)</span><input type="number" min="0" max="365" disabled={locked||Boolean(busy)} value={settings.paymentTermDays} onChange={e=>updateSettings(s=>({...s,paymentTermDays:safeNum(e.target.value,365)}))}/></label>
+                <label><span>Zakelijk contact-e-mailadres (optioneel)</span><input type="email" value={settings.contactEmail} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,contactEmail:e.target.value}))} placeholder="contact@bedrijf.nl"/></label>
+                <label><span>Telefoon bedrijf (optioneel)</span><input value={settings.phone} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,phone:e.target.value}))} placeholder="06..."/></label>
               </div>
-              <p className="roof-hint">Factuurnummer: <b>{invoiceNumber}</b>. De nummering wordt gedeeld met de reparatiewerkbon op deze browser; controleer unieke nummers in je boekhouding.</p>
+              {issuer==="allround-lem"&&<p className="roof-hint">Voor direct e-mailen vanuit Allround LEM is een eigen geverifieerde afzender (ALLROUND_LEM_FROM_EMAIL) nodig in Vercel. PDF/print blijft beschikbaar.</p>}
+              <p className="roof-hint">Factuurnummer {company.name}: <b>{invoiceNumber}</b>. Iedere onderneming heeft een eigen lokale nummerreeks, gedeeld met de reparatiebon op deze browser. Controleer unieke nummers in je boekhouding.</p>
               <div className="roof-buttons">
                 <button type="button" className="roof-btn primary" disabled={Boolean(busy)||!isAccepted||locked} onClick={sendInvoice}>{locked?"✓ FACTUUR VERSTUURD":busy==="invoice"?"VERSTUREN...":"FACTUUR E-MAILEN"}</button>
                 <button type="button" className="roof-btn secondary" disabled={!isAccepted&&!locked} onClick={()=>print("invoice")}>FACTUUR PRINT / PDF</button>
@@ -575,9 +579,9 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
         </section>
       </main>
 
-      <article className="roof-document" aria-label={invoicePreview?"Factuur voor klant":"Offerte voor klant"}>
+      <article className={"roof-document"+(issuer==="allround-lem"?" allround-lem":"")} aria-label={invoicePreview?"Factuur voor klant":"Offerte voor klant"}>
         <header>
-          <div><small>DAKTECHNIEK · BREDA EN OMGEVING</small><h1>LRS DAKTECHNIEK</h1><span>{invoiceBill.businessAddress}</span><span>{site.phoneDisplay} · {site.email}</span><span>KvK {site.kvk} · Btw-ID {invoiceBill.vatId}</span></div>
+          <div><small>{issuer==="allround-lem"?"ALLROUND LEM · DAKWERK EN ONDERHOUD":"DAKTECHNIEK · BREDA EN OMGEVING"}</small><h1>{company.name.toUpperCase()}</h1><span>{invoiceBill.businessAddress}</span>{(invoiceBill.phone||invoiceBill.contactEmail)&&<span>{[invoiceBill.phone,invoiceBill.contactEmail].filter(Boolean).join(" · ")}</span>}<span>KvK {company.kvk} · Btw-ID {invoiceBill.vatId}</span></div>
           <div className="roof-doc-title"><h2>{invoicePreview?"FACTUUR":"OFFERTE"}</h2><strong>{invoicePreview?invoiceNumber:project.number}</strong></div>
         </header>
         <div className="roof-doc-client">
@@ -594,8 +598,8 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
         </table>
         <div className="roof-doc-totals"><div><span>Subtotaal excl. btw</span><b>{euro(pricing.subtotal)}</b></div><div><span>Btw {project.vatRate}%</span><b>{euro(pricing.vat)}</b></div><div className="grand"><strong>Totaal incl. btw</strong><strong>{euro(pricing.total)}</strong></div></div>
         {project.publicNotes.trim()&&<div className="roof-doc-notes"><b>Toelichting</b><p>{project.publicNotes}</p></div>}
-        {invoicePreview?<div className="roof-doc-footer"><strong>Betalingsgegevens</strong><p>Betaling binnen {invoiceBill.paymentTermDays} dagen op {invoiceBill.iban} t.n.v. LRS Daktechniek.<br/>Onder vermelding van factuur {invoiceNumber}.</p></div>:
-          <div className="roof-doc-footer"><strong>Akkoord op deze offerte?</strong><p>Reageer op deze offerte via {site.email} of neem telefonisch contact met ons op. De werkzaamheden worden in overleg ingepland.</p></div>}
+        {invoicePreview?<div className="roof-doc-footer"><strong>Betalingsgegevens</strong><p>Betaling binnen {invoiceBill.paymentTermDays} dagen op {invoiceBill.iban} t.n.v. {company.name}.<br/>Onder vermelding van factuur {invoiceNumber}.</p></div>:
+          <div className="roof-doc-footer"><strong>Akkoord op deze offerte?</strong><p>Reageer op deze offerte {settings.contactEmail?"via "+settings.contactEmail:"bij "+company.name} of neem telefonisch contact met ons op. De werkzaamheden worden in overleg ingepland.</p></div>}
       </article>
     </div>
   );

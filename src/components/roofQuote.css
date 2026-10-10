@@ -276,3 +276,55 @@
 .roof-catalog-inline-qty label span {display:block;font-size:.7rem;font-weight:700;}
 .roof-catalog-inline-qty input {text-align:center;padding:6px!important;min-height:46px;font-weight:800!important;font-size:1.1rem!important;}
 @media(max-width:650px) {.roof-catalog-inline-qty {grid-template-columns:50px minmax(0,1fr) 50px;}}
+
+/* Select the legal invoice issuer with two large, unmistakable buttons. */
+.invoice-issuer-picker {color:#172c39;background:#f6f8fa;border:1px solid #c8d8e0;padding:17px;border-radius:6px;margin:16px 0;}
+.issuer-picker-heading {display:grid;gap:3px;margin-bottom:12px;}
+.issuer-picker-heading strong {font-size:1.05rem;color:#152d3c;}
+.issuer-picker-heading span {color:#526b79;font-size:.8rem;}
+.issuer-picker-options {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.issuer-picker-option {
+  display:flex;align-items:center;gap:11px;min-height:76px;
+  padding:12px 14px;border-radius:5px;border:2px solid #bed0da;
+  background:#fff;color:#193646;text-align:left;cursor:pointer;line-height:1.35;
+}
+.issuer-picker-option .issuer-picker-content {min-width:0;display:grid;gap:4px;}
+.issuer-picker-option .issuer-picker-content strong {font-size:.94rem;}
+.issuer-picker-option .issuer-picker-content small {font-size:.7rem;overflow-wrap:anywhere;color:#4c6878;}
+.issuer-picker-option .issuer-radio {display:grid;place-items:center;flex:none;width:24px;height:24px;border:2px solid #8ca5b2;border-radius:50%;font-weight:900;color:#fff;}
+.issuer-picker-option.is-selected {border-color:#12628e;background:#e5f3fc;}
+.issuer-picker-option.is-selected .issuer-radio {background:#12628e;border-color:#12628e;}
+.issuer-picker-option.is-lem.is-selected {border-color:#a47413;background:#fff1cc;}
+.issuer-picker-option.is-lem.is-selected .issuer-radio {background:#a47413;border-color:#a47413;}
+.issuer-picker-option:focus-visible {outline:3px solid #2785b8;outline-offset:3px;}
+.issuer-picker-option:disabled {opacity:.62;cursor:not-allowed;}
+.issuer-picker-note {font-size:.77rem;color:#6b4d15;background:#fff4d9;border-left:3px solid #cf9e33;margin:11px 0 0;padding:9px 11px;}
+.tap-issuer-region {margin:0 auto;max-width:1180px;padding:0 12px;}
+.tap-issuer-region .invoice-issuer-picker {margin:16px 0 0;background:#fff;}
+.internal-price-engine .issuer-picker-option {font-family:Arial,sans-serif;font-size:1rem;letter-spacing:normal;}
+.roof-card .invoice-issuer-picker {margin:20px 0 0;}
+.roof-document.allround-lem header {border-bottom-color:#e5b03b;}
+.roof-document.allround-lem h1,.roof-document.allround-lem .roof-doc-title h2 {color:#18171b;}
+.roof-document.allround-lem th {background:#1b1a20;color:#f0b83f;}
+.roof-document.allround-lem .roof-doc-totals .grand {border-color:#bb8926;}
+@media(max-width:620px){
+  .issuer-picker-options {grid-template-columns:1fr;}
+  .issuer-picker-option {min-height:64px;}
+}
+@media print {
+  .tap-issuer-region,.invoice-issuer-picker {display:none!important;}
+  .roof-document.allround-lem th {background:#eee7d9!important;color:#161616!important;}
+}
+
+/* Invoice print selection for existing repair work order */
+@media print {
+  .issuer-paper-invoice {font:10pt/1.4 Arial,sans-serif;}
+  .issuer-paper-invoice header {display:flex;justify-content:space-between;border-bottom:3px solid #141c20;padding:8px 0 16px;}
+  .issuer-paper-invoice.allround-paper header {border-bottom:7px solid #e3ac35;}
+  .issuer-paper-invoice.allround-paper header strong {color:#111!important;}
+  .issuer-paper-invoice .print-title small {font-weight:700;color:#222;}
+  .issuer-paper-invoice .print-title h1 {font-size:24pt!important;}
+  .issuer-paper-invoice .print-totals {margin-left:auto;}
+  .issuer-paper-invoice .print-notes {margin-top:25px;}
+  .issuer-paper-invoice .print-notes p {line-height:1.7;}
+}
