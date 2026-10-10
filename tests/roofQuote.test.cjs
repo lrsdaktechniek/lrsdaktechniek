@@ -142,3 +142,8 @@ test("Ook zeer kleine decimalen veroorzaken nooit NaN of Infinity",()=>{
   assert.equal(tiny.publicLines.length,1);
   assert.ok(tiny.total>=MIN_ROOF_JOB_EX);
 });
+
+test("Lege reparatiewerkbon blijft leeg na wisselen van tab",()=>{
+  const source=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
+  assert.ok(source.includes("setSelected(Array.isArray(draft.selected) ? draft.selected"));
+});

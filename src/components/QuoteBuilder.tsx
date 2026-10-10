@@ -242,7 +242,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         setJobTitle(draft.jobTitle ?? "Werkbon dakreparatie");
         setWorkDate(draft.workDate ?? new Date().toISOString().slice(0, 10));
         setNotes(draft.notes ?? "");
-        setSelected(Array.isArray(draft.selected) && draft.selected.length > 0 ? draft.selected : [{ id: "travel", qty: 1 }]);
+        setSelected(Array.isArray(draft.selected) ? draft.selected : [{ id: "travel", qty: 1 }]); // Leeg na NIEUWE KLUS blijft leeg bij tabwissel.
         setCustomLines(Array.isArray(draft.customLines) ? draft.customLines : []);
         setHours(Number(draft.hours ?? 0));
         setMinutes(Number(draft.minutes ?? 0));
