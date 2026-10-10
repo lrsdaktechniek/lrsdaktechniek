@@ -443,7 +443,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     setJobTitle("Werkbon dakreparatie");
     setWorkDate(new Date().toISOString().slice(0, 10));
     setNotes("");
-    setSelected([{ id: "travel", qty: 1 }]);
+    setSelected([]); // NIEUWE KLUS start echt leeg, zonder automatische voorrijkosten.
     setCustomLines([]);
     setHours(0);
     setMinutes(0);
@@ -934,7 +934,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
           <h1>Wat heb je gedaan?</h1>
           <p>Alleen aantikken. De prijs wordt direct opgeteld.</p>
         </div>
-        <button className="tap-new" type="button" onClick={resetWorkOrder}>NIEUW</button>
+        <button className="tap-new" type="button" onClick={resetWorkOrder}>+ NIEUWE KLUS · LEEG</button>
       </header>
 
       <div className="tap-totalbar no-print">
