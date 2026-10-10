@@ -328,3 +328,123 @@
   .issuer-paper-invoice .print-notes {margin-top:25px;}
   .issuer-paper-invoice .print-notes p {line-height:1.7;}
 }
+
+/* Vaste, altijd zichtbare factuurbedrijfskeuze tijdens scrollen. */
+.issuer-quick-switch {
+  position: sticky;
+  top: 0;
+  z-index: 160;
+  background: #f3f8fb;
+  border-bottom: 2px solid #b0c7d2;
+  box-shadow: 0 8px 22px rgba(10,35,48,.16);
+  padding: 7px clamp(10px, 4vw, 36px);
+}
+.issuer-quick-switch .invoice-issuer-picker.compact {
+  margin: 0 auto;
+  width: min(100%, 1180px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.issuer-quick-switch .issuer-picker-heading {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.issuer-quick-switch .issuer-picker-heading strong {
+  color: #102d40;
+  font-size: .8rem;
+  font-weight: 900;
+  white-space: nowrap;
+  letter-spacing: .045em;
+}
+.issuer-quick-switch .issuer-picker-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  flex: 1 1 auto;
+}
+.issuer-quick-switch .issuer-picker-option {
+  min-height: 51px;
+  padding: 8px 13px;
+  justify-content: center;
+  gap: 8px;
+  border-width: 2px;
+  border-radius: 5px;
+}
+.issuer-quick-switch .issuer-picker-option .issuer-picker-content strong {
+  display: block;
+  font-size: .93rem;
+  font-weight: 900;
+}
+.issuer-quick-switch .issuer-radio {width: 22px; height: 22px; border-width: 2px;}
+.issuer-quick-switch .issuer-picker-option:not(.is-selected) {border-color:#aebdc6;}
+.issuer-quick-switch .issuer-picker-option.is-selected.is-lrs {background:#cbeaff;}
+.issuer-quick-switch .issuer-picker-option.is-selected.is-lem {background:#ffe49b;}
+.tap-engine > .issuer-quick-switch {background:#f3f8fb;}
+.tap-add-custom-shortcut {
+  display:block;
+  width:100%;
+  min-height:53px;
+  margin:0 0 15px;
+  padding:12px;
+  font-size:.9rem!important;
+  letter-spacing:.02em;
+  font-weight:800!important;
+  border:2px solid #184357!important;
+  border-radius:5px;
+  color:#14364b!important;
+  background:#f1f9ff!important;
+  text-align:center;
+  cursor:pointer;
+}
+.tap-add-custom-shortcut:hover {background:#d9f0ff!important;}
+.repair-own-hint {font-size:.82rem;color:#455964;margin:10px 0;}
+.roof-own-work {
+  background:#f1f8fc;
+  border:2px solid #c3d8e5;
+  border-radius:7px;
+  padding:17px;
+  margin:20px 0;
+}
+.roof-own-work h3 {margin:0 0 4px;font-size:1.2rem;}
+.roof-own-work p {font-size:.82rem;color:#425e6c;margin:0 0 14px;}
+.roof-own-grid {display:grid;grid-template-columns: minmax(170px,2fr) 95px 110px minmax(135px,1.1fr) auto;gap:9px;align-items:end;}
+.roof-own-grid label span {font-size:.73rem!important;}
+.roof-own-submit {white-space:nowrap;}
+.roof-document th:nth-child(1) {width:74%;}
+.roof-document th:nth-child(2) {width:26%;}
+.roof-document th:nth-child(3) {display:none;}
+.roof-document .roof-doc-tax {font-size:.9rem;color:#56666e;}
+.roof-document .roof-doc-totals .grand {display:flex;gap:16px;align-items:center;}
+.roof-document .roof-doc-totals .grand strong:first-child {font-size:.94rem;}
+.roof-document .roof-doc-totals .grand strong:last-child {font-size:1.45rem;white-space:nowrap;}
+@media(max-width:1040px){
+ .roof-own-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+ .roof-own-description {grid-column:1/-1;}
+ .roof-own-submit {grid-column:1/-1;}
+}
+@media(max-width:720px){
+ .issuer-quick-switch {padding:6px 8px;}
+ .issuer-quick-switch .invoice-issuer-picker.compact {display:block;}
+ .issuer-quick-switch .issuer-picker-heading {margin:0 0 4px;}
+ .issuer-quick-switch .issuer-picker-heading strong {font-size:.68rem;}
+ .issuer-quick-switch .issuer-picker-option {min-height:47px;padding:6px 5px;gap:5px;}
+ .issuer-quick-switch .issuer-picker-option .issuer-picker-content strong {font-size:clamp(.69rem,3.4vw,.92rem);line-height:1.1;}
+ .issuer-quick-switch .issuer-radio {width:18px;height:18px;font-size:.72rem;}
+ .roof-own-grid {grid-template-columns:1fr 1fr;}
+ .roof-own-grid label:first-child {grid-column:1/-1;}
+ .roof-own-grid label:nth-child(4) {grid-column:1/-1;}
+ .roof-own-submit {grid-column:1/-1;}
+ .roof-document th:nth-child(1) {width:72%!important;}
+ .roof-document th:nth-child(2) {width:28%!important;}
+ .roof-document .roof-doc-totals .grand {flex-wrap:wrap;}
+}
+@media print {
+ .issuer-quick-switch, .roof-own-work, .tap-add-custom-shortcut {display:none!important;}
+ .roof-document th:nth-child(1) {width:74%!important;}
+ .roof-document th:nth-child(2) {width:26%!important;}
+}

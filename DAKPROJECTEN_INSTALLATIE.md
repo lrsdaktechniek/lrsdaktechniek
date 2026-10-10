@@ -145,3 +145,37 @@ toegestaan en andersom; de factuur-API controleert beide juridische IDs.
 
 Deze aanpassing is met unit- en mocke-mailtests gecontroleerd. Er worden
 geen echte facturen naar klanten verstuurd tijdens tests.
+
+## Klantdocumenten: één totaalbedrag en snelle bediening (10 oktober 2026)
+
+- Grote dakwerkbon: bovenaan een **sticky keuze met precies twee knoppen**,
+  LRS Daktechniek en Allround LEM. De bedrijfskeuze blijft zichtbaar als
+  je door de werkbon en de klantdocumentpreview scrolt.
+- De knop hoort in het **interne werkscherm**, niet in de offerte-PDF die
+  een klant ziet. De bedrijfsnaam, KvK, btw-ID en IBAN wisselen mee.
+- Bij **offertes** staan nog wel werkzaamheden en hoeveelheden, maar
+  **geen eenheidsprijzen, kortingsregels, toeslagen, regelsubtotalen of
+  btw-subtotaal**. Alleen de definitieve totaalprijs incl. btw staat eronder.
+  Dit geldt voor scherm, print/PDF, kopieertekst en rechtstreeks e-mailen.
+- Bij **facturen** zijn de werkzaamheden en aantallen eveneens zonder
+  afzonderlijke regelprijzen. Onderin blijven de fiscale grondslag
+  (exclusief btw), het btw-bedrag en het te betalen eindtotaal zichtbaar
+  voor de administratieve eisen aan facturen.
+- Reparatiebon-facturen in PNG/print en bij e-mail hebben geen bedragen
+  naast individuele werkregels; totaal en btw blijven in het slotblok.
+- Interne calculatie, prijzen per m², volumevoordeel en extra personeel
+  blijven voor medewerkers gewoon beschikbaar. Zij verschijnen niet als
+  afzonderlijke posten op klantdocumenten.
+- Grote dakprojecten hebben een **eigen werk invoeren**-formulier met
+  omschrijving, hoeveelheid, m²/meter/stuk/uur/post en prijs per eenheid.
+  Na VOEG WERK TOE telt het bedrag automatisch mee in de berekening.
+- Reparatiebon heeft bij de werkzaamheden een extra snelknop
+  **EIGEN WERK INVOEREN MET PRIJS** naar het bestaande invoerpaneel.
+- Klantoffertes namens Allround LEM krijgen bij nieuwe projecten
+  automatisch het visuele nummer LEM-OFF-jaar-volgnummer.
+  De bestaande interne projecthistorie blijft ongewijzigd.
+
+Vóór het versturen van echte facturen moet het volledige
+factuuradres van Allround LEM en een eventueel geverifieerd
+e-mailadres als afzender nog worden ingesteld. Projecten en
+factuurnummers blijven lokaal opgeslagen (niet cloudbreed).

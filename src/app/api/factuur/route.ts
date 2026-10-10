@@ -117,7 +117,6 @@ export async function POST(request: Request) {
     <tr>
       <td style="padding:10px 8px;border-bottom:1px solid #dfe5e8">${esc(line.description)}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #dfe5e8;text-align:right">${esc(line.qty)} ${esc(line.unit)}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #dfe5e8;text-align:right">${esc(euro(line.amountEx))}</td>
     </tr>
   `).join("");
 
@@ -165,8 +164,7 @@ export async function POST(request: Request) {
         <thead>
           <tr>
             <th style="padding:10px 8px;text-align:left;border-bottom:2px solid #070a0d">Werkzaamheden</th>
-            <th style="padding:10px 8px;text-align:right;border-bottom:2px solid #070a0d">Aantal</th>
-            <th style="padding:10px 8px;text-align:right;border-bottom:2px solid #070a0d">Excl. btw</th>
+            <th style="padding:10px 8px;text-align:right;border-bottom:2px solid #070a0d">Aantal / meters</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
