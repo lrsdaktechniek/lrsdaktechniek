@@ -74,10 +74,7 @@ export function validateCustomerImage(input: CustomerImageInput): string | null 
     return "De totaalprijs of btw is ongeldig.";
   }
   const paymentMethod=input.paymentMethod===undefined ? "bank" : input.paymentMethod;
-  if (input.kind==="factuur" && (
-    (paymentMethod!=="bank" && paymentMethod!=="cash")
-    || (paymentMethod==="cash" && input.issuer!=="lrs")
-  )) {
+  if (input.kind==="factuur" && paymentMethod!=="bank" && paymentMethod!=="cash") {
     return "Kies een geldige betaalwijze voor deze factuur.";
   }
   if (input.kind==="factuur" && (

@@ -1013,11 +1013,11 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
       <div className="issuer-quick-switch no-print">
         <InvoiceIssuerPicker compact value={invoiceIssuer} onChange={selectInvoiceIssuer} disabled={invoiceBusy || Boolean(invoiceSentFor)}/>
-        {invoiceIssuer==="lrs" && <InvoiceBankPicker
-          compact issuer="lrs" value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod}
+        <InvoiceBankPicker
+          compact issuer={invoiceIssuer} value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod}
           disabled={invoiceBusy || Boolean(invoiceSentFor)}
           onChange={(iban,paymentMethod)=>saveInvoiceSettings({...invoiceSettings,iban,paymentMethod})}
-        />}
+        />
       </div>
 
       <main className="tap-shell no-print">

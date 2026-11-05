@@ -24,10 +24,10 @@ export function InvoiceBankPicker({
 }) {
   const accounts=INVOICE_BANK_ACCOUNTS[issuer];
   const isLrs=issuer==="lrs";
-  const isCash=isLrs && paymentMethod==="cash";
-  return <fieldset className={"invoice-bank-switch"+(compact?" compact":"")} disabled={disabled}>
-    <legend>{compact ? "LRS · KIES BETAALWIJZE" : isLrs ? "KIES BETAALWIJZE VOOR DEZE LRS-FACTUUR" : "Bankrekening Allround LEM"}</legend>
-    {isLrs && !compact && <p>Kies rekening 1, rekening 2 of Contant. De gekozen betaalwijze verschijnt automatisch op de factuur, PDF en in de e-mail.</p>}
+  const isCash=paymentMethod==="cash";
+  return <fieldset className={"invoice-bank-switch"+(compact?" compact":"")+(accounts.length===1?" single-account":"")} disabled={disabled}>
+    <legend>{compact ? (isLrs ? "LRS" : "ALLROUND LEM")+" · KIES BETAALWIJZE" : isLrs ? "KIES BETAALWIJZE VOOR DEZE LRS-FACTUUR" : "KIES BETAALWIJZE VOOR DEZE ALLROUND LEM-FACTUUR"}</legend>
+    {!compact && <p>{isLrs ? "Kies rekening 1, rekening 2 of Contant." : "Kies de rekening van Allround LEM of Contant."} De gekozen betaalwijze verschijnt automatisch op de factuur, PDF en in de e-mail.</p>}
     <div className="invoice-bank-switch-options">
       {accounts.map(bank=>{
         const active=!isCash && bank.iban===value;
@@ -43,7 +43,7 @@ export function InvoiceBankPicker({
           <span><strong>{bank.label}</strong><small>{bank.iban}</small></span>
         </button>;
       })}
-      {isLrs && <button
+      <button
         type="button"
         disabled={disabled}
         aria-pressed={isCash}
@@ -52,13 +52,11 @@ export function InvoiceBankPicker({
       >
         <span className="invoice-bank-switch-mark" aria-hidden="true">{isCash?"✓":"○"}</span>
         <span><strong>Contant</strong><small>Betaling in contanten</small></span>
-      </button>}
+      </button>
     </div>
-    {!compact && !isCash && (isLrs ? (
+    {!compact && !isCash && isLrs && (
       <small className="invoice-bank-switch-note">Let op: rekening 2 staat ook op het aangeleverde Allround LEM-voorbeeld. Controleer of deze rekening juridisch gebruikt mag worden voor een LRS-factuur.</small>
-    ) : (
-      <small className="invoice-bank-switch-note">De betaalrekening van Allround LEM blijft vast. Wissel bovenaan van bedrijf voor een LRS-factuur.</small>
-    ))}
+    )}
     {!compact && <strong className="invoice-bank-switch-current">{isCash ? "Gekozen betaalwijze: Contant" : "Gekozen betaalrekening: "+(value || INVOICE_ISSUERS[issuer].iban)}</strong>}
   </fieldset>;
 }

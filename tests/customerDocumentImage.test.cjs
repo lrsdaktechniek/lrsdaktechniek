@@ -99,9 +99,9 @@ test("De afbeelding volgt ook LRS-rekening 2",()=>{
   assert.ok(!texts.includes("NL69 INGB 0112 7815 51"));
 });
 
-test("Contante factuur-PNG toont betaalwijze en termijn zonder bankgegevens of betaaldclaim",()=>{
-  for(const iban of [undefined,"","NL46 INGB 0109 0156 49"]) {
-    const data=base("factuur","lrs");
+test("Contante factuur-PNG van beide bedrijven toont Contant zonder rekeningnummer of betaaldclaim",()=>{
+  for(const issuer of ["lrs","allround-lem"]) for(const iban of [undefined,"","NL46 INGB 0109 0156 49","NL69 INGB 0112 7815 51"]) {
+    const data=base("factuur",issuer);
     data.paymentMethod="cash";
     data.company.iban=iban;
     assert.equal(validateCustomerImage(data),null);
@@ -128,7 +128,7 @@ test("Factuur-PNG weigert ongeldige betaalwijzen en behoudt overige validatie bi
   for(const paymentMethod of [null,"","card",false,0]) {
     assert.match(validateCustomerImage({...data,paymentMethod}),/betaalwijze/i);
   }
-  assert.match(validateCustomerImage({...base("factuur","allround-lem"),paymentMethod:"cash"}),/betaalwijze/i);
+  assert.equal(validateCustomerImage({...base("factuur","allround-lem"),paymentMethod:"cash"}),null);
 });
 
 test("PNG bestandsnamen zijn duidelijk, zonder dubbele LRS/LEM prefix",()=>{

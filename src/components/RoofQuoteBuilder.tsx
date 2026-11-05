@@ -421,7 +421,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   // voorkeur voor contant mag de opgeslagen factuur of betaalkeuze niet wijzigen.
   const invoiceSettings:IssuerSettings=locked && project.invoiceDetails ? {
     ...issuerDefaults(issuer),...project.invoiceDetails,
-    paymentMethod:issuer==="lrs" && project.invoiceDetails.paymentMethod==="cash" ? "cash" : "bank",
+    paymentMethod:project.invoiceDetails.paymentMethod==="cash" ? "cash" : "bank",
   } : locked ? {...settings,paymentMethod:"bank"} : settings;
   const invoiceBill=invoicePreview ? invoiceSettings : settings;
   const invoiceIssueDate=project.invoiceDetails?.issueDate || localDay();
@@ -497,11 +497,11 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
 
       <div className="issuer-quick-switch roof-no-print">
         <InvoiceIssuerPicker compact value={issuer} onChange={changeIssuer} disabled={locked||Boolean(busy)}/>
-        {issuer==="lrs" && <InvoiceBankPicker
-          compact issuer="lrs" value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod}
+        <InvoiceBankPicker
+          compact issuer={issuer} value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod}
           disabled={locked||Boolean(busy)}
           onChange={(iban,paymentMethod)=>updateSettings(s=>({...s,iban,paymentMethod}))}
-        />}
+        />
       </div>
       <main className="roof-layout roof-no-print">
         <section className="roof-card roof-archive">

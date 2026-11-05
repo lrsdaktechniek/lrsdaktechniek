@@ -514,7 +514,7 @@
   font-size:.7rem;
 }
 
-/* Twee ING-rekeningen of Contant kiezen voor facturen namens LRS. */
+/* Een bankrekening of Contant kiezen voor facturen van beide bedrijven. */
 .invoice-bank-switch {
   min-width: 0;
   margin: 15px 0;
@@ -553,6 +553,7 @@
 }
 .invoice-bank-switch-button > span:last-child {display:grid;min-width:0;gap:4px;}
 .invoice-bank-switch-button.cash {grid-column:1/-1;}
+.invoice-bank-switch.single-account .invoice-bank-switch-button.cash {grid-column:auto;}
 .invoice-bank-switch-button strong {font-size:.92rem;}
 .invoice-bank-switch-button small {font-size:.77rem;overflow-wrap:anywhere;letter-spacing:.018em;}
 .invoice-bank-switch-button.selected {

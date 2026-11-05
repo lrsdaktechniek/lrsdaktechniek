@@ -77,9 +77,6 @@ export async function POST(request: Request) {
   if (paymentMethod !== "bank" && paymentMethod !== "cash") {
     return Response.json({ error: "Onbekende betaalwijze." }, { status: 400 });
   }
-  if (paymentMethod === "cash" && issuer !== "lrs") {
-    return Response.json({ error: "Contante betaling is alleen beschikbaar voor LRS-facturen." }, { status: 400 });
-  }
 
   const customerEmail = String(customer.email ?? "").trim();
   if (!customer.name || !customer.address || !isEmail(customerEmail)) {

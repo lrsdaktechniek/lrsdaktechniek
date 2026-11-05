@@ -98,13 +98,13 @@ export function normalizeIssuerSettings(
   return {
     businessAddress: typeof saved?.businessAddress === "string" && saved.businessAddress.trim()
       ? saved.businessAddress : base.businessAddress,
-    // Btw-ID blijft vast per onderneming. LRS kan kiezen uit twee bestaande
-    // ING-rekeningen; Allround LEM blijft beperkt tot haar eigen IBAN.
+    // Btw-ID blijft vast per onderneming. Bij bankbetaling kiest LRS uit
+    // twee ING-rekeningen en gebruikt Allround LEM haar eigen IBAN.
     vatId: base.vatId,
     iban: canonicalInvoiceIban(issuer, saved?.iban) ?? base.iban,
     // Bestaande factuurinstellingen blijven bankbetalingen. Bewaar het gekozen
     // IBAN ook bij contant, zodat terugschakelen dezelfde rekening herstelt.
-    paymentMethod: issuer === "lrs" && saved?.paymentMethod === "cash" ? "cash" : "bank",
+    paymentMethod: saved?.paymentMethod === "cash" ? "cash" : "bank",
     paymentTermDays: Number.isFinite(saved?.paymentTermDays) && (saved?.paymentTermDays ?? -1) >= 0
       ? Math.min(365, Math.floor(saved!.paymentTermDays!)) : 14,
     contactEmail: typeof saved?.contactEmail === "string" ? saved.contactEmail : base.contactEmail,
@@ -141,6 +141,5 @@ export function validateIssuerBusiness(
   return business.name === info.name && compact(business.kvk) === compact(info.kvk)
     && compact(business.vatId) === compact(info.vatId)
     && (paymentMethod === "cash"
-      ? issuer === "lrs"
-      : paymentMethod === "bank" && canonicalInvoiceIban(issuer, business.iban) !== null);
+      || (paymentMethod === "bank" && canonicalInvoiceIban(issuer, business.iban) !== null));
 }
