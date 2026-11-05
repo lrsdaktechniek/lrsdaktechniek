@@ -116,6 +116,58 @@ test("LRS factuur zonder extra issuer-veld blijft LRS",async()=>{
   });
 });
 
+test("Facturen van beide bedrijven kunnen zonder klantadres worden verstuurd",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const issuer of issuers.INVOICE_ISSUER_IDS) for(const paymentMethod of ["bank","cash"]) {
+      for(const address of [undefined,"","   ","Klantstraat 1, 1234 AB Test"]) {
+        const p=makeInvoice(issuer);
+        p.customer.address=address;
+        p.invoice.paymentMethod=paymentMethod;
+        const response=await post("https://example.test/api/factuur",p,invoiceApi);
+        assert.equal(response.status,200,await response.text());
+        const html=outgoing.at(-1).html;
+        const client=html.match(/<strong>Aan<\/strong><br>([\s\S]*?)<\/td>/)[1];
+        assert.match(client,/Test Klant/);
+        assert.match(client,/klant@example\.test/);
+        assert.doesNotMatch(client,/undefined|null|<br>\s*<br>/);
+        assert.equal(client.includes("Klantstraat 1"),Boolean(address?.trim()));
+        assert.match(html,/Sellerstraat 1/);
+      }
+    }
+  });
+});
+
+test("Offertes van beide bedrijven kunnen zonder klantadres verder naar akkoord en factuur",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const issuer of issuers.INVOICE_ISSUER_IDS) for(const address of [undefined,"","   ","Klantstraat 1, 1234 AB Test"]) {
+      const p=makeQuote(issuer);
+      p.quote.customer.address=address;
+      const response=await post("https://example.test/api/dakofferte",p,quoteApi);
+      assert.equal(response.status,200,await response.text());
+      const html=outgoing.at(-1).html;
+      assert.doesNotMatch(html,/undefined|null|dakwerkzaamheden op\s*\./);
+      assert.equal(html.includes(" op Klantstraat 1"),Boolean(address?.trim()));
+      assert.match(html,/Sellerstraat 1/);
+    }
+  });
+});
+
+test("Een optioneel klantadres verandert de vereiste klantnaam en e-mail niet",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const issuer of issuers.INVOICE_ISSUER_IDS) for(const field of ["name","email"]) {
+      const invoice=makeInvoice(issuer);
+      delete invoice.customer.address;
+      invoice.customer[field]="   ";
+      assert.equal((await post("https://example.test/api/factuur",invoice,invoiceApi)).status,400);
+      const quote=makeQuote(issuer);
+      delete quote.quote.customer.address;
+      quote.quote.customer[field]="   ";
+      assert.equal((await post("https://example.test/api/dakofferte",quote,quoteApi)).status,400);
+    }
+    assert.equal(outgoing.length,0);
+  });
+});
+
 test("LRS gegevens onder LEM-knop worden door de server afgewezen",async()=>{
   await withFakeResend(async outgoing=>{
     const p=makeInvoice("lrs");p.issuer="allround-lem";

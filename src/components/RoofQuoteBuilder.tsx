@@ -282,7 +282,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   }
   function checkQuote(withEmail:boolean) {
     if (!project||!quote) return "Geen dakproject geselecteerd.";
-    if (!project.customer.trim() || !project.address.trim()) return "Vul klantnaam en volledig adres in.";
+    if (!project.customer.trim()) return "Vul de klantnaam in.";
     if (withEmail && !validEmail(project.email)) return "Vul een geldig e-mailadres van de klant in.";
     if (!project.title.trim()) return "Vul een projectomschrijving in.";
     if (!settings.businessAddress.trim()) return "Vul het volledige factuuradres van "+company.name+" in bij de factuurinstellingen.";
@@ -312,7 +312,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     const text=[
       company.name+" · Offerte "+quoteNumber,
       project.title, "Klant: "+project.customer,
-      "Adres: "+project.address,
+      ...(project.address.trim() ? ["Adres: "+project.address] : []),
       "",
       ...pricing.publicLines.map(line=>"- "+line.description+" ("+line.qty+" "+line.unit+")"),
       "",
@@ -524,7 +524,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           <div className="roof-fields">
             <label><span>Klantnaam *</span><input value={project.customer} maxLength={180} disabled={locked||Boolean(busy)} onChange={e=>edit({customer:e.target.value})} placeholder="Naam klant"/></label>
             <label><span>E-mailadres klant</span><input type="email" value={project.email} maxLength={300} disabled={locked||Boolean(busy)} onChange={e=>edit({email:e.target.value})} placeholder="naam@email.nl"/></label>
-            <label className="wide"><span>Volledig werkadres *</span><input value={project.address} maxLength={300} disabled={locked||Boolean(busy)} onChange={e=>edit({address:e.target.value})} placeholder="Straat 1, 4811 AA Breda"/></label>
+            <label className="wide"><span>Werkadres (optioneel)</span><input value={project.address} maxLength={300} disabled={locked||Boolean(busy)} onChange={e=>edit({address:e.target.value})} placeholder="Straat 1, 4811 AA Breda"/></label>
             <label><span>Telefoonnummer (optioneel)</span><input value={project.phone} maxLength={60} disabled={locked||Boolean(busy)} onChange={e=>edit({phone:e.target.value})} placeholder="06..."/></label>
             <label><span>Titel offerte *</span><input value={project.title} maxLength={160} disabled={locked||Boolean(busy)} onChange={e=>edit({title:e.target.value})} placeholder="Vervangen pannendak"/></label>
             <label><span>Offertedatum</span><input type="date" value={project.quoteDate} disabled={locked||Boolean(busy)} onChange={e=>edit({quoteDate:e.target.value})}/></label>
@@ -724,7 +724,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           <div className="roof-doc-title"><h2>{invoicePreview?"FACTUUR":"OFFERTE"}</h2><strong>{invoicePreview?invoiceNumber:quoteNumber}</strong></div>
         </header>
         <div className="roof-doc-client">
-          <div><b>Aan</b><strong>{project.customer||"—"}</strong><span>{project.address||"—"}</span>{project.email&&<span>{project.email}</span>}</div>
+          <div><b>Aan</b><strong>{project.customer||"—"}</strong>{project.address.trim()&&<span>{project.address}</span>}{project.email&&<span>{project.email}</span>}</div>
           <div><b>{invoicePreview?"Factuurdatum":"Offertedatum"}</b><span>{invoicePreview?formattedDay(invoiceIssueDate):formattedDay(project.quoteDate)}</span>
             {invoicePreview?<><b>Datum werkzaamheden</b><span>{formattedDay(project.workDate)}</span><b>Vervaldatum</b><span>{dateAdd(invoiceIssueDate,invoiceBill.paymentTermDays)}</span></>
               :<><b>Offerte geldig tot</b><span>{dateAdd(project.quoteDate,project.validityDays)}</span></>}

@@ -67,7 +67,7 @@ function renderQuote(quote: Quote) {
         '<div>' + esc(quote.title) + '</div></div>' +
       '<div style="background:#fff;padding:26px">' +
         '<p>Beste ' + esc(quote.customer.name) + ',</p>' +
-        '<p>Hierbij ontvangt u onze offerte voor de dakwerkzaamheden op ' + esc(quote.customer.address) + '.</p>' +
+        '<p>Hierbij ontvangt u onze offerte voor de dakwerkzaamheden' + (quote.customer.address ? ' op ' + esc(quote.customer.address) : '') + '.</p>' +
         '<p><strong>Offertedatum:</strong> ' + dateNl(quote.issueDate) + '<br>' +
         '<strong>Geldig tot en met:</strong> ' + until + '<br>' +
         '<strong>Van:</strong> ' + esc(company.name) + ' · ' + esc(quote.businessAddress) + '<br>' +
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
   };
   if (!quote.number || !quote.title || !dateOkay(quote.issueDate) ||
       !Number.isInteger(quote.validDays) || quote.validDays < 1 || quote.validDays > 90 ||
-      !quote.customer.name || !quote.customer.address || !emailOkay(quote.customer.email) ||
+      !quote.customer.name || !emailOkay(quote.customer.email) ||
       !quote.businessAddress || quote.vatId.replace(/\s+/g,"").toUpperCase() !== company.vatId) {
     return Response.json({error:"Vul offertedatum, klantgegevens en bedrijfsgegevens correct in."},{status:400});
   }

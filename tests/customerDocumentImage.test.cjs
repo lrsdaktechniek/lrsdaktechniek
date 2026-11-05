@@ -131,6 +131,25 @@ test("Factuur-PNG weigert ongeldige betaalwijzen en behoudt overige validatie bi
   assert.equal(validateCustomerImage({...base("factuur","allround-lem"),paymentMethod:"cash"}),null);
 });
 
+test("Klantadres is optioneel op offerte- en factuurafbeeldingen van beide bedrijven",()=>{
+  for(const issuer of ["lrs","allround-lem"]) for(const kind of ["offerte","factuur"]) {
+    for(const paymentMethod of ["bank","cash"]) for(const address of [undefined,"","   ","Klantstraat 99"]) {
+      const data=base(kind,issuer);
+      data.customer.address=address;
+      data.paymentMethod=paymentMethod;
+      assert.equal(validateCustomerImage(data),null);
+      const canvas=fakeCanvas();
+      drawCustomerImage(data,()=>canvas);
+      const texts=canvas.written.join(" | ");
+      assert.match(texts,/Testklant/);
+      assert.match(texts,/klant@example\.test/);
+      assert.ok(texts.includes(data.company.address));
+      assert.equal(texts.includes("Klantstraat 99"),Boolean(address?.trim()));
+      assert.doesNotMatch(texts,/undefined|null/);
+    }
+  }
+});
+
 test("PNG bestandsnamen zijn duidelijk, zonder dubbele LRS/LEM prefix",()=>{
   assert.equal(imageFilename(base("offerte","lrs")),"LRS-OFFERTE-2026-0001.png");
   assert.equal(imageFilename(base("offerte","allround-lem")),"LEM-OFFERTE-2026-0001.png");

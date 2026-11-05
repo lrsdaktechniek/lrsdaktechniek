@@ -597,7 +597,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
 
   function validateInvoiceImage() {
     if (unknownSelected.length > 0) return "Er staat nog een regel zonder prijs.";
-    if (!customer.trim() || !address.trim()) return "Vul klantnaam en volledig klantadres in.";
+    if (!customer.trim()) return "Vul de klantnaam in.";
     if (!invoiceSettings.businessAddress.trim() || !invoiceSettings.vatId.trim()) return "Bedrijfsadres of btw-id ontbreekt.";
     if (!invoiceIsCash && !invoiceSettings.iban.trim()) return "IBAN ontbreekt.";
     if (!invoiceNumber.trim()) return "Factuurnummer ontbreekt.";
@@ -879,8 +879,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       setInvoiceStatus("Er staat nog een regel zonder prijs.");
       return;
     }
-    if (!customer.trim() || !address.trim() || !customerEmail.trim()) {
-      setInvoiceStatus("Vul klantnaam, volledig adres en e-mailadres in.");
+    if (!customer.trim() || !customerEmail.trim()) {
+      setInvoiceStatus("Vul klantnaam en e-mailadres in.");
       return;
     }
     if (!invoiceSettings.businessAddress.trim()) {
@@ -1153,7 +1153,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
           {showDetails && <div className="tap-details-body">
             <div className="internal-form-grid">
               <label><span>Klantnaam</span><input value={customer} onChange={event => setCustomer(event.target.value)} placeholder="Naam klant"/></label>
-              <label><span>Volledig adres</span><input value={address} onChange={event => setAddress(event.target.value)} placeholder="Straat 1, 4811 AA Breda"/></label>
+              <label><span>Adres klant (optioneel)</span><input value={address} onChange={event => setAddress(event.target.value)} placeholder="Straat 1, 4811 AA Breda"/></label>
               <label><span>E-mail klant</span><input type="email" value={customerEmail} onChange={event => setCustomerEmail(event.target.value)} placeholder="klant@email.nl"/></label>
               <label><span>Klantnummer (optioneel)</span><input value={customerNumber} onChange={event => setCustomerNumber(event.target.value)} placeholder="Bijv. 5"/></label>
               <label><span>Datum werkzaamheden</span><input type="date" value={workDate} onChange={event => setWorkDate(event.target.value)}/></label>
@@ -1197,7 +1197,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
                 validate={()=>{
                   if(unknownSelected.length)return "Er staat nog een reparatie zonder geldige prijs.";
                   if(!invoiceNumber.trim())return "Wacht tot het documentnummer is geladen.";
-                  if(!customer.trim()||!address.trim())return "Vul eerst klantnaam en volledig werkadres in.";
+                  if(!customer.trim())return "Vul eerst de klantnaam in.";
                   if(!invoiceSettings.businessAddress.trim())return "Vul het volledige bedrijfsadres in bij de factuurinstellingen.";
                   if(total<=0)return "Er zijn nog geen werkzaamheden of bedrag ingevuld.";
                   return null;
@@ -1297,7 +1297,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
           <div className="print-title"><small>FACTUUR VAN {invoiceBrand.name.toUpperCase()}</small><h1>Factuur {invoiceNumber}</h1></div>
           <dl className="print-customer">
             <div><dt>Klant</dt><dd>{customer||"—"}</dd></div>
-            <div><dt>Adres</dt><dd>{address||"—"}</dd></div>
+            {address.trim() && <div><dt>Adres</dt><dd>{address}</dd></div>}
             <div><dt>Factuurdatum</dt><dd>{new Date().toLocaleDateString("nl-NL")}</dd></div>
             <div><dt>Werkdatum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div>
           </dl>
@@ -1318,7 +1318,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         </div> : <>
         <header><div><strong>LRS DAKTECHNIEK</strong><span>Breda & omgeving</span></div><div><span>{site.phoneDisplay}</span><span>{site.email}</span><span>KVK {site.kvk}</span></div></header>
         <div className="print-title"><small>WERKBON / PRIJSOVERZICHT</small><h1>{jobTitle}</h1></div>
-        <dl className="print-customer"><div><dt>Klant</dt><dd>{customer || "—"}</dd></div><div><dt>Adres</dt><dd>{address || "—"}</dd></div><div><dt>Datum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div><div><dt>Tijd op locatie</dt><dd>{durationHours > 0 ? `${Math.floor(durationHours)} uur ${Math.round((durationHours % 1) * 60)} min` : "—"}</dd></div></dl>
+        <dl className="print-customer"><div><dt>Klant</dt><dd>{customer || "—"}</dd></div>{address.trim() && <div><dt>Adres</dt><dd>{address}</dd></div>}<div><dt>Datum</dt><dd>{new Date(`${workDate}T12:00:00`).toLocaleDateString("nl-NL")}</dd></div><div><dt>Tijd op locatie</dt><dd>{durationHours > 0 ? `${Math.floor(durationHours)} uur ${Math.round((durationHours % 1) * 60)} min` : "—"}</dd></div></dl>
         <table><thead><tr><th>Uitgevoerde werkzaamheden</th><th>Aantal</th><th>Eenheid</th></tr></thead><tbody>
           {workLines.filter(line => line.key.startsWith("repair-")).map(line => <tr key={line.key}><td>{line.number ? `${line.number}. ` : ""}{line.description}</td><td>{line.qty}</td><td>{line.unit}</td></tr>)}
           {customLines.map(line => <tr key={line.id}><td>{line.description || "Extra werkzaamheden"}</td><td>{line.qty}</td><td>{line.unit}</td></tr>)}

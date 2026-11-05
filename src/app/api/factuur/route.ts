@@ -79,8 +79,9 @@ export async function POST(request: Request) {
   }
 
   const customerEmail = String(customer.email ?? "").trim();
-  if (!customer.name || !customer.address || !isEmail(customerEmail)) {
-    return Response.json({ error: "Klantnaam, volledig adres en geldig e-mailadres zijn verplicht." }, { status: 400 });
+  const customerAddress = typeof customer.address === "string" ? customer.address.trim() : "";
+  if (typeof customer.name !== "string" || !customer.name.trim() || !isEmail(customerEmail)) {
+    return Response.json({ error: "Klantnaam en geldig e-mailadres zijn verplicht." }, { status: 400 });
   }
   if (!business.address?.trim() || !validateIssuerBusiness(issuer, business, paymentMethod)) {
     return Response.json({ error: "Factuurbedrijf, KvK, btw-ID of betaalgegevens komen niet overeen met de gekozen afzender. Vul ook het volledige bedrijfsadres in." }, { status: 400 });
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
           <td style="vertical-align:top;width:50%">
             <strong>Aan</strong><br>
             ${esc(customer.name)}<br>
-            ${esc(customer.address)}<br>
+            ${customerAddress ? `${esc(customerAddress)}<br>` : ""}
             ${esc(customerEmail)}
           </td>
         </tr>

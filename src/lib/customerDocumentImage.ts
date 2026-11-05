@@ -22,7 +22,7 @@ export type CustomerImageInput = {
     email?: string;
     iban?: string;
   };
-  customer: { name: string; address: string; email?: string; number?: string };
+  customer: { name: string; address?: string; email?: string; number?: string };
   number: string;
   title: string;
   issueDate: string;
@@ -58,8 +58,8 @@ export function validateCustomerImage(input: CustomerImageInput): string | null 
     || !input.company.kvk.trim() || !input.company.vatId.trim()) {
     return "Vul de bedrijfsgegevens en het documentnummer in.";
   }
-  if (!input.customer.name.trim() || !input.customer.address.trim()) {
-    return "Vul eerst klantnaam en volledig werkadres in.";
+  if (!input.customer.name.trim()) {
+    return "Vul eerst de klantnaam in.";
   }
   if (!input.title.trim() || !input.issueDate.trim()) {
     return "Vul de omschrijving en documentdatum in.";
@@ -172,7 +172,8 @@ export function drawCustomerImage(
 
   // Hoogte vooraf meten: de afbeelding bevat alle werkzaamheden zonder afsnijden.
   const companyRows=wrap(ctx,input.company.address,620,22);
-  const customerRows=wrap(ctx,input.customer.address,525,25);
+  const customerAddress=input.customer.address?.trim() ?? "";
+  const customerRows=customerAddress ? wrap(ctx,customerAddress,525,25) : [];
   const customerEmailRows=input.customer.email ? wrap(ctx,input.customer.email,505,22) : [];
   const jobTitleRows=wrap(ctx,input.title,RIGHT-LEFT,34,true);
   const prepared=input.lines.map(line=>{
