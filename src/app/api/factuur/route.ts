@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { INVOICE_ISSUERS, parseIssuer, validateIssuerBusiness, type InvoiceIssuerId } from "@/lib/invoiceIssuer";
+import { INVOICE_ISSUERS, parseIssuer, validateIssuerBusiness, type InvoiceIssuerId, type InvoicePaymentMethod } from "@/lib/invoiceIssuer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ type InvoicePayload = {
   issuer?: InvoiceIssuerId;
   customer?: { name?: string; address?: string; email?: string };
   business?: { name?: string; address?: string; email?: string; phone?: string; kvk?: string; vatId?: string; iban?: string };
-  invoice?: { number?: string; issueDate?: string; serviceDate?: string; title?: string; paymentTermDays?: number; notes?: string };
+  invoice?: { number?: string; issueDate?: string; serviceDate?: string; title?: string; paymentMethod?: InvoicePaymentMethod; paymentTermDays?: number; notes?: string };
   lines?: InvoiceLine[];
   subtotal?: number;
   vatRate?: number;
@@ -73,13 +73,20 @@ export async function POST(request: Request) {
   const business = body.business ?? {};
   const invoice = body.invoice ?? {};
   const lines = Array.isArray(body.lines) ? body.lines : [];
+  const paymentMethod = invoice.paymentMethod === undefined ? "bank" : invoice.paymentMethod;
+  if (paymentMethod !== "bank" && paymentMethod !== "cash") {
+    return Response.json({ error: "Onbekende betaalwijze." }, { status: 400 });
+  }
+  if (paymentMethod === "cash" && issuer !== "lrs") {
+    return Response.json({ error: "Contante betaling is alleen beschikbaar voor LRS-facturen." }, { status: 400 });
+  }
 
   const customerEmail = String(customer.email ?? "").trim();
   if (!customer.name || !customer.address || !isEmail(customerEmail)) {
     return Response.json({ error: "Klantnaam, volledig adres en geldig e-mailadres zijn verplicht." }, { status: 400 });
   }
-  if (!business.address?.trim() || !validateIssuerBusiness(issuer, business)) {
-    return Response.json({ error: "Factuurbedrijf, KvK, btw-ID of IBAN komen niet overeen met de gekozen afzender. Vul ook het volledige bedrijfsadres in." }, { status: 400 });
+  if (!business.address?.trim() || !validateIssuerBusiness(issuer, business, paymentMethod)) {
+    return Response.json({ error: "Factuurbedrijf, KvK, btw-ID of betaalgegevens komen niet overeen met de gekozen afzender. Vul ook het volledige bedrijfsadres in." }, { status: 400 });
   }
   if (!invoice.number || !invoice.issueDate || !invoice.serviceDate) {
     return Response.json({ error: "Factuurnummer, factuurdatum en leverdatum zijn verplicht." }, { status: 400 });
@@ -176,7 +183,9 @@ export async function POST(request: Request) {
         <div style="display:flex;justify-content:space-between;padding:12px 0;border-top:2px solid #070a0d;font-size:20px"><span>Totaal incl. btw</span><strong>${esc(euro(body.total))}</strong></div>
       </div>
 
-      ${business.iban ? `<p style="margin-top:28px"><strong>Betaling:</strong> ${esc(business.iban)} o.v.v. ${esc(invoice.number)}</p>` : ""}
+      ${paymentMethod === "cash"
+        ? `<p style="margin-top:28px"><strong>Betaalwijze:</strong> Contant</p>`
+        : business.iban ? `<p style="margin-top:28px"><strong>Betaling:</strong> ${esc(business.iban)} o.v.v. ${esc(invoice.number)}</p>` : ""}
       ${invoice.notes ? `<p style="margin-top:20px"><strong>Opmerking:</strong><br>${esc(invoice.notes).replaceAll("\n","<br>")}</p>` : ""}
       <p style="margin-top:32px;color:#60707a;font-size:13px">${esc(company.name)}</p>
     </div>

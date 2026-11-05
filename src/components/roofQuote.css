@@ -514,8 +514,7 @@
   font-size:.7rem;
 }
 
-/* Twee ING-rekeningen kiezen voor facturen namens LRS.
-   Alleen de toegestane IBANs uit de gedeelde factuurconfiguratie. */
+/* Twee ING-rekeningen of Contant kiezen voor facturen namens LRS. */
 .invoice-bank-switch {
   min-width: 0;
   margin: 15px 0;
@@ -553,6 +552,7 @@
   text-align:left;
 }
 .invoice-bank-switch-button > span:last-child {display:grid;min-width:0;gap:4px;}
+.invoice-bank-switch-button.cash {grid-column:1/-1;}
 .invoice-bank-switch-button strong {font-size:.92rem;}
 .invoice-bank-switch-button small {font-size:.77rem;overflow-wrap:anywhere;letter-spacing:.018em;}
 .invoice-bank-switch-button.selected {

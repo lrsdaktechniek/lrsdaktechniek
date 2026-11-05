@@ -8,11 +8,13 @@
  * distinct verified email source for actual automated delivery.
  */
 export type InvoiceIssuerId = "lrs" | "allround-lem";
+export type InvoicePaymentMethod = "bank" | "cash";
 
 export type IssuerSettings = {
   businessAddress: string;
   vatId: string;
   iban: string;
+  paymentMethod: InvoicePaymentMethod;
   paymentTermDays: number;
   contactEmail: string;
   phone: string;
@@ -82,6 +84,7 @@ export function issuerDefaults(issuer: InvoiceIssuerId): IssuerSettings {
     businessAddress: info.defaultAddress,
     vatId: info.vatId,
     iban: info.iban,
+    paymentMethod: "bank",
     paymentTermDays: 14,
     contactEmail: info.contactEmail,
     phone: info.phone,
@@ -99,6 +102,9 @@ export function normalizeIssuerSettings(
     // ING-rekeningen; Allround LEM blijft beperkt tot haar eigen IBAN.
     vatId: base.vatId,
     iban: canonicalInvoiceIban(issuer, saved?.iban) ?? base.iban,
+    // Bestaande factuurinstellingen blijven bankbetalingen. Bewaar het gekozen
+    // IBAN ook bij contant, zodat terugschakelen dezelfde rekening herstelt.
+    paymentMethod: issuer === "lrs" && saved?.paymentMethod === "cash" ? "cash" : "bank",
     paymentTermDays: Number.isFinite(saved?.paymentTermDays) && (saved?.paymentTermDays ?? -1) >= 0
       ? Math.min(365, Math.floor(saved!.paymentTermDays!)) : 14,
     contactEmail: typeof saved?.contactEmail === "string" ? saved.contactEmail : base.contactEmail,
@@ -127,11 +133,14 @@ export function registerInvoiceUsed(issuer: InvoiceIssuerId, number: string, sto
 }
 export function validateIssuerBusiness(
   issuer: InvoiceIssuerId,
-  business: {name?:string; kvk?:string; vatId?:string; iban?:string}
+  business: {name?:string; kvk?:string; vatId?:string; iban?:string},
+  paymentMethod: InvoicePaymentMethod = "bank"
 ): boolean {
   const info = INVOICE_ISSUERS[issuer];
   const compact = (s: string | undefined) => (s ?? "").replace(/\s+/g, "").toUpperCase();
   return business.name === info.name && compact(business.kvk) === compact(info.kvk)
     && compact(business.vatId) === compact(info.vatId)
-    && canonicalInvoiceIban(issuer, business.iban) !== null;
+    && (paymentMethod === "cash"
+      ? issuer === "lrs"
+      : paymentMethod === "bank" && canonicalInvoiceIban(issuer, business.iban) !== null);
 }

@@ -208,6 +208,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   const [invoiceSentFor, setInvoiceSentFor] = useState("");
   const [printInvoiceMode, setPrintInvoiceMode] = useState(false);
   const invoiceBrand = INVOICE_ISSUERS[invoiceIssuer];
+  const invoiceIsCash = invoiceSettings.paymentMethod === "cash";
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [invoiceStatus, setInvoiceStatus] = useState("");
   const [invoiceImageUrl, setInvoiceImageUrl] = useState("");
@@ -249,7 +250,12 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       const chosen = parseIssuer(stored?.invoiceIssuer) ?? "lrs";
       setInvoiceIssuer(chosen);
       const saved = JSON.parse(localStorage.getItem(INVOICE_ISSUERS[chosen].settingsKey) || "null") as Partial<IssuerSettings> | null;
-      setInvoiceSettings(normalizeIssuerSettings(chosen,saved));
+      // Een verzonden factuur houdt haar betaalgegevens, ook wanneer een
+      // andere werkbon later de gedeelde voorkeur naar Contant wijzigt.
+      const invoiceSaved = stored?.invoiceSentFor
+        ? (stored.issuedInvoiceSettings ?? { ...saved, paymentMethod: "bank" })
+        : saved;
+      setInvoiceSettings(normalizeIssuerSettings(chosen,invoiceSaved));
       setInvoiceNumber(stored?.invoiceSentFor
         ? (String(stored.issuedInvoiceNumber||"") || String(stored.invoiceSentFor).split(":").slice(1).join(":"))
         : pendingInvoiceNumber(chosen,localStorage));
@@ -261,8 +267,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_DRAFT, JSON.stringify({
       customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt, invoiceIssuer, invoiceSentFor, issuedInvoiceNumber:invoiceSentFor?invoiceNumber:"",
+      issuedInvoiceSettings:invoiceSentFor?invoiceSettings:undefined,
     }));
-  }, [customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt, invoiceIssuer, invoiceSentFor, invoiceNumber]);
+  }, [customer, address, customerEmail, customerNumber, jobTitle, workDate, notes, selected, customLines, hours, minutes, difficult, manualTotalEnabled, manualTotalIncl, timerStartedAt, invoiceIssuer, invoiceSentFor, invoiceNumber, invoiceSettings]);
 
   useEffect(() => {
     if (timerStartedAt === null) return;
@@ -513,6 +520,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     businessAddress: invoiceSettings.businessAddress,
     vatId: invoiceBrand.vatId,
     iban: invoiceSettings.iban,
+    paymentMethod: invoiceSettings.paymentMethod,
     kvk: invoiceBrand.kvk,
     phone: invoiceSettings.phone,
     contactEmail: invoiceSettings.contactEmail,
@@ -560,10 +568,12 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       `Factuurnummer: ${invoiceNumber || "—"}`,
       `Totaal te betalen: ${euro(total)}`,
       "",
-      "Betaling:",
-      `IBAN: ${invoiceSettings.iban}`,
-      `Ten name van: ${invoiceBrand.name}`,
-      `Onder vermelding van: Factuur ${invoiceNumber || "—"}`,
+      ...(invoiceIsCash ? ["Betaalwijze: Contant"] : [
+        "Betaling:",
+        `IBAN: ${invoiceSettings.iban}`,
+        `Ten name van: ${invoiceBrand.name}`,
+        `Onder vermelding van: Factuur ${invoiceNumber || "—"}`,
+      ]),
       term === 0 ? "Betaaltermijn: graag direct." : `Betaaltermijn: ${term} dagen.`,
       "",
       "De factuur stuur ik als afbeelding mee met dit bericht.",
@@ -573,7 +583,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       invoiceSettings.phone,
       invoiceSettings.contactEmail,
     ].join("\n");
-  }, [customer, address, workLines, customLines, invoiceNumber, total, invoiceSettings.iban, invoiceSettings.paymentTermDays, invoiceBrand.name, invoiceSettings.phone, invoiceSettings.contactEmail]);
+  }, [customer, address, workLines, customLines, invoiceNumber, total, invoiceIsCash, invoiceSettings.iban, invoiceSettings.paymentTermDays, invoiceBrand.name, invoiceSettings.phone, invoiceSettings.contactEmail]);
 
   async function copyInvoiceMessageText() {
     try {
@@ -588,7 +598,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
   function validateInvoiceImage() {
     if (unknownSelected.length > 0) return "Er staat nog een regel zonder prijs.";
     if (!customer.trim() || !address.trim()) return "Vul klantnaam en volledig klantadres in.";
-    if (!invoiceSettings.businessAddress.trim() || !invoiceSettings.vatId.trim() || !invoiceSettings.iban.trim()) return "Bedrijfsadres, btw-id en IBAN ontbreken.";
+    if (!invoiceSettings.businessAddress.trim() || !invoiceSettings.vatId.trim()) return "Bedrijfsadres of btw-id ontbreekt.";
+    if (!invoiceIsCash && !invoiceSettings.iban.trim()) return "IBAN ontbreekt.";
     if (!invoiceNumber.trim()) return "Factuurnummer ontbreekt.";
     if (total <= 0) return "Er staat nog geen bedrag op de factuur.";
     return "";
@@ -708,8 +719,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     if (!lem) { draw("i", rightX, businessDataY + 68, 22, 700); draw("www.lrsdaktechniek.nl", rightX + 30, businessDataY + 68, 22, 400); }
 
     const bankY = businessDataY + 130;
-    draw("IBAN", rightX, bankY, 22, 700);
-    draw(invoiceSettings.iban, rightX + 118, bankY, 22, 400);
+    draw(invoiceIsCash ? "Betaling" : "IBAN", rightX, bankY, 22, 700);
+    draw(invoiceIsCash ? "Contant" : invoiceSettings.iban, rightX + 118, bankY, 22, 400);
     draw("Btw-nr", rightX, bankY + 34, 22, 700);
     draw(invoiceSettings.vatId, rightX + 118, bankY + 34, 22, 400);
     draw("KvK", rightX, bankY + 68, 22, 700);
@@ -730,9 +741,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     const payValueX = payX + 205;
     draw("Te betalen", payLabelX, payY + 34, 21, 700);
     draw(`€ ${invoiceMoney(total)}`, payValueX, payY + 34, 23, 700);
-    draw("Naar IBAN", payLabelX, payY + 76, 21, 700);
-    draw(invoiceSettings.iban, payValueX, payY + 76, 21, 700);
-    draw("Op naam van", payLabelX, payY + 118, 21, 400);
+    draw(invoiceIsCash ? "Betaalwijze" : "Naar IBAN", payLabelX, payY + 76, 21, 700);
+    draw(invoiceIsCash ? "Contant" : invoiceSettings.iban, payValueX, payY + 76, 21, 700);
+    draw(invoiceIsCash ? "Ontvanger" : "Op naam van", payLabelX, payY + 118, 21, 400);
     draw(invoiceBrand.name, payValueX, payY + 118, 21, 700);
     draw("Omschrijving", payLabelX, payY + 160, 21, 400);
     draw(`Factuur ${invoiceNumber}`, payValueX, payY + 160, 21, 700);
@@ -791,7 +802,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     draw(invoiceMoney(total), amountX, bottomY + 102, 23, 700, "#111111", "right");
 
     draw(`Betaaltermijn: ${Math.max(0, Number(invoiceSettings.paymentTermDays) || 0)} dagen`, 72, 1404, 18, 400, "#526b7a");
-    draw(`Onder vermelding van: Factuur ${invoiceNumber}`, 72, 1432, 18, 400, "#526b7a");
+    draw(invoiceIsCash ? "Betaalwijze: Contant" : `Onder vermelding van: Factuur ${invoiceNumber}`, 72, 1432, 18, 400, "#526b7a");
 
     return await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png", 1));
   }
@@ -920,7 +931,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             phone: invoiceSettings.phone.trim(),
             kvk: invoiceBrand.kvk,
             vatId: invoiceBrand.vatId,
-            iban: invoiceSettings.iban,
+            iban: invoiceIsCash ? "" : invoiceSettings.iban,
           },
           invoice: {
             number: invoiceNumber.trim(),
@@ -928,6 +939,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
             serviceDate: workDate,
             title: jobTitle,
             paymentTermDays: Math.max(0, Number(invoiceSettings.paymentTermDays) || 0),
+            paymentMethod: invoiceSettings.paymentMethod,
             notes,
           },
           lines: invoiceLines,
@@ -1002,9 +1014,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       <div className="issuer-quick-switch no-print">
         <InvoiceIssuerPicker compact value={invoiceIssuer} onChange={selectInvoiceIssuer} disabled={invoiceBusy || Boolean(invoiceSentFor)}/>
         {invoiceIssuer==="lrs" && <InvoiceBankPicker
-          compact issuer="lrs" value={invoiceSettings.iban}
+          compact issuer="lrs" value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod}
           disabled={invoiceBusy || Boolean(invoiceSentFor)}
-          onChange={iban=>saveInvoiceSettings({...invoiceSettings,iban})}
+          onChange={(iban,paymentMethod)=>saveInvoiceSettings({...invoiceSettings,iban,paymentMethod})}
         />}
       </div>
 
@@ -1212,8 +1224,9 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
               <InvoiceBankPicker
                 issuer={invoiceIssuer}
                 value={invoiceSettings.iban}
+                paymentMethod={invoiceSettings.paymentMethod}
                 disabled={invoiceBusy||Boolean(invoiceSentFor)}
-                onChange={iban=>saveInvoiceSettings({...invoiceSettings,iban})}
+                onChange={(iban,paymentMethod)=>saveInvoiceSettings({...invoiceSettings,iban,paymentMethod})}
               />
               {invoiceIssuer==="allround-lem"&&<p className="invoice-help"><strong>Allround LEM:</strong> vul het factuuradres hierboven in. Voor rechtstreeks e-mailen is een geverifieerde afzender in Vercel nodig via ALLROUND_LEM_FROM_EMAIL. Printen, PNG maken en handmatig delen werkt zonder die e-mailkoppeling.</p>}
 
@@ -1279,7 +1292,7 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
         {printInvoiceMode ? <div className={"issuer-paper-invoice"+(invoiceIssuer==="allround-lem"?" allround-paper":"")}>
           <header>
             <div><strong>{invoiceBrand.name.toUpperCase()}</strong><span>{invoiceSettings.businessAddress}</span><span>KvK {invoiceBrand.kvk} · BTW-ID {invoiceBrand.vatId}</span></div>
-            <div><span>{invoiceSettings.phone}</span><span>{invoiceSettings.contactEmail}</span><span>IBAN {invoiceSettings.iban}</span></div>
+            <div><span>{invoiceSettings.phone}</span><span>{invoiceSettings.contactEmail}</span><span>{invoiceIsCash ? "Betaalwijze: Contant" : "IBAN "+invoiceSettings.iban}</span></div>
           </header>
           <div className="print-title"><small>FACTUUR VAN {invoiceBrand.name.toUpperCase()}</small><h1>Factuur {invoiceNumber}</h1></div>
           <dl className="print-customer">
@@ -1298,7 +1311,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
           </div>
           <div className="print-notes">
             <strong>Betalingsgegevens</strong>
-            <p>{invoiceSettings.iban} t.n.v. {invoiceBrand.name}<br/>Onder vermelding van factuur {invoiceNumber}. Betaaltermijn {invoiceSettings.paymentTermDays} dagen.</p>
+            {invoiceIsCash ? <p>Betaalwijze: Contant<br/>Betaaltermijn {invoiceSettings.paymentTermDays} dagen.</p>
+              : <p>{invoiceSettings.iban} t.n.v. {invoiceBrand.name}<br/>Onder vermelding van factuur {invoiceNumber}. Betaaltermijn {invoiceSettings.paymentTermDays} dagen.</p>}
           </div>
           {notes && <div className="print-notes"><strong>Opmerkingen</strong><p>{notes}</p></div>}
         </div> : <>

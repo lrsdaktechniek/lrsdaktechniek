@@ -99,6 +99,38 @@ test("De afbeelding volgt ook LRS-rekening 2",()=>{
   assert.ok(!texts.includes("NL69 INGB 0112 7815 51"));
 });
 
+test("Contante factuur-PNG toont betaalwijze en termijn zonder bankgegevens of betaaldclaim",()=>{
+  for(const iban of [undefined,"","NL46 INGB 0109 0156 49"]) {
+    const data=base("factuur","lrs");
+    data.paymentMethod="cash";
+    data.company.iban=iban;
+    assert.equal(validateCustomerImage(data),null);
+    const canvas=fakeCanvas();
+    drawCustomerImage(data,()=>canvas);
+    const texts=canvas.written.join(" | ");
+    assert.match(texts,/Betaalwijze: Contant/);
+    assert.match(texts,/Betaaltermijn: 14 dagen/);
+    assert.match(texts,/VERVALDATUM/);
+    assert.match(texts,/24-10-2026/);
+    assert.match(texts,/Btw 21%/);
+    assert.match(texts,/€ 3\.311,08/);
+    assert.doesNotMatch(texts,/IBAN|NL46 INGB|NL69 INGB|Ten name van|Vermeld factuur|betaald|voldaan/i);
+  }
+});
+
+test("Factuur-PNG weigert ongeldige betaalwijzen en behoudt overige validatie bij contant",()=>{
+  const data=base("factuur","lrs");
+  const cash={...data,paymentMethod:"cash",company:{...data.company,iban:""}};
+  assert.equal(validateCustomerImage(cash),null);
+  assert.match(validateCustomerImage({...cash,paymentMethod:"bank"}),/bankrekening/i);
+  assert.match(validateCustomerImage({...cash,vatAmount:574}),/btw/i);
+  assert.match(validateCustomerImage({...cash,company:{...cash.company,address:""}}),/bedrijfsgegevens/i);
+  for(const paymentMethod of [null,"","card",false,0]) {
+    assert.match(validateCustomerImage({...data,paymentMethod}),/betaalwijze/i);
+  }
+  assert.match(validateCustomerImage({...base("factuur","allround-lem"),paymentMethod:"cash"}),/betaalwijze/i);
+});
+
 test("PNG bestandsnamen zijn duidelijk, zonder dubbele LRS/LEM prefix",()=>{
   assert.equal(imageFilename(base("offerte","lrs")),"LRS-OFFERTE-2026-0001.png");
   assert.equal(imageFilename(base("offerte","allround-lem")),"LEM-OFFERTE-2026-0001.png");

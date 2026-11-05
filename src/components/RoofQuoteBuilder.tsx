@@ -6,7 +6,7 @@ import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
 import { InvoiceBankPicker } from "@/components/InvoiceBankPicker";
 import { CustomerImageActions } from "@/components/CustomerImageActions";
 import type { CustomerImageInput } from "@/lib/customerDocumentImage";
-import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
+import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type InvoicePaymentMethod, type IssuerSettings } from "@/lib/invoiceIssuer";
 import { CATALOG, CATEGORIES, DEFAULT_PRICES, MIN_ROOF_JOB_EX, WorkLine, calculate, euro, formattedDay, localDay } from "@/lib/roofQuote";
 
 type Project = {
@@ -33,7 +33,7 @@ type Project = {
   invoiceNumber: string;
   issuer?: InvoiceIssuerId;
   pricingMode?: "legacy" | "staffel-v2";
-  invoiceDetails?: { issueDate: string; iban: string; paymentTermDays: number; businessAddress: string; vatId: string; contactEmail?: string; phone?: string };
+  invoiceDetails?: { issueDate: string; iban: string; paymentMethod?: InvoicePaymentMethod; paymentTermDays: number; businessAddress: string; vatId: string; contactEmail?: string; phone?: string };
 };
 type Archive = { activeId: string; projects: Project[] };
 
@@ -360,7 +360,8 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     }
     const savedInvoice=project.invoiceDetails;
     if(savedInvoice && (
-      savedInvoice.iban!==settings.iban ||
+      (savedInvoice.paymentMethod??"bank")!==settings.paymentMethod ||
+      (settings.paymentMethod==="bank" && savedInvoice.iban!==settings.iban) ||
       savedInvoice.businessAddress!==settings.businessAddress.trim() ||
       savedInvoice.paymentTermDays!==settings.paymentTermDays ||
       savedInvoice.vatId!==company.vatId
@@ -389,6 +390,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           invoice:{
             number:invoiceNumber,issueDate:issuedOn,serviceDate:project.workDate,
             title:project.title.trim(),
+            paymentMethod:savedInvoice ? savedInvoice.paymentMethod??"bank" : settings.paymentMethod,
             paymentTermDays:Math.max(0,Math.min(365,savedInvoice?.paymentTermDays??settings.paymentTermDays)),
             notes:project.publicNotes.trim(),
           },
@@ -401,7 +403,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       markInvoiceUsed(issuer,invoiceNumber);
       setProjects(rows=>rows.map(row=>row.id===project.id?{
         ...row,invoiceNumber,invoiceSentAt:new Date().toISOString(),
-        invoiceDetails:{issueDate:issuedOn,iban:settings.iban,paymentTermDays:settings.paymentTermDays,businessAddress:settings.businessAddress.trim(),vatId:company.vatId,contactEmail:settings.contactEmail,phone:settings.phone}
+        invoiceDetails:{issueDate:issuedOn,iban:settings.iban,paymentMethod:settings.paymentMethod,paymentTermDays:settings.paymentTermDays,businessAddress:settings.businessAddress.trim(),vatId:company.vatId,contactEmail:settings.contactEmail,phone:settings.phone}
       }:row));
       setNotice("Factuur "+invoiceNumber+" is verstuurd naar "+project.email+". Het project is nu vergrendeld.");
     } catch(error) {
@@ -415,7 +417,13 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
   const status=locked?"GEFACTUREERD":isAccepted?"KLANT AKKOORD":isSent?"OFFERTE VERSTUURD":"CONCEPT";
   const invoiceNumber=project.invoiceNumber || nextInvoiceNumber(issuer);
   const invoicePreview=preview==="invoice" && (isAccepted||locked);
-  const invoiceBill=invoicePreview && locked && project.invoiceDetails ? {...issuerDefaults(issuer),...project.invoiceDetails} : settings;
+  // Oudere facturen hadden uitsluitend een bankbetaling. Een nieuwe globale
+  // voorkeur voor contant mag de opgeslagen factuur of betaalkeuze niet wijzigen.
+  const invoiceSettings:IssuerSettings=locked && project.invoiceDetails ? {
+    ...issuerDefaults(issuer),...project.invoiceDetails,
+    paymentMethod:issuer==="lrs" && project.invoiceDetails.paymentMethod==="cash" ? "cash" : "bank",
+  } : locked ? {...settings,paymentMethod:"bank"} : settings;
+  const invoiceBill=invoicePreview ? invoiceSettings : settings;
   const invoiceIssueDate=project.invoiceDetails?.issueDate || localDay();
   // Afbeeldingen worden uitsluitend opgebouwd uit klantvelden.
   // Interne prijzen, toeslagen, marge en extra personeel worden niet doorgegeven.
@@ -454,6 +462,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
     issueDate:formattedDay(invoiceIssueDate),
     serviceDate:formattedDay(project.workDate),
     dueDate:dateAdd(invoiceIssueDate,invoiceBill.paymentTermDays),
+    paymentMethod:invoiceBill.paymentMethod,
     paymentTermDays:invoiceBill.paymentTermDays,
   };
 
@@ -467,7 +476,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       ...row,invoiceNumber,
       invoiceDetails:{
         issueDate:invoiceIssueDate,
-        iban:invoiceBill.iban,paymentTermDays:invoiceBill.paymentTermDays,
+        iban:invoiceBill.iban,paymentMethod:invoiceBill.paymentMethod,paymentTermDays:invoiceBill.paymentTermDays,
         businessAddress:invoiceBill.businessAddress,
         vatId:company.vatId,contactEmail:invoiceBill.contactEmail,
         phone:invoiceBill.phone,
@@ -489,9 +498,9 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
       <div className="issuer-quick-switch roof-no-print">
         <InvoiceIssuerPicker compact value={issuer} onChange={changeIssuer} disabled={locked||Boolean(busy)}/>
         {issuer==="lrs" && <InvoiceBankPicker
-          compact issuer="lrs" value={settings.iban}
+          compact issuer="lrs" value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod}
           disabled={locked||Boolean(busy)}
-          onChange={iban=>updateSettings(s=>({...s,iban}))}
+          onChange={(iban,paymentMethod)=>updateSettings(s=>({...s,iban,paymentMethod}))}
         />}
       </div>
       <main className="roof-layout roof-no-print">
@@ -669,7 +678,7 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
               <div className="roof-fields">
                 <label><span>Bedrijfsadres {company.name} *</span><input value={settings.businessAddress} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,businessAddress:e.target.value}))} placeholder="Straat, huisnummer, postcode en plaats"/></label>
                 <label><span>KvK / btw-ID (vast per bedrijf)</span><input readOnly value={company.kvk+" · "+company.vatId}/></label>
-                <div className="roof-bank-picker-wide"><InvoiceBankPicker issuer={issuer} value={settings.iban} disabled={locked||Boolean(busy)} onChange={iban=>updateSettings(s=>({...s,iban}))}/></div>
+                <div className="roof-bank-picker-wide"><InvoiceBankPicker issuer={issuer} value={invoiceSettings.iban} paymentMethod={invoiceSettings.paymentMethod} disabled={locked||Boolean(busy)} onChange={(iban,paymentMethod)=>updateSettings(s=>({...s,iban,paymentMethod}))}/></div>
                 <label><span>Betaaltermijn (dagen)</span><input type="number" min="0" max="365" disabled={locked||Boolean(busy)} value={settings.paymentTermDays} onChange={e=>updateSettings(s=>({...s,paymentTermDays:safeNum(e.target.value,365)}))}/></label>
                 <label><span>Zakelijk contact-e-mailadres (optioneel)</span><input type="email" value={settings.contactEmail} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,contactEmail:e.target.value}))} placeholder="contact@bedrijf.nl"/></label>
                 <label><span>Telefoon bedrijf (optioneel)</span><input value={settings.phone} disabled={locked||Boolean(busy)} onChange={e=>updateSettings(s=>({...s,phone:e.target.value}))} placeholder="06..."/></label>
@@ -732,7 +741,9 @@ export function RoofQuoteBuilder({accessToken}:{accessToken:string}) {
           <div className="grand"><strong>{invoicePreview?"Totaal te betalen incl. btw":"Vaste totaalprijs incl. "+project.vatRate+"% btw"}</strong><strong>{euro(pricing.total)}</strong></div>
         </div>
         {project.publicNotes.trim()&&<div className="roof-doc-notes"><b>Toelichting</b><p>{project.publicNotes}</p></div>}
-        {invoicePreview?<div className="roof-doc-footer"><strong>Betalingsgegevens</strong><p>Betaling binnen {invoiceBill.paymentTermDays} dagen op {invoiceBill.iban} t.n.v. {company.name}.<br/>Onder vermelding van factuur {invoiceNumber}.</p></div>:
+        {invoicePreview?<div className="roof-doc-footer"><strong>Betalingsgegevens</strong>{invoiceBill.paymentMethod==="cash" ?
+          <p>Betaalwijze: Contant<br/>Contante betaling binnen {invoiceBill.paymentTermDays} dagen aan {company.name} voor factuur {invoiceNumber}.</p> :
+          <p>Betaling binnen {invoiceBill.paymentTermDays} dagen op {invoiceBill.iban} t.n.v. {company.name}.<br/>Onder vermelding van factuur {invoiceNumber}.</p>}</div>:
           <div className="roof-doc-footer"><strong>Akkoord op deze offerte?</strong><p>Reageer op deze offerte {settings.contactEmail?"via "+settings.contactEmail:"bij "+company.name} of neem telefonisch contact met ons op. De werkzaamheden worden in overleg ingepland.</p></div>}
       </article>
     </div>

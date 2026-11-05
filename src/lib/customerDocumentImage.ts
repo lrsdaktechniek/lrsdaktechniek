@@ -6,6 +6,8 @@
  * Geen externe assets/fonts: dit werkt ook op mobiele Safari en als
  * de opmaak op het scherm smal of gecachet is.
  */
+import type { InvoicePaymentMethod } from "@/lib/invoiceIssuer";
+
 export type CustomerImageKind = "offerte" | "factuur";
 
 export type CustomerImageInput = {
@@ -33,6 +35,7 @@ export type CustomerImageInput = {
   vatAmount: number;
   total: number;
   notes?: string;
+  paymentMethod?: InvoicePaymentMethod;
   paymentTermDays?: number;
 };
 
@@ -70,8 +73,15 @@ export function validateCustomerImage(input: CustomerImageInput): string | null 
     || !Number.isFinite(input.vatRate) || input.vatRate<0) {
     return "De totaalprijs of btw is ongeldig.";
   }
+  const paymentMethod=input.paymentMethod===undefined ? "bank" : input.paymentMethod;
   if (input.kind==="factuur" && (
-    !input.company.iban?.trim()
+    (paymentMethod!=="bank" && paymentMethod!=="cash")
+    || (paymentMethod==="cash" && input.issuer!=="lrs")
+  )) {
+    return "Kies een geldige betaalwijze voor deze factuur.";
+  }
+  if (input.kind==="factuur" && (
+    (paymentMethod==="bank" && !input.company.iban?.trim())
     || !Number.isFinite(input.subtotal) || !Number.isFinite(input.vatAmount)
     || input.subtotal<0 || input.vatAmount<0
     || Math.abs(Math.round((input.subtotal+input.vatAmount)*100)-Math.round(input.total*100))>1
@@ -280,11 +290,15 @@ export function drawCustomerImage(
   horizontal(c,footerY,accent,3);
   if(input.kind==="factuur") {
     text(c,"BETALINGSGEGEVENS",LEFT,footerY+21,22,true);
-    text(c,"IBAN: "+input.company.iban,LEFT,footerY+56,25,true);
-    text(c,"Ten name van "+input.company.name,LEFT,footerY+92,22);
-    text(c,"Vermeld factuur "+input.number+" bij betaling.",LEFT,footerY+126,21,false,MUTED);
+    if(input.paymentMethod==="cash") {
+      text(c,"Betaalwijze: Contant",LEFT,footerY+56,25,true);
+    } else {
+      text(c,"IBAN: "+input.company.iban,LEFT,footerY+56,25,true);
+      text(c,"Ten name van "+input.company.name,LEFT,footerY+92,22);
+      text(c,"Vermeld factuur "+input.number+" bij betaling.",LEFT,footerY+126,21,false,MUTED);
+    }
     if(input.paymentTermDays!==undefined) {
-      text(c,"Betaaltermijn: "+input.paymentTermDays+" dagen",LEFT,footerY+161,20,false,MUTED);
+      text(c,"Betaaltermijn: "+input.paymentTermDays+" dagen",LEFT,footerY+(input.paymentMethod==="cash"?92:161),20,false,MUTED);
     }
   } else {
     text(c,"AKKOORD MET DEZE OFFERTE?",LEFT,footerY+20,22,true);

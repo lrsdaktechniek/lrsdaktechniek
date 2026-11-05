@@ -336,6 +336,99 @@ test("LRS kan tussen twee toegestane ING-rekeningen wisselen",()=>{
   assert.equal(issuers.normalizeIssuerSettings("allround-lem",{iban:banks[0].iban}).iban,banks[1].iban);
 });
 
+test("Contante LRS-keuze blijft bewaard en oude instellingen blijven bankbetalingen",()=>{
+  const secondBank=issuers.INVOICE_BANK_ACCOUNTS.lrs[1].iban;
+  const legacy=issuers.normalizeIssuerSettings("lrs",{iban:secondBank});
+  assert.equal(legacy.paymentMethod,"bank");
+  assert.equal(legacy.iban,secondBank);
+  assert.equal(issuers.issuerDefaults("lrs").paymentMethod,"bank");
+  const cash=issuers.normalizeIssuerSettings("lrs",{...legacy,paymentMethod:"cash"});
+  const reloaded=issuers.normalizeIssuerSettings("lrs",JSON.parse(JSON.stringify(cash)));
+  assert.equal(reloaded.paymentMethod,"cash");
+  assert.equal(reloaded.iban,secondBank);
+  assert.equal(issuers.normalizeIssuerSettings("lrs",{...reloaded,paymentMethod:"bank"}).iban,secondBank);
+  assert.equal(issuers.normalizeIssuerSettings("lrs",{paymentMethod:"unknown"}).paymentMethod,"bank");
+  assert.equal(issuers.normalizeIssuerSettings("allround-lem",{paymentMethod:"cash"}).paymentMethod,"bank");
+});
+
+test("Contante LRS-factuurmail heeft geen IBAN nodig en bevestigt geen ontvangen betaling",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const iban of [undefined,"",lrs.iban]) {
+      const p=makeInvoice("lrs");
+      p.invoice.paymentMethod="cash";
+      p.business.iban=iban;
+      const response=await post("https://example.test/api/factuur",p,invoiceApi);
+      assert.equal(response.status,200,await response.text());
+      const html=outgoing.at(-1).html;
+      const text=html.replace(/<[^>]*>/g,"");
+      assert.match(text,/Betaalwijze: Contant/);
+      assert.doesNotMatch(text,/IBAN|o\.v\.v\.|ten name van|betaald|voldaan/i);
+      for(const bank of issuers.INVOICE_BANK_ACCOUNTS.lrs) assert.ok(!text.includes(bank.iban));
+      assert.match(text,/24-10-2026/);
+      assert.match(text,/BTW 21%/);
+      assert.match(text,/€[\u00a0\s]*1\.210,00/);
+    }
+    assert.equal(outgoing.length,3);
+  });
+});
+
+test("Contant omzeilt geen bedrijfsgegevens of controle van factuurbedragen",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const field of ["name","kvk","vatId","address"]) {
+      const p=makeInvoice("lrs");
+      p.invoice.paymentMethod="cash";
+      delete p.business.iban;
+      p.business[field]="";
+      const response=await post("https://example.test/api/factuur",p,invoiceApi);
+      assert.equal(response.status,400,field);
+    }
+    const wrongTotal=makeInvoice("lrs");
+    wrongTotal.invoice.paymentMethod="cash";
+    delete wrongTotal.business.iban;
+    wrongTotal.total=1000;
+    const response=await post("https://example.test/api/factuur",wrongTotal,invoiceApi);
+    assert.equal(response.status,400);
+    assert.equal(outgoing.length,0);
+  });
+});
+
+test("Factuur-API weigert onbekende betaalwijzen en contant voor Allround LEM",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const paymentMethod of [null,"","card",false,0]) {
+      const p=makeInvoice("lrs");
+      p.invoice.paymentMethod=paymentMethod;
+      const response=await post("https://example.test/api/factuur",p,invoiceApi);
+      assert.equal(response.status,400,JSON.stringify(paymentMethod));
+    }
+    const cashLem=makeInvoice("allround-lem");
+    cashLem.invoice.paymentMethod="cash";
+    const response=await post("https://example.test/api/factuur",cashLem,invoiceApi);
+    assert.equal(response.status,400);
+    assert.equal(outgoing.length,0);
+  });
+});
+
+test("Zonder contantkeuze blijft een toegestane bankrekening verplicht",async()=>{
+  await withFakeResend(async outgoing=>{
+    for(const paymentMethod of [undefined,"bank"]) {
+      const p=makeInvoice("lrs");
+      p.invoice.paymentMethod=paymentMethod;
+      delete p.business.iban;
+      const response=await post("https://example.test/api/factuur",p,invoiceApi);
+      assert.equal(response.status,400);
+    }
+    assert.equal(outgoing.length,0);
+    const bank=makeInvoice("lrs");
+    bank.invoice.paymentMethod="bank";
+    bank.business.iban=issuers.INVOICE_BANK_ACCOUNTS.lrs[1].iban;
+    const response=await post("https://example.test/api/factuur",bank,invoiceApi);
+    assert.equal(response.status,200,await response.text());
+    assert.match(outgoing[0].html,/NL46 INGB 0109 0156 49/);
+    assert.match(outgoing[0].html,/o\.v\.v\./);
+    assert.doesNotMatch(outgoing[0].html,/Contant/);
+  });
+});
+
 test("LRS factuurmail accepteert rekening 1 én rekening 2 met de juiste gegevens",async()=>{
   await withFakeResend(async outgoing=>{
     for(const bank of issuers.INVOICE_BANK_ACCOUNTS.lrs) {
@@ -371,20 +464,22 @@ test("De factuur-API weigert onbekende banknummers en LRS-rekening 1 voor Allrou
   });
 });
 
-test("Bankkeuze staat in beide werkbonnen en verschijnt op PNG, PDF en factuurmail",()=>{
+test("Betaalkeuze staat in beide werkbonnen en bankgegevens blijven op PNG, PDF en factuurmail",()=>{
   const picker=fs.readFileSync("src/components/InvoiceBankPicker.tsx","utf8");
   const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
   const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
   const css=fs.readFileSync("src/components/roofQuote.css","utf8");
   assert.match(picker,/INVOICE_BANK_ACCOUNTS\[issuer\]/);
-  assert.match(picker,/KIES BANKREKENING VOOR DEZE LRS-FACTUUR/);
+  assert.match(picker,/KIES BETAALWIJZE VOOR DEZE LRS-FACTUUR/);
   assert.match(picker,/aria-pressed=\{active\}/);
+  assert.match(picker,/<strong>Contant<\/strong>/);
+  assert.match(picker,/aria-pressed=\{isCash\}/);
   assert.match(css,/invoice-bank-switch-options/);
   assert.match(repair,/<InvoiceBankPicker/);
   assert.match(repair,/issuer=\{invoiceIssuer\}/);
-  assert.match(repair,/saveInvoiceSettings\(\{\.\.\.invoiceSettings,iban\}\)/);
+  assert.match(repair,/saveInvoiceSettings\(\{\.\.\.invoiceSettings,iban,paymentMethod\}\)/);
   assert.match(repair,/iban: invoiceSettings\.iban/);
-  assert.match(repair,/draw\(invoiceSettings\.iban,/);
+  assert.match(repair,/draw\(invoiceIsCash \? "Contant" : invoiceSettings\.iban,/);
   assert.match(repair,/invoiceSettings\.iban\} t\.n\.v\./);
   assert.doesNotMatch(repair,/iban: invoiceBrand\.iban/);
   assert.match(roof,/<InvoiceBankPicker/);
@@ -394,24 +489,25 @@ test("Bankkeuze staat in beide werkbonnen en verschijnt op PNG, PDF en factuurma
   assert.match(roof,/invoiceBill\.iban/);
 });
 
-test("Andere bank kiezen wijzigt de fingerprint van een bestaande reparatiefactuur",()=>{
+test("Andere bank of contant kiezen wijzigt de fingerprint van een bestaande reparatiefactuur",()=>{
   const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
   const fingerprint=repair.slice(repair.indexOf("const invoiceFingerprint ="),repair.indexOf("function invoiceDescriptionText()"));
   assert.match(fingerprint,/iban: invoiceSettings\.iban/);
+  assert.match(fingerprint,/paymentMethod: invoiceSettings\.paymentMethod/);
   const guard=repair.slice(repair.indexOf("async function shareInvoiceImage()"),repair.indexOf("async function sendInvoice()"));
   assert.match(guard,/invoiceImageFingerprint !== invoiceFingerprint/);
 });
 
 
-test("LRS bankkeuze is direct zichtbaar onder de bedrijfskeuze op mobiel",()=>{
+test("LRS betaalkeuze is direct zichtbaar onder de bedrijfskeuze op mobiel",()=>{
   const repair=fs.readFileSync("src/components/QuoteBuilder.tsx","utf8");
   const roof=fs.readFileSync("src/components/RoofQuoteBuilder.tsx","utf8");
   const picker=fs.readFileSync("src/components/InvoiceBankPicker.tsx","utf8");
   const css=fs.readFileSync("src/components/roofQuote.css","utf8");
   assert.match(repair,/invoiceIssuer==="lrs" && <InvoiceBankPicker/);
   assert.match(roof,/issuer==="lrs" && <InvoiceBankPicker/);
-  assert.match(repair,/compact issuer="lrs" value={invoiceSettings\.iban}/);
-  assert.match(roof,/compact issuer="lrs" value={settings\.iban}/);
+  assert.match(repair,/compact issuer="lrs" value={invoiceSettings\.iban} paymentMethod={invoiceSettings\.paymentMethod}/);
+  assert.match(roof,/compact issuer="lrs" value={invoiceSettings\.iban} paymentMethod={invoiceSettings\.paymentMethod}/);
   assert.match(picker,/compact = false/);
   assert.match(css,/\.issuer-quick-switch \.invoice-bank-switch\.compact/);
   assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
