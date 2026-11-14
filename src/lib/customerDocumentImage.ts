@@ -177,14 +177,21 @@ export function drawCustomerImage(
   const customerEmailRows=input.customer.email ? wrap(ctx,input.customer.email,505,22) : [];
   const jobTitleRows=wrap(ctx,input.title,RIGHT-LEFT,34,true);
   const prepared=input.lines.map(line=>{
-    const description=wrap(ctx,line.description,720,25);
-    const height=Math.max(62,description.length*34+19);
-    return {description,height,qty:formatQuantity(line.qty)+" "+line.unit};
+    const description=wrap(ctx,line.description,610,25);
+    const qty=wrap(ctx,formatQuantity(line.qty)+" "+line.unit,220,22);
+    const height=Math.max(62,description.length*34+19,qty.length*30+19);
+    return {description,height,qty};
   });
   const notesRows=input.notes?.trim() ? wrap(ctx,input.notes.trim(),RIGHT-LEFT,23) : [];
 
   const sellerY=240;
-  const sellerEnd=sellerY+companyRows.length*31+93;
+  const sellerExtraRows=[
+    ...wrap(ctx,"KvK "+input.company.kvk+" · Btw-ID "+input.company.vatId,600,20),
+    ...([input.company.phone,input.company.email].filter(Boolean).length
+      ? wrap(ctx,[input.company.phone,input.company.email].filter(Boolean).join(" · "),600,20)
+      : []),
+  ];
+  const sellerEnd=sellerY+74+companyRows.length*31+sellerExtraRows.length*30+20;
   const customerY=sellerEnd+46;
   const clientRows=Math.max(1,customerRows.length)+customerEmailRows.length;
   const metaRows=input.kind==="offerte" ? 3 : 4;
@@ -199,7 +206,8 @@ export function drawCustomerImage(
   const notesY=totalsEnd+35;
   const notesEnd=notesRows.length ? notesY+56+notesRows.length*33 : totalsEnd+12;
   const footerY=notesEnd+50;
-  const footerRows=input.kind==="offerte" ? 2 : 3;
+  const footerRows=input.kind==="offerte" ? 2 :
+    (input.paymentMethod==="cash" ? 2 : 4);
   const footerEnd=footerY+63+footerRows*33;
 
   if(footerEnd+62>10000) throw new Error(
@@ -225,11 +233,7 @@ export function drawCustomerImage(
   text(c,"VAN",LEFT,sellerY,19,true,MUTED);
   text(c,input.company.name,LEFT,sellerY+34,28,true);
   lines(c,companyRows,LEFT,sellerY+71,22,31);
-  const sellerExtras=[
-    "KvK "+input.company.kvk+"   ·   Btw-ID "+input.company.vatId,
-    [input.company.phone,input.company.email].filter(Boolean).join("   ·   "),
-  ].filter(Boolean);
-  sellerExtras.forEach((value,i)=>text(c,value,LEFT,sellerY+74+companyRows.length*31+i*30,20,false,MUTED));
+  sellerExtraRows.forEach((value,i)=>text(c,value,LEFT,sellerY+74+companyRows.length*31+i*30,20,false,MUTED));
 
   horizontal(c,customerY-24);
   text(c,"AAN",LEFT,customerY,20,true,MUTED);
@@ -259,7 +263,7 @@ export function drawCustomerImage(
   for(const row of prepared) {
     if(Math.floor((y-rowStart)/62)%2===0){c.fillStyle="#f7fafb";c.fillRect(LEFT,y,RIGHT-LEFT,row.height);}
     lines(c,row.description,LEFT+13,y+12,25,34);
-    text(c,row.qty,RIGHT-13,y+17,24,false,INK,"right");
+    row.qty.forEach((value,index)=>text(c,value,RIGHT-13,y+13+index*30,22,false,INK,"right"));
     horizontal(c,y+row.height-1,LINE,1);
     y+=row.height;
   }
