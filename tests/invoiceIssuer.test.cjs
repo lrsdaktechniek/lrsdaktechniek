@@ -531,7 +531,8 @@ test("Betaalkeuze staat in beide werkbonnen en bankgegevens blijven op PNG, PDF 
   assert.match(repair,/issuer=\{invoiceIssuer\}/);
   assert.match(repair,/saveInvoiceSettings\(\{\.\.\.invoiceSettings,iban,paymentMethod\}\)/);
   assert.match(repair,/iban: invoiceSettings\.iban/);
-  assert.match(repair,/draw\(invoiceIsCash \? "Contant" : invoiceSettings\.iban,/);
+  assert.match(repair,/paymentMethod: invoiceIsCash \? "cash" : "bank"/);
+  assert.match(repair,/return createCustomerImageBlob\(imageData\)/);
   assert.match(repair,/invoiceSettings\.iban\} t\.n\.v\./);
   assert.doesNotMatch(repair,/iban: invoiceBrand\.iban/);
   assert.match(roof,/<InvoiceBankPicker/);
