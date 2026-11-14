@@ -718,46 +718,44 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     if (invoiceSettings.contactEmail.trim()) { draw("e", rightX, businessDataY + 34, 22, 700); draw(invoiceSettings.contactEmail, rightX + 30, businessDataY + 34, 22, 400); }
     if (!lem) { draw("i", rightX, businessDataY + 68, 22, 700); draw("www.lrsdaktechniek.nl", rightX + 30, businessDataY + 68, 22, 400); }
 
-    const bankY = businessDataY + 130;
-    draw(invoiceIsCash ? "Betaling" : "IBAN", rightX, bankY, 22, 700);
-    draw(invoiceIsCash ? "Contant" : invoiceSettings.iban, rightX + 118, bankY, 22, 400);
-    draw("Btw-nr", rightX, bankY + 34, 22, 700);
-    draw(invoiceSettings.vatId, rightX + 118, bankY + 34, 22, 400);
-    draw("KvK", rightX, bankY + 68, 22, 700);
-    draw(invoiceBrand.kvk, rightX + 118, bankY + 68, 22, 400);
-
-    const payX = 78, payY = 380, payW = 620, payH = 208;
+    // Twee vaste kolommen: betaal- en factuurgegevens kunnen elkaar niet overlappen.
+    const payX = 78, payY = 380, payW = 620, payH = 210;
     ctx.fillStyle = "#f4f4f4";
     ctx.fillRect(payX, payY, payW, payH);
-    ctx.strokeStyle = "#d4d4d4";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(payX, payY, payW, payH);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(payX + 18, payY - 20, 185, 40);
-    ctx.strokeRect(payX + 18, payY - 20, 185, 40);
-    draw("Betaalgegevens", payX + 30, payY - 10, 20, 700);
-
-    const payLabelX = payX + 22;
-    const payValueX = payX + 205;
-    draw("Te betalen", payLabelX, payY + 34, 21, 700);
-    draw(`€ ${invoiceMoney(total)}`, payValueX, payY + 34, 23, 700);
-    draw(invoiceIsCash ? "Betaalwijze" : "Naar IBAN", payLabelX, payY + 76, 21, 700);
-    draw(invoiceIsCash ? "Contant" : invoiceSettings.iban, payValueX, payY + 76, 21, 700);
-    draw(invoiceIsCash ? "Ontvanger" : "Op naam van", payLabelX, payY + 118, 21, 400);
-    draw(invoiceBrand.name, payValueX, payY + 118, 21, 700);
-    draw("Omschrijving", payLabelX, payY + 160, 21, 400);
-    draw(`Factuur ${invoiceNumber}`, payValueX, payY + 160, 21, 700);
-
-    const metaX = 955;
-    const metaValueX = 1178;
-    draw("Factuurnummer", metaX, 398, 21, 400);
-    draw(invoiceNumber, metaValueX, 398, 21, 700);
-    draw("Factuurdatum", metaX, 438, 21, 400);
-    draw(new Date().toLocaleDateString("nl-NL"), metaValueX, 438, 21, 700);
-    draw("Klantnummer", metaX, 516, 21, 400);
-    draw(customerNumber.trim() || "—", metaValueX, 516, 21, 700);
-    draw("Leverdatum", metaX, 556, 21, 400);
-    draw(invoiceDate(workDate), metaValueX, 556, 21, 700);
+    ctx.fillStyle = lem ? "#f1bb40" : "#16435a";
+    ctx.fillRect(payX, payY, 7, payH);
+    draw("BETALINGSGEGEVENS", payX + 24, payY + 15, 22, 700);
+    const paymentRows = [
+      ["Te betalen", `€ ${invoiceMoney(total)}`],
+      ["Betaalwijze", invoiceIsCash ? "Contant" : "Bankoverschrijving"],
+      ["Ontvanger", invoiceBrand.name],
+      ["Omschrijving", `Factuur ${invoiceNumber}`],
+    ];
+    paymentRows.forEach(([label, value], index) => {
+      const y = payY + 57 + index * 35;
+      draw(label, payX + 24, y, 19, index === 0 ? 700 : 400);
+      wrap(value, 365, 19, 700).slice(0, 2).forEach((part, i) =>
+        draw(part, payX + 222, y + i * 22, 19, 700));
+    });
+    const metaX = 800, metaValueX = 1060;
+    const metaRows = [
+      ["Factuurnummer", invoiceNumber],
+      ["Factuurdatum", new Date().toLocaleDateString("nl-NL")],
+      ["Klantnummer", customerNumber.trim() || "—"],
+      ["Leverdatum", invoiceDate(workDate)],
+      ["Btw-nummer", invoiceSettings.vatId],
+      ["KvK-nummer", invoiceBrand.kvk],
+    ];
+    metaRows.forEach(([label, value], index) => {
+      const y = 380 + index * 37;
+      draw(label, metaX, y, 19, 400);
+      wrap(value, 350, 19, 700).slice(0, 2).forEach((part, i) =>
+        draw(part, metaValueX, y + i * 21, 19, 700));
+    });
+    if (!invoiceIsCash) {
+      draw("IBAN", payX + 24, 602, 19, 700);
+      draw(invoiceSettings.iban, payX + 222, 602, 19, 700);
+    }
 
     const tableY = 656;
     ctx.fillStyle = "#f3f3f3";
@@ -776,7 +774,14 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
       cursorY += noteRows.length * 24 + 18;
     }
 
-    const bottomY = 1230;
+    const bottomY = Math.max(930, cursorY + 60);
+    if (bottomY + 245 > canvas.height) {
+      const previous = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      canvas.height = bottomY + 245;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(previous, 0, 0);
+    }
     ctx.fillStyle = "#f5f5f5";
     ctx.fillRect(56, bottomY, 1388, 146);
     draw("Btw %", 64, bottomY + 52, 19, 400);
@@ -801,8 +806,8 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     draw("€", euroX, bottomY + 102, 23, 700);
     draw(invoiceMoney(total), amountX, bottomY + 102, 23, 700, "#111111", "right");
 
-    draw(`Betaaltermijn: ${Math.max(0, Number(invoiceSettings.paymentTermDays) || 0)} dagen`, 72, 1404, 18, 400, "#526b7a");
-    draw(invoiceIsCash ? "Betaalwijze: Contant" : `Onder vermelding van: Factuur ${invoiceNumber}`, 72, 1432, 18, 400, "#526b7a");
+    draw(`Betaaltermijn: ${Math.max(0, Number(invoiceSettings.paymentTermDays) || 0)} dagen`, 72, bottomY + 169, 18, 400, "#526b7a");
+    draw(invoiceIsCash ? "Betaalwijze: Contant" : `Onder vermelding van: Factuur ${invoiceNumber}`, 72, bottomY + 197, 18, 400, "#526b7a");
 
     return await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png", 1));
   }
