@@ -5,7 +5,7 @@ import { site } from "@/lib/content";
 import { InvoiceIssuerPicker } from "@/components/InvoiceIssuerPicker";
 import { InvoiceBankPicker } from "@/components/InvoiceBankPicker";
 import { CustomerImageActions } from "@/components/CustomerImageActions";
-import type { CustomerImageInput } from "@/lib/customerDocumentImage";
+import { createCustomerImageBlob, type CustomerImageInput } from "@/lib/customerDocumentImage";
 import { INVOICE_ISSUERS, issuerDefaults, normalizeIssuerSettings, parseIssuer, pendingInvoiceNumber, registerInvoiceUsed, type InvoiceIssuerId, type IssuerSettings } from "@/lib/invoiceIssuer";
 
 type CatalogItem = {
@@ -637,179 +637,47 @@ export function QuoteBuilder({ accessToken }: { accessToken: string }) {
     }
   }
 
-  async function buildInvoiceImageBlob() {
+  // Factuurafbeelding gebruikt exact dezelfde responsive canvas-engine als offertes.
+  // Alle bedragen komen uit de bestaande werkbonberekening, zonder interne regelprijzen.
+  async function buildInvoiceImageBlob(): Promise<Blob | null> {
     const validationError = validateInvoiceImage();
     if (validationError) {
       setInvoiceStatus(validationError);
       return null;
     }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 1500;
-    canvas.height = 1500;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      setInvoiceStatus("Factuurafbeelding kon niet worden opgebouwd.");
-      return null;
-    }
-
-    const W = canvas.width;
-    const H = canvas.height;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = "#d8dde0";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(22, 22, W - 44, H - 44);
-
-    const draw = (value: string, x: number, y: number, size = 24, weight = 400, color = "#111111", align: CanvasTextAlign = "left") => {
-      ctx.fillStyle = color;
-      ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
-      ctx.textAlign = align;
-      ctx.textBaseline = "top";
-      ctx.fillText(value, x, y);
+    const issued = new Date();
+    const due = new Date(issued);
+    due.setDate(due.getDate() + Math.max(0, Number(invoiceSettings.paymentTermDays) || 0));
+    const imageData: CustomerImageInput = {
+      kind: "factuur",
+      issuer: invoiceIssuer,
+      company: {
+        name: invoiceBrand.name,
+        address: invoiceSettings.businessAddress.trim(),
+        kvk: invoiceBrand.kvk,
+        vatId: invoiceBrand.vatId,
+        phone: invoiceSettings.phone,
+        email: invoiceSettings.contactEmail,
+        iban: invoiceIsCash ? undefined : invoiceSettings.iban,
+      },
+      customer: {
+        name: customer.trim(),
+        address: address.trim(),
+        email: customerEmail.trim(),
+        number: customerNumber.trim(),
+      },
+      number: invoiceNumber,
+      title: invoiceDescriptionText(),
+      issueDate: issued.toLocaleDateString("nl-NL"),
+      serviceDate: invoiceDate(workDate),
+      dueDate: due.toLocaleDateString("nl-NL"),
+      lines: [{ description: invoiceDescriptionText(), qty: 1, unit: "opdracht" }],
+      subtotal, vatRate: vat, vatAmount, total,
+      notes: notes.trim(),
+      paymentMethod: invoiceIsCash ? "cash" : "bank",
+      paymentTermDays: invoiceSettings.paymentTermDays,
     };
-    const line = (x1: number, y1: number, x2: number, y2: number, color = "#d2d2d2", width = 1) => {
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    };
-    const wrap = (value: string, maxWidth: number, size = 24, weight = 400) => {
-      ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
-      const words = value.split(/\s+/).filter(Boolean);
-      const rows: string[] = [];
-      let row = "";
-      for (const word of words) {
-        const test = row ? `${row} ${word}` : word;
-        if (ctx.measureText(test).width > maxWidth && row) {
-          rows.push(row);
-          row = word;
-        } else {
-          row = test;
-        }
-      }
-      if (row) rows.push(row);
-      return rows;
-    };
-
-    const leftX = 86;
-    const rightX = 955;
-
-    draw("Factuur", leftX, 92, 42, 700);
-    draw(customer.trim(), leftX, 176, 27, 700);
-    const customerAddressLines = wrap(address.trim(), 560, 24, 400);
-    customerAddressLines.slice(0, 3).forEach((row, index) => draw(row, leftX, 220 + index * 34, 24, 400));
-
-    const lem = invoiceIssuer === "allround-lem";
-    if (lem) {
-      ctx.fillStyle = "#101114"; ctx.fillRect(56, 55, 1388, 70);
-      ctx.fillStyle = "#f1bb40"; ctx.fillRect(56, 55, 700, 70);
-      draw("ALLROUND LEM", 85, 70, 34, 700, "#111111");
-    } else {
-      draw(invoiceBrand.name, rightX, 74, 28, 700);
-    }
-    const businessAddressParts = invoiceSettings.businessAddress.split(",").map(part => part.trim()).filter(Boolean);
-    const addressTop = lem ? 146 : 116;
-    businessAddressParts.slice(0, 3).forEach((row, index) => draw(row, rightX, addressTop + index * 30, 22, 400));
-    const businessDataY = addressTop + Math.max(2, businessAddressParts.length) * 30 + 8;
-    if (invoiceSettings.phone.trim()) { draw("t", rightX, businessDataY, 22, 700); draw(invoiceSettings.phone, rightX + 30, businessDataY, 22, 400); }
-    if (invoiceSettings.contactEmail.trim()) { draw("e", rightX, businessDataY + 34, 22, 700); draw(invoiceSettings.contactEmail, rightX + 30, businessDataY + 34, 22, 400); }
-    if (!lem) { draw("i", rightX, businessDataY + 68, 22, 700); draw("www.lrsdaktechniek.nl", rightX + 30, businessDataY + 68, 22, 400); }
-
-    // Twee vaste kolommen: betaal- en factuurgegevens kunnen elkaar niet overlappen.
-    const payX = 78, payY = 380, payW = 620, payH = 210;
-    ctx.fillStyle = "#f4f4f4";
-    ctx.fillRect(payX, payY, payW, payH);
-    ctx.fillStyle = lem ? "#f1bb40" : "#16435a";
-    ctx.fillRect(payX, payY, 7, payH);
-    draw("BETALINGSGEGEVENS", payX + 24, payY + 15, 22, 700);
-    const paymentRows = [
-      ["Te betalen", `€ ${invoiceMoney(total)}`],
-      ["Betaalwijze", invoiceIsCash ? "Contant" : "Bankoverschrijving"],
-      ["Ontvanger", invoiceBrand.name],
-      ["Omschrijving", `Factuur ${invoiceNumber}`],
-    ];
-    paymentRows.forEach(([label, value], index) => {
-      const y = payY + 57 + index * 35;
-      draw(label, payX + 24, y, 19, index === 0 ? 700 : 400);
-      wrap(value, 365, 19, 700).slice(0, 2).forEach((part, i) =>
-        draw(part, payX + 222, y + i * 22, 19, 700));
-    });
-    const metaX = 800, metaValueX = 1060;
-    const metaRows = [
-      ["Factuurnummer", invoiceNumber],
-      ["Factuurdatum", new Date().toLocaleDateString("nl-NL")],
-      ["Klantnummer", customerNumber.trim() || "—"],
-      ["Leverdatum", invoiceDate(workDate)],
-      ["Btw-nummer", invoiceSettings.vatId],
-      ["KvK-nummer", invoiceBrand.kvk],
-    ];
-    metaRows.forEach(([label, value], index) => {
-      const y = 380 + index * 37;
-      draw(label, metaX, y, 19, 400);
-      wrap(value, 350, 19, 700).slice(0, 2).forEach((part, i) =>
-        draw(part, metaValueX, y + i * 21, 19, 700));
-    });
-    if (!invoiceIsCash) {
-      draw("IBAN", payX + 24, 602, 19, 700);
-      draw(invoiceSettings.iban, payX + 222, 602, 19, 700);
-    }
-
-    const tableY = 656;
-    ctx.fillStyle = "#f3f3f3";
-    ctx.fillRect(56, tableY, 1388, 42);
-    draw("Omschrijving", 72, tableY + 8, 20, 700);
-    draw("Aantal / meters", 1382, tableY + 8, 20, 700, "#111111", "right");
-
-    const descriptionRows = wrap(invoiceDescriptionText(), 860, 22, 400).slice(0, 3);
-    descriptionRows.forEach((row, index) => draw(row, 72, tableY + 56 + index * 30, 22, 400));
-    draw("1 opdracht", 1382, tableY + 56, 22, 400, "#111111", "right");
-
-    let cursorY = tableY + 56 + descriptionRows.length * 30 + 32;
-    if (notes.trim()) {
-      const noteRows = wrap(`Opmerking: ${notes.trim()}`, 1260, 18, 400).slice(0, 4);
-      noteRows.forEach((row, index) => draw(row, 72, cursorY + index * 24, 18, 400, "#444444"));
-      cursorY += noteRows.length * 24 + 18;
-    }
-
-    const bottomY = Math.max(930, cursorY + 60);
-    if (bottomY + 245 > canvas.height) {
-      const previous = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      canvas.height = bottomY + 245;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.putImageData(previous, 0, 0);
-    }
-    ctx.fillStyle = "#f5f5f5";
-    ctx.fillRect(56, bottomY, 1388, 146);
-    draw("Btw %", 64, bottomY + 52, 19, 400);
-    draw("Grondslag", 178, bottomY + 52, 19, 400);
-    draw("Bedrag", 370, bottomY + 52, 19, 400);
-    line(60, bottomY + 80, 470, bottomY + 80, "#444444", 2);
-    draw(vat.toFixed(2).replace(".", ","), 64, bottomY + 88, 19, 400);
-    draw(invoiceMoney(subtotal), 178, bottomY + 88, 19, 400);
-    draw(invoiceMoney(vatAmount), 370, bottomY + 88, 19, 400);
-
-    const totalLabelX = 980;
-    const euroX = 1245;
-    const amountX = 1392;
-    draw("Totaal excl. btw", totalLabelX, bottomY + 18, 21, 400);
-    draw("€", euroX, bottomY + 18, 21, 700);
-    draw(invoiceMoney(subtotal), amountX, bottomY + 18, 21, 400, "#111111", "right");
-    draw("Totaal btw", totalLabelX, bottomY + 54, 21, 400);
-    draw("€", euroX, bottomY + 54, 21, 700);
-    draw(invoiceMoney(vatAmount), amountX, bottomY + 54, 21, 400, "#111111", "right");
-    line(totalLabelX, bottomY + 92, amountX, bottomY + 92, "#777777", 1);
-    draw("Te betalen", totalLabelX, bottomY + 102, 23, 700);
-    draw("€", euroX, bottomY + 102, 23, 700);
-    draw(invoiceMoney(total), amountX, bottomY + 102, 23, 700, "#111111", "right");
-
-    draw(`Betaaltermijn: ${Math.max(0, Number(invoiceSettings.paymentTermDays) || 0)} dagen`, 72, bottomY + 169, 18, 400, "#526b7a");
-    draw(invoiceIsCash ? "Betaalwijze: Contant" : `Onder vermelding van: Factuur ${invoiceNumber}`, 72, bottomY + 197, 18, 400, "#526b7a");
-
-    return await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png", 1));
+    return createCustomerImageBlob(imageData);
   }
 
   async function createInvoiceImage() {
